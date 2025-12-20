@@ -1,20 +1,19 @@
 import React from 'react';
-import logoImg from '../../images/logo.png';
 
 const Board: React.FC = () => {
   const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
   const rows = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
-  const circleSize = "w-14 h-14"; 
+  const circleSize = "w-17 h-17"; 
   const rowHeight = "h-12"; 
-  const gridWidth = 'w-[800px]'; 
+  const gridWidth = 'w-[900px]'; 
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-2">
       <div className="relative bg-[#1a8a3d] p-4 rounded-lg shadow-2xl flex flex-col items-center">
         
         {/* Top Letters (A-O) */}
-        <div className={`flex justify-between ${gridWidth} px-6 mb-1`}>
+        <div className={`flex justify-between ${gridWidth} mb-3 px-6`}>
           {columns.map((col) => (
             <div key={col} className="text-white text-center font-bold text-xl w-14">
               {col}
@@ -81,34 +80,14 @@ const Board: React.FC = () => {
         </div>
 
         {/* Bottom Letters */}
-        <div className={`flex justify-between ${gridWidth} px-6 mt-1`}>
+        <div className={`flex justify-between ${gridWidth} px-6 mt-3`}>
           {columns.map((col) => (
             <div key={col} className="text-white text-center font-bold text-xl w-14">
               {col}
             </div>
           ))}
         </div>
-
-        <CornerLogo position="top-left" />
-        <CornerLogo position="top-right" />
-        <CornerLogo position="bottom-left" />
-        <CornerLogo position="bottom-right" />
       </div>
-    </div>
-  );
-};
-
-const CornerLogo = ({ position }: { position: string }) => {
-  const posClasses = {
-    'top-left': 'top-1 left-1',
-    'top-right': 'top-1 right-1',
-    'bottom-left': 'bottom-1 left-1',
-    'bottom-right': 'bottom-1 right-1',
-  }[position];
-
-  return (
-    <div className={`absolute ${posClasses} w-16 h-16 opacity-90`}>
-      <img src={logoImg} alt="Logo" className="w-full h-full object-contain" />
     </div>
   );
 };
