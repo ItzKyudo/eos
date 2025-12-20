@@ -6,6 +6,10 @@ import MarketPage from './pages/market';
 import PuzzlePage from './pages/puzzle';
 import SettingsPage from './pages/settings';
 
+    {/* Auth*/}
+import Login from './auth/login';
+import Register from './auth/signup';
+
 function App() {
  return (
   <Routes>
@@ -15,6 +19,11 @@ function App() {
     <Route path="/market" element={<MarketPage />} />
     <Route path="/puzzle" element={<PuzzlePage />} />
     <Route path="/settings" element={<SettingsPage />} />
+
+
+    {/* Auth*/}
+    <Route path="/login" element={<Login />} />
+    <Route path="/register" element={<Register />} />
   </Routes>
  );
 }

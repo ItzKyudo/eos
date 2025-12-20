@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from '../components/sidebar'; 
+import LoginModal from '../components/loginmodal';
 import boardImg from '../images/image.png';
 import { Play, Users, Zap, Globe, Trophy } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
+  // State to manage the visibility of the Login/Guest modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
   return (
     <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans selection:bg-[#e63e3e]/30 overflow-x-hidden">
       <Sidebar />
@@ -26,7 +33,6 @@ const LandingPage: React.FC = () => {
               </div>
             </div>
           </div>
-
           <div className="flex-1 flex flex-col gap-10 text-center lg:text-left">
             <header className="space-y-6">
               <h1 className="text-6xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter">
@@ -45,7 +51,6 @@ const LandingPage: React.FC = () => {
                 </p>
               </div>
             </header>
-
             <div className="flex justify-center lg:justify-start gap-8 py-4 border-y border-white/5">
               <div className="text-center lg:text-left">
                 <div className="text-white font-bold text-xl">17x13</div>
@@ -60,14 +65,19 @@ const LandingPage: React.FC = () => {
                 <div className="text-[10px] uppercase tracking-widest text-gray-500">Players</div>
               </div>
             </div>
-
             <div className="flex flex-col gap-5">
-              <button className="relative overflow-hidden group flex items-center justify-center gap-6 bg-linear-to-r from-[#2c4dbd] to-[#e63e3e] text-white py-7 rounded-2xl text-3xl font-black transition-all shadow-[0_8px_0_rgb(15,25,60)] active:shadow-none active:translate-y-2 hover:brightness-110">
+              <button 
+                onClick={openModal}
+                className="relative overflow-hidden group flex items-center justify-center gap-6 bg-linear-to-r from-[#2c4dbd] to-[#e63e3e] text-white py-7 rounded-2xl text-3xl font-black transition-all shadow-[0_8px_0_rgb(15,25,60)] active:shadow-none active:translate-y-2 hover:brightness-110"
+              >
                 <Play size={36} fill="white" />
                 <span className="tracking-tighter">PLAY ONLINE</span>
               </button>
 
-              <button className="flex items-center justify-center gap-4 bg-[#312e2b] hover:bg-[#3d3935] text-white py-5 rounded-2xl text-xl font-bold transition-all border-b-4 border-black/60 active:border-b-0 active:translate-y-1">
+              <button 
+                onClick={openModal}
+                className="flex items-center justify-center gap-4 bg-[#312e2b] hover:bg-[#3d3935] text-white py-5 rounded-2xl text-xl font-bold transition-all border-b-4 border-black/60 active:border-b-0 active:translate-y-1"
+              >
                 <Users size={24} className="text-[#2c4dbd]" />
                 Play a Friend
               </button>
@@ -97,6 +107,10 @@ const LandingPage: React.FC = () => {
           © 2026 EOS Juego de Tactica. All Rights Reserved. WMSU, Philippines.
         </footer>
       </main>
+      <LoginModal 
+        isOpen={isModalOpen} 
+        onClose={closeModal} 
+      />
     </div>
   );
 };
