@@ -12,12 +12,19 @@ import piece11 from '../../../assets/pieces/11.png';
 import piece12 from '../../../assets/pieces/12.png';
 import piece13 from '../../../assets/pieces/13.png';
 import piece14 from '../../../assets/pieces/14.png';
+
+// --- 1. ASSETS & KEYS ---
 export const PIECES = {
+  // Originals
   piece1, piece2, piece3, piece4, piece5, piece6, piece7,
   piece8, piece9, piece10, piece11, piece12, piece13, piece14,
+  
+  // Clones (1a/2a variants)
   piece15: piece3, piece16: piece4, 
   piece17: piece5, piece18: piece6, 
   piece19: piece13, piece20: piece14,
+
+  // Stewards (Pawns)
   piece21: piece11, piece22: piece11, piece23: piece11, piece24: piece11,
   piece25: piece11, piece26: piece11, piece27: piece11, piece28: piece11,
   piece29: piece12, piece30: piece12, piece31: piece12, piece32: piece12,
@@ -25,39 +32,53 @@ export const PIECES = {
 };
 
 export type PieceKey = keyof typeof PIECES;
+
+// --- 2. PLAYER OWNERSHIP ---
 export const PLAYER_1_PIECES = new Set([
-  'piece1', 'piece3', 'piece5', 'piece7', 'piece9', 'piece13',
-  'piece15', 'piece17', 'piece19',
-  'piece21', 'piece22', 'piece23', 'piece24',
+  'piece1', 'piece3', 'piece5', 'piece7', 'piece9', 'piece13', // Originals
+  'piece15', 'piece17', 'piece19', // 1a variants
+  'piece21', 'piece22', 'piece23', 'piece24', // Stewards
   'piece25', 'piece26', 'piece27', 'piece28'
 ]);
 
 export const PLAYER_2_PIECES = new Set([
-  'piece2', 'piece4', 'piece6', 'piece8', 'piece10', 'piece14',
-  'piece16', 'piece18', 'piece20',
-  'piece29', 'piece30', 'piece31', 'piece32',
+  'piece2', 'piece4', 'piece6', 'piece8', 'piece10', 'piece14', // Originals
+  'piece16', 'piece18', 'piece20', // 2a variants
+  'piece29', 'piece30', 'piece31', 'piece32', // Stewards
   'piece33', 'piece34', 'piece35', 'piece36'
 ]);
+
+// --- 3. MOVEMENT RULES ---
 const PIECE_RULES: Record<string, number[]> = {
   // Supremo: [1, 2]
   piece1: [1, 2], piece2: [1, 2],
+  
   // Archer: [1]
   piece3: [1], piece4: [1], piece15: [1], piece16: [1],
+  
   // Deacon: [1]
   piece5: [1], piece6: [1], piece17: [1], piece18: [1],
+  
   // Vice Roy: [2]
   piece7: [2], piece8: [2],
+  
   // Chancellor: [2]
   piece9: [2], piece10: [2],
+  
   // Minister: [2]
   piece13: [2], piece14: [2], piece19: [2], piece20: [2],
+
   // Stewards: [1]
   piece21: [1], piece22: [1], piece23: [1], piece24: [1],
   piece25: [1], piece26: [1], piece27: [1], piece28: [1],
   piece29: [1], piece30: [1], piece31: [1], piece32: [1],
   piece33: [1], piece34: [1], piece35: [1], piece36: [1],
+  
+  // Fallbacks
   piece11: [1], piece12: [1],
 };
+
+// --- 4. GRID HELPERS & LOGIC ---
 const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
 const MIN_ROW = 1;
 const MAX_ROW = 13;
@@ -81,33 +102,82 @@ export const getValidMoves = (
 ): string[] => {
   const allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
   const maxSearchDistance = Math.max(...allowedSteps);
+
   const { colIndex: startCol, rowNum: startRow } = parseCoord(currentPosition);
   if (startCol === -1 || isNaN(startRow)) return [];
+
   const queue = [{ col: startCol, row: startRow, dist: 0 }];
   const visited = new Set<string>();
   visited.add(currentPosition);
+  
   const validEndPoints = new Set<string>();
   const directions = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
+
+  const isBackRankPiece = parseInt(pieceId.replace('piece', ''), 10) <= 20;
+
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current) break;
+
     if (current.dist >= maxSearchDistance) continue;
+
     for (const [dCol, dRow] of directions) {
       const nextCol = current.col + dCol;
       const nextRow = current.row + dRow;
       const nextCoord = toCoord(nextCol, nextRow);
+
       if (nextCol < 0 || nextCol >= COLUMNS.length || nextRow < MIN_ROW || nextRow > MAX_ROW) continue;
       if ((nextCol + nextRow) % 2 === 0) continue;
       if (visited.has(nextCoord)) continue;
+
       const isOccupied = Object.values(currentGameState).includes(nextCoord);
-      if (isOccupied) continue;
+      
+      if (isOccupied) {
+        const canJump = isFirstMove && isBackRankPiece;
+        if (canJump) {
+          visited.add(nextCoord);
+          const nextDist = current.dist + 1;
+          queue.push({ col: nextCol, row: nextRow, dist: nextDist });
+          continue;
+        } else {
+          continue; 
+        }
+      }
+
       visited.add(nextCoord);
       const nextDist = current.dist + 1;
       queue.push({ col: nextCol, row: nextRow, dist: nextDist });
+
       if (allowedSteps.includes(nextDist)) {
         validEndPoints.add(nextCoord);
       }
     }
   }
+
   return Array.from(validEndPoints);
+};
+
+// --- 5. NAMES (For Move History) ---
+export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {
+  piece1: { name: 'Supremo 1' }, piece2: { name: 'Supremo 2' },
+  piece3: { name: 'Archer 1' }, piece4: { name: 'Archer 2' },
+  piece5: { name: 'Deacon 1' }, piece6: { name: 'Deacon 2' },
+  piece7: { name: 'Vice Roy 1' }, piece8: { name: 'Vice Roy 2' },
+  piece9: { name: 'Chancellor 1' }, piece10: { name: 'Chancellor 2' },
+  piece11: { name: 'Steward 1' }, piece12: { name: 'Steward 2' },
+  piece13: { name: 'Minister 1' }, piece14: { name: 'Minister 2' },
+  piece15: { name: 'Archer 1a' }, piece16: { name: 'Archer 2a' },
+  piece17: { name: 'Deacon 1a' }, piece18: { name: 'Deacon 2a' },
+  piece19: { name: 'Minister 1a' }, piece20: { name: 'Minister 2a' },
+
+  // Stewards Naming
+  piece21: { name: 'Steward 1' }, piece22: { name: 'Steward 1' },
+  piece23: { name: 'Steward 1' }, piece24: { name: 'Steward 1' },
+  piece25: { name: 'Steward 1' }, piece26: { name: 'Steward 1' },
+  piece27: { name: 'Steward 1' }, piece28: { name: 'Steward 1' },
+
+  piece29: { name: 'Steward 2' }, piece30: { name: 'Steward 2' },
+  piece31: { name: 'Steward 2' }, piece32: { name: 'Steward 2' },
+  piece33: { name: 'Steward 2' }, piece34: { name: 'Steward 2' },
+  piece35: { name: 'Steward 2' }, piece36: { name: 'Steward 2' },
 };

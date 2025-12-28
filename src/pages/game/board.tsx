@@ -4,14 +4,18 @@ import {
   PieceKey, 
   getValidMoves, 
   PLAYER_1_PIECES, 
-  PLAYER_2_PIECES 
+  PLAYER_2_PIECES,
+  PIECE_MOVEMENTS
 } from './mechanics/piecemovements';
 import { INITIAL_POSITIONS } from './mechanics/positions';
+import MoveHistory, { MoveLog } from './mechanics/MoveHistory';
 
 const Board: React.FC = () => {
-const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
+  const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
+  const [moveMadeThisTurn, setMoveMadeThisTurn] = useState(false); // Locks board after 1 move
+  const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -28,18 +32,27 @@ const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(IN
       (key) => gameState[key] === coordinate
     );
   };
+
   const isPieceOwner = (pieceId: PieceKey): boolean => {
     if (currentTurn === 'player1') return PLAYER_1_PIECES.has(pieceId);
     if (currentTurn === 'player2') return PLAYER_2_PIECES.has(pieceId);
     return false;
   };
+  const handleSwitchTurn = () => {
+    if (!moveMadeThisTurn) {
+      return;
+    }
+    setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
+    setMoveMadeThisTurn(false);
+  };
+
   const handleMouseDown = (coordinate: string, e: React.MouseEvent) => {
+    if (moveMadeThisTurn) return;
+
     const pieceId = getPieceAtTile(coordinate);
     if (!pieceId) return;
-    if (!isPieceOwner(pieceId)) {
-        console.log("Not your turn!");
-        return;
-    }
+
+    if (!isPieceOwner(pieceId)) return;
 
     e.preventDefault();
     setActivePiece(pieceId);
@@ -50,7 +63,7 @@ const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(IN
       pieceId, 
       coordinate, 
       !hasMoved[pieceId], 
-      gameState
+      gameState as Record<string, string>
     );
     setValidMoves(moves);
   };
@@ -71,10 +84,23 @@ const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(IN
       
       if (tile) {
         const targetCoordinate = tile.getAttribute('data-tile');
-        if (targetCoordinate && validMoves.includes(targetCoordinate)) {
+        const currentCoordinate = gameState[activePiece]; 
+
+        if (targetCoordinate && currentCoordinate && validMoves.includes(targetCoordinate)) {
+            const pieceName = PIECE_MOVEMENTS[activePiece].name;
+            const newLog: MoveLog = {
+              player: currentTurn,
+              pieceName: pieceName,
+              pieceId: activePiece,
+              from: currentCoordinate,
+              to: targetCoordinate,
+              turnNumber: moveHistory.length + 1,
+              timestamp: Date.now()
+            };
+            setMoveHistory(prev => [...prev, newLog]);
             setGameState((prev) => ({ ...prev, [activePiece]: targetCoordinate }));
             setHasMoved((prev) => ({ ...prev, [activePiece]: true }));
-            setCurrentTurn((prev) => prev === 'player1' ? 'player2' : 'player1');
+            setMoveMadeThisTurn(true); 
         }
       }
       
@@ -91,7 +117,7 @@ const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(IN
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, activePiece, validMoves]); 
+  }, [isDragging, activePiece, validMoves, currentTurn, gameState, moveHistory]); 
 
   const getRowTiles = (rowNum: number) => {
     switch (rowNum) {
@@ -113,102 +139,112 @@ const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(IN
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-screen bg-neutral-800 overflow-hidden relative">
-      {isDragging && activePiece && (
-        <div 
-          className="fixed pointer-events-none z-[100]"
-          style={{ 
-            left: mousePos.x, top: mousePos.y,
-            transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' 
-          }}
-        >
-          <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]`}>
-            <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full rounded-full object-cover" />
-          </div>
-        </div>
-      )}
-      
-      <div className="transform scale-[0.65] origin-center mt-12">
-        <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[16px] border-[#145c2b] flex flex-col items-center">
-          <div className="flex items-center mb-4 w-full justify-center">
-            <div className={`${sideWidth}`}></div>
-            <div className={`flex justify-between ${gridWidth} px-10`}> 
-              {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+    <div className="flex w-full h-screen bg-neutral-800 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center relative"> 
+        {isDragging && activePiece && (
+          <div 
+            className="fixed pointer-events-none z-[100]"
+            style={{ 
+              left: mousePos.x, top: mousePos.y,
+              transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' 
+            }}
+          >
+            <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]`}>
+              <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full rounded-full object-cover" />
             </div>
-            <div className={`${sideWidth}`}></div>
           </div>
-          
-          <div className="flex flex-col space-y-1"> 
-            {rows.map((row) => {
-              const currentTiles = getRowTiles(row);
-              const is9TileRow = currentTiles.length === 9;
+        )}
+        <div className="transform scale-[0.65] origin-center mt-2">
+          <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[16px] border-[#145c2b] flex flex-col items-center">
+            
+            <div className="flex items-center mb-4 w-full justify-center">
+              <div className={`${sideWidth}`}></div>
+              <div className={`flex justify-between ${gridWidth} px-10`}> 
+                {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+              </div>
+              <div className={`${sideWidth}`}></div>
+            </div>
+            
+            <div className="flex flex-col space-y-1"> 
+              {rows.map((row) => {
+                const currentTiles = getRowTiles(row);
+                const is9TileRow = currentTiles.length === 9;
 
-              return (
-                <div key={row} className="flex items-center">
-                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
+                return (
+                  <div key={row} className="flex items-center">
+                    <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
 
-                  <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
-                    {currentTiles.map((coordinate, i) => {
-                      const pieceId = getPieceAtTile(coordinate);
-                      const isBeingDragged = pieceId === activePiece;
-                      const isValidTarget = validMoves.includes(coordinate);
-                      
-                      // Visual Feedback Logic
-                      const isMyPiece = pieceId && isPieceOwner(pieceId);
-                      const isClickable = !isDragging && isMyPiece;
+                    <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
+                      {currentTiles.map((coordinate, i) => {
+                        const pieceId = getPieceAtTile(coordinate);
+                        const isBeingDragged = pieceId === activePiece;
+                        const isValidTarget = validMoves.includes(coordinate);
+                        
+                        const isMyPiece = pieceId && isPieceOwner(pieceId);
+                        const isClickable = !isDragging && isMyPiece && !moveMadeThisTurn;
 
-                      return (
-                        <div
-                          key={`${row}-${i}`}
-                          data-tile={coordinate}
-                          onMouseDown={(e) => handleMouseDown(coordinate, e)}
-                          className={`
-                            group relative ${circleSize} 
-                            bg-gradient-to-br from-white to-gray-200 
-                            rounded-full 
-                            shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
-                            ${isClickable ? 'hover:scale-105 cursor-pointer ring-4 ring-offset-2 ring-transparent hover:ring-green-400' : ''} 
-                            ${!isClickable && pieceId ? 'cursor-not-allowed opacity-90' : ''}
-                            transition-all duration-150 ease-out
-                            border border-gray-300 
-                            flex-shrink-0 flex items-center justify-center
-                            z-10
-                          `}
-                        >
-                          {pieceId && (
-                            <img 
-                              src={PIECES[pieceId]} 
-                              alt="piece" 
-                              className={`
-                                w-full h-full rounded-full object-cover 
-                                ${isBeingDragged ? 'opacity-30 grayscale' : ''}
-                                ${isClickable ? 'active:cursor-grabbing' : ''}
-                              `} 
-                            />
-                          )}
-                          {isValidTarget && !pieceId && (
-                            <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
-                          )}
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={`${row}-${i}`}
+                            data-tile={coordinate}
+                            onMouseDown={(e) => handleMouseDown(coordinate, e)}
+                            className={`
+                              group relative ${circleSize} 
+                              bg-gradient-to-br from-white to-gray-200 
+                              rounded-full 
+                              shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
+                              ${isClickable ? 'hover:scale-105 cursor-pointer ring-4 ring-offset-2 ring-transparent hover:ring-green-400' : ''} 
+                              ${!isClickable && pieceId ? 'cursor-not-allowed opacity-90' : ''}
+                              transition-all duration-150 ease-out
+                              border border-gray-300 
+                              flex-shrink-0 flex items-center justify-center
+                              z-10
+                            `}
+                          >
+                            {pieceId && (
+                              <img 
+                                src={PIECES[pieceId]} 
+                                alt="piece" 
+                                className={`
+                                  w-full h-full rounded-full object-cover 
+                                  ${isBeingDragged ? 'opacity-30 grayscale' : ''}
+                                  ${isClickable ? 'active:cursor-grabbing' : ''}
+                                `} 
+                              />
+                            )}
+                            {isValidTarget && !pieceId && (
+                              <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-start pl-6`}>{row}</div>
                   </div>
-
-                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-start pl-6`}>{row}</div>
-                </div>
-              );
-            })}
-          </div>
-          
-          <div className="flex items-center mt-4 w-full justify-center">
-            <div className={`${sideWidth}`}></div>
-            <div className={`flex justify-between ${gridWidth} px-10`}>
-              {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+                );
+              })}
             </div>
-            <div className={`${sideWidth}`}></div>
+            
+            <div className="flex items-center mt-4 w-full justify-center">
+              <div className={`${sideWidth}`}></div>
+              <div className={`flex justify-between ${gridWidth} px-10`}>
+                {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+              </div>
+              <div className={`${sideWidth}`}></div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* RIGHT SIDE: MOVE HISTORY & CLOCK */}
+      <MoveHistory 
+        moves={moveHistory} 
+        currentTurn={currentTurn} 
+        onSwitchTurn={handleSwitchTurn}
+        canSwitchTurn={moveMadeThisTurn} 
+      />
+      
     </div>
   );
 };
