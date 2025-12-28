@@ -1,26 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  PIECES, 
-  PieceKey, 
-  getValidMoves, 
-  PLAYER_1_PIECES, 
-  PLAYER_2_PIECES,
-  PIECE_MOVEMENTS
-} from './mechanics/piecemovements';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from './mechanics/piecemovements';
+import { BOARD_COLUMNS } from './utils/gameUtils'; 
 import { INITIAL_POSITIONS } from './mechanics/positions';
-import MoveHistory, { MoveLog } from './mechanics/MoveHistory';
+import MoveHistory, { useGameHistory } from './mechanics/MoveHistory';
+import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions,Winner } from './mechanics/attackpieces';
 
 const Board: React.FC = () => {
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
-  const [moveMadeThisTurn, setMoveMadeThisTurn] = useState(false); // Locks board after 1 move
-  const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
+  const [winner, setWinner] = useState<Winner>(null);
+  
+  const { moveHistory, capturedByP1, capturedByP2, addMove, addCapture } = useGameHistory();
+
+  const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
+  const [validMoves, setValidMoves] = useState<string[]>([]);    
+  const [validAttacks, setValidAttacks] = useState<string[]>([]);
+  
   const [isDragging, setIsDragging] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [validMoves, setValidMoves] = useState<string[]>([]);
-  const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
+
   const rows = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
   const circleSize = "w-17 h-17"; 
   const rowHeight = "h-12";       
@@ -28,96 +29,165 @@ const Board: React.FC = () => {
   const sideWidth = 'w-16';       
 
   const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
-    return (Object.keys(gameState) as PieceKey[]).find(
-      (key) => gameState[key] === coordinate
-    );
-  };
-
-  const isPieceOwner = (pieceId: PieceKey): boolean => {
-    if (currentTurn === 'player1') return PLAYER_1_PIECES.has(pieceId);
-    if (currentTurn === 'player2') return PLAYER_2_PIECES.has(pieceId);
-    return false;
-  };
-  const handleSwitchTurn = () => {
-    if (!moveMadeThisTurn) {
-      return;
-    }
-    setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
-    setMoveMadeThisTurn(false);
+    return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent) => {
-    if (moveMadeThisTurn) return;
+    if (winner || turnPhase === 'locked') return;
+
+    if (turnPhase === 'mandatory_move') {
+      if (gameState[activePiece!] !== coordinate) return;
+    }
 
     const pieceId = getPieceAtTile(coordinate);
     if (!pieceId) return;
-
-    if (!isPieceOwner(pieceId)) return;
+    const owner = getPieceOwner(pieceId);
+    if ((turnPhase === 'select' || turnPhase === 'action') && owner !== currentTurn) return;
 
     e.preventDefault();
     setActivePiece(pieceId);
     setIsDragging(true);
-    setMousePos({ x: e.clientX, y: e.clientY });
-    
-    const moves = getValidMoves(
-      pieceId, 
-      coordinate, 
-      !hasMoved[pieceId], 
-      gameState as Record<string, string>
+    setInitialDragPos({ x: e.clientX, y: e.clientY });
+    if (turnPhase === 'select' || turnPhase === 'action') {
+      const isFirstMove = !hasMoved[pieceId];
+      
+      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
+      
+      setValidMoves(moves);
+      setValidAttacks(attacks);
+      setTurnPhase('action'); 
+    } 
+    else if (turnPhase === 'mandatory_move') {
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
+      setValidMoves(allowedMoves);
+      setValidAttacks([]); 
+    }
+  };
+
+  const handleAttackClick = (targetCoord: string) => {
+    if (!activePiece) return;
+
+    const result = executeAttack(targetCoord, gameState);
+    if (!result) return;
+
+    setGameState(result.newGameState);
+    addCapture(currentTurn, result.capturedPieceId);
+
+    if (result.winner) {
+      setWinner(result.winner);
+      setTurnPhase('locked');
+      return;
+    }
+
+    const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
+    const pieceName = PIECE_MOVEMENTS[activePiece].name;
+    addMove({
+      player: currentTurn,
+      pieceName: `${pieceName} captures ${targetName}`,
+      pieceId: activePiece,
+      from: gameState[activePiece]!,
+      to: targetCoord,
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
+    });
+
+    const currentPos = gameState[activePiece]!;
+    const hasAlreadyMoved = hasMoved[activePiece] || false;
+
+    const { attacks, moves } = getMultiCaptureOptions(
+       activePiece, 
+       currentPos, 
+       result.newGameState as Record<string, string>,
+       hasAlreadyMoved
     );
+
+    setValidAttacks(attacks);
     setValidMoves(moves);
+
+    if (attacks.length === 0 && moves.length === 0) {
+        setTurnPhase('locked');
+    } else {
+        setTurnPhase('mandatory_move');
+    }
+  };
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!isDragging || !activePiece) return;
+    setIsDragging(false);
+
+    const elementUnderMouse = document.elementFromPoint(e.clientX, e.clientY);
+    const tile = elementUnderMouse?.closest('[data-tile]');
+
+    if (tile) {
+      const targetCoord = tile.getAttribute('data-tile');
+      const currentCoord = gameState[activePiece];
+
+      if (targetCoord && validMoves.includes(targetCoord)) {
+        setGameState(prev => ({ ...prev, [activePiece]: targetCoord }));
+        setHasMoved(prev => ({ ...prev, [activePiece]: true }));
+        
+        addMove({
+          player: currentTurn,
+          pieceName: PIECE_MOVEMENTS[activePiece].name,
+          pieceId: activePiece,
+          from: currentCoord!,
+          to: targetCoord,
+          turnNumber: moveHistory.length + 1,
+          timestamp: Date.now()
+        });
+
+        let attacks: string[] = [];
+        if (turnPhase === 'action') {
+           const wasFirstMove = !hasMoved[activePiece];
+           attacks = getValidAttacks(
+             activePiece, targetCoord, 
+             { ...gameState, [activePiece]: targetCoord } as Record<string, string>, 
+             'post-move', wasFirstMove
+           );
+        } else if (turnPhase === 'mandatory_move') {
+           attacks = getValidAttacks(
+             activePiece, targetCoord, 
+             { ...gameState, [activePiece]: targetCoord } as Record<string, string>, 
+             'post-move', false
+           );
+        }
+
+        if (attacks.length > 0) {
+           setValidMoves([]); 
+           setValidAttacks(attacks);
+           setTurnPhase('locked'); 
+        } else {
+           setTurnPhase('locked');
+        }
+      }
+    }
+  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, moveHistory, addMove]);
+
+  const handleSwitchTurn = () => {
+    setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
+    setTurnPhase('select');
+    setActivePiece(null);
+    setValidMoves([]);
+    setValidAttacks([]);
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!isDragging || !activePiece) return;
-
-      setIsDragging(false);
-      
-      const elementUnderMouse = document.elementFromPoint(e.clientX, e.clientY);
-      const tile = elementUnderMouse?.closest('[data-tile]');
-      
-      if (tile) {
-        const targetCoordinate = tile.getAttribute('data-tile');
-        const currentCoordinate = gameState[activePiece]; 
-
-        if (targetCoordinate && currentCoordinate && validMoves.includes(targetCoordinate)) {
-            const pieceName = PIECE_MOVEMENTS[activePiece].name;
-            const newLog: MoveLog = {
-              player: currentTurn,
-              pieceName: pieceName,
-              pieceId: activePiece,
-              from: currentCoordinate,
-              to: targetCoordinate,
-              turnNumber: moveHistory.length + 1,
-              timestamp: Date.now()
-            };
-            setMoveHistory(prev => [...prev, newLog]);
-            setGameState((prev) => ({ ...prev, [activePiece]: targetCoordinate }));
-            setHasMoved((prev) => ({ ...prev, [activePiece]: true }));
-            setMoveMadeThisTurn(true); 
-        }
+      if (isDragging && ghostRef.current) {
+        ghostRef.current.style.left = `${e.clientX}px`;
+        ghostRef.current.style.top = `${e.clientY}px`;
       }
-      
-      setActivePiece(null);
-      setValidMoves([]); 
     };
-
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
-
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, activePiece, validMoves, currentTurn, gameState, moveHistory]); 
+  }, [isDragging, handleMouseUp]);
 
   const getRowTiles = (rowNum: number) => {
     switch (rowNum) {
@@ -140,13 +210,32 @@ const Board: React.FC = () => {
 
   return (
     <div className="flex w-full h-screen bg-neutral-800 overflow-hidden">
-      <div className="flex-1 flex flex-col items-center justify-center relative"> 
+      
+      {/* LEFT: BOARD */}
+      <div className="flex-1 flex flex-col items-center justify-center relative">
+        
+        {winner && (
+          <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce">
+            GAME OVER! {winner === 'player1' ? 'BOTTOM' : 'TOP'} WINS!
+          </div>
+        )}
+        {turnPhase === 'mandatory_move' && !winner && (
+           <div className="absolute top-24 z-50 bg-yellow-600 text-white px-6 py-2 rounded-full shadow-lg font-bold animate-pulse">
+             {validMoves.length > 0 
+                ? "Capture Successful! You MUST move now." 
+                : "Capture Successful! Capture again or End Turn."}
+           </div>
+        )}
+
         {isDragging && activePiece && (
           <div 
-            className="fixed pointer-events-none z-[100]"
+            ref={ghostRef}
+            className="fixed pointer-events-none z-100"
             style={{ 
-              left: mousePos.x, top: mousePos.y,
-              transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' 
+              left: initialDragPos.x, 
+              top: initialDragPos.y,
+              transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)',
+              willChange: 'left, top'
             }}
           >
             <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]`}>
@@ -154,13 +243,14 @@ const Board: React.FC = () => {
             </div>
           </div>
         )}
+        
         <div className="transform scale-[0.65] origin-center mt-2">
-          <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[16px] border-[#145c2b] flex flex-col items-center">
+          <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#145c2b] flex flex-col items-center">
             
             <div className="flex items-center mb-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}> 
-                {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+                {BOARD_COLUMNS.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
@@ -173,31 +263,30 @@ const Board: React.FC = () => {
                 return (
                   <div key={row} className="flex items-center">
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
-
                     <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
                       {currentTiles.map((coordinate, i) => {
                         const pieceId = getPieceAtTile(coordinate);
-                        const isBeingDragged = pieceId === activePiece;
-                        const isValidTarget = validMoves.includes(coordinate);
-                        
-                        const isMyPiece = pieceId && isPieceOwner(pieceId);
-                        const isClickable = !isDragging && isMyPiece && !moveMadeThisTurn;
+                        const isMyPiece = pieceId && getPieceOwner(pieceId) === currentTurn;
+                        const isMoveTarget = validMoves.includes(coordinate);
+                        const isAttackTarget = validAttacks.includes(coordinate);
+                        const canInteract = !winner && (isMyPiece || isAttackTarget);
 
                         return (
                           <div
                             key={`${row}-${i}`}
                             data-tile={coordinate}
-                            onMouseDown={(e) => handleMouseDown(coordinate, e)}
+                            onMouseDown={(e) => {
+                                if (isAttackTarget) handleAttackClick(coordinate);
+                                else handleMouseDown(coordinate, e);
+                            }}
                             className={`
                               group relative ${circleSize} 
-                              bg-gradient-to-br from-white to-gray-200 
+                              bg-linear-to-br from-white to-gray-200 
                               rounded-full 
                               shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
-                              ${isClickable ? 'hover:scale-105 cursor-pointer ring-4 ring-offset-2 ring-transparent hover:ring-green-400' : ''} 
-                              ${!isClickable && pieceId ? 'cursor-not-allowed opacity-90' : ''}
-                              transition-all duration-150 ease-out
+                              ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
                               border border-gray-300 
-                              flex-shrink-0 flex items-center justify-center
+                              shrink-0 flex items-center justify-center
                               z-10
                             `}
                           >
@@ -207,19 +296,25 @@ const Board: React.FC = () => {
                                 alt="piece" 
                                 className={`
                                   w-full h-full rounded-full object-cover 
-                                  ${isBeingDragged ? 'opacity-30 grayscale' : ''}
-                                  ${isClickable ? 'active:cursor-grabbing' : ''}
+                                  ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
                                 `} 
                               />
                             )}
-                            {isValidTarget && !pieceId && (
+                            {isMoveTarget && !pieceId && (
                               <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                            )}
+                            {isAttackTarget && (
+                              <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-50">
+                                   <div className="absolute w-full h-1 bg-red-600 top-1/2 -translate-y-1/2"></div>
+                                   <div className="absolute h-full w-1 bg-red-600 left-1/2 -translate-x-1/2"></div>
+                                </div>
+                              </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-start pl-6`}>{row}</div>
                   </div>
                 );
@@ -229,7 +324,7 @@ const Board: React.FC = () => {
             <div className="flex items-center mt-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
-                {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
+                {BOARD_COLUMNS.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
@@ -237,12 +332,13 @@ const Board: React.FC = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDE: MOVE HISTORY & CLOCK */}
       <MoveHistory 
         moves={moveHistory} 
         currentTurn={currentTurn} 
         onSwitchTurn={handleSwitchTurn}
-        canSwitchTurn={moveMadeThisTurn} 
+        canSwitchTurn={turnPhase === 'locked'}
+        capturedByP1={capturedByP1}
+        capturedByP2={capturedByP2}
       />
       
     </div>

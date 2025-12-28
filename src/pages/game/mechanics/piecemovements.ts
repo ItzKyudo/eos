@@ -13,7 +13,8 @@ import piece12 from '../../../assets/pieces/12.png';
 import piece13 from '../../../assets/pieces/13.png';
 import piece14 from '../../../assets/pieces/14.png';
 
-// --- 1. ASSETS & KEYS ---
+import { parseCoord, toCoord } from '../utils/gameUtils';
+
 export const PIECES = {
   // Originals
   piece1, piece2, piece3, piece4, piece5, piece6, piece7,
@@ -33,22 +34,26 @@ export const PIECES = {
 
 export type PieceKey = keyof typeof PIECES;
 
-// --- 2. PLAYER OWNERSHIP ---
 export const PLAYER_1_PIECES = new Set([
-  'piece1', 'piece3', 'piece5', 'piece7', 'piece9', 'piece13', // Originals
-  'piece15', 'piece17', 'piece19', // 1a variants
-  'piece21', 'piece22', 'piece23', 'piece24', // Stewards
+  'piece1', 'piece3', 'piece5', 'piece7', 'piece9', 'piece13', 
+  'piece15', 'piece17', 'piece19', 
+  'piece21', 'piece22', 'piece23', 'piece24',
   'piece25', 'piece26', 'piece27', 'piece28'
 ]);
 
 export const PLAYER_2_PIECES = new Set([
-  'piece2', 'piece4', 'piece6', 'piece8', 'piece10', 'piece14', // Originals
-  'piece16', 'piece18', 'piece20', // 2a variants
-  'piece29', 'piece30', 'piece31', 'piece32', // Stewards
+  'piece2', 'piece4', 'piece6', 'piece8', 'piece10', 'piece14', 
+  'piece16', 'piece18', 'piece20',
+  'piece29', 'piece30', 'piece31', 'piece32', 
   'piece33', 'piece34', 'piece35', 'piece36'
 ]);
 
-// --- 3. MOVEMENT RULES ---
+export const getPieceOwner = (pieceId: string): 'player1' | 'player2' | undefined => {
+  if (PLAYER_1_PIECES.has(pieceId)) return 'player1';
+  if (PLAYER_2_PIECES.has(pieceId)) return 'player2';
+  return undefined;
+};
+
 const PIECE_RULES: Record<string, number[]> = {
   // Supremo: [1, 2]
   piece1: [1, 2], piece2: [1, 2],
@@ -78,21 +83,7 @@ const PIECE_RULES: Record<string, number[]> = {
   piece11: [1], piece12: [1],
 };
 
-// --- 4. GRID HELPERS & LOGIC ---
-const COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
-const MIN_ROW = 1;
-const MAX_ROW = 13;
-
-const parseCoord = (coord: string) => {
-  const colChar = coord.charAt(0);
-  const rowNum = parseInt(coord.slice(1));
-  const colIndex = COLUMNS.indexOf(colChar);
-  return { colIndex, rowNum };
-};
-
-const toCoord = (colIndex: number, rowNum: number) => {
-  return `${COLUMNS[colIndex]}${rowNum}`;
-};
+// --- 4. MAIN MOVEMENT LOGIC (BFS) ---
 
 export const getValidMoves = (
   pieceId: PieceKey,
@@ -125,9 +116,9 @@ export const getValidMoves = (
       const nextCol = current.col + dCol;
       const nextRow = current.row + dRow;
       const nextCoord = toCoord(nextCol, nextRow);
-
-      if (nextCol < 0 || nextCol >= COLUMNS.length || nextRow < MIN_ROW || nextRow > MAX_ROW) continue;
+      if (!nextCoord) continue; 
       if ((nextCol + nextRow) % 2 === 0) continue;
+      
       if (visited.has(nextCoord)) continue;
 
       const isOccupied = Object.values(currentGameState).includes(nextCoord);
@@ -157,7 +148,6 @@ export const getValidMoves = (
   return Array.from(validEndPoints);
 };
 
-// --- 5. NAMES (For Move History) ---
 export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {
   piece1: { name: 'Supremo 1' }, piece2: { name: 'Supremo 2' },
   piece3: { name: 'Archer 1' }, piece4: { name: 'Archer 2' },
