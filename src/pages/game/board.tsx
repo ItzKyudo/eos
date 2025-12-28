@@ -1,25 +1,60 @@
-import React, { useState, useEffect} from 'react';
-import piece1 from '../../assets/pieces/1.png';
+import React, { useState, useEffect } from 'react';
+import { 
+  PIECES, 
+  PieceKey, 
+  getValidMoves, 
+  PLAYER_1_PIECES, 
+  PLAYER_2_PIECES 
+} from './mechanics/piecemovements';
+import { INITIAL_POSITIONS } from './mechanics/positions';
 
 const Board: React.FC = () => {
-  const [piecePosition, setPiecePosition] = useState('A1');
+const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
+  const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
+  const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
+  const [validMoves, setValidMoves] = useState<string[]>([]);
   const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
   const rows = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-
   const circleSize = "w-17 h-17"; 
   const rowHeight = "h-12";       
   const gridWidth = 'w-[900px]';  
   const sideWidth = 'w-16';       
-  const handleMouseDown = (coordinate: string, e: React.MouseEvent) => {
-    if (coordinate !== piecePosition) return;
-    e.preventDefault();
 
+  const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
+    return (Object.keys(gameState) as PieceKey[]).find(
+      (key) => gameState[key] === coordinate
+    );
+  };
+  const isPieceOwner = (pieceId: PieceKey): boolean => {
+    if (currentTurn === 'player1') return PLAYER_1_PIECES.has(pieceId);
+    if (currentTurn === 'player2') return PLAYER_2_PIECES.has(pieceId);
+    return false;
+  };
+  const handleMouseDown = (coordinate: string, e: React.MouseEvent) => {
+    const pieceId = getPieceAtTile(coordinate);
+    if (!pieceId) return;
+    if (!isPieceOwner(pieceId)) {
+        console.log("Not your turn!");
+        return;
+    }
+
+    e.preventDefault();
+    setActivePiece(pieceId);
     setIsDragging(true);
     setMousePos({ x: e.clientX, y: e.clientY });
+    
+    const moves = getValidMoves(
+      pieceId, 
+      coordinate, 
+      !hasMoved[pieceId], 
+      gameState
+    );
+    setValidMoves(moves);
   };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
@@ -27,17 +62,24 @@ const Board: React.FC = () => {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (!isDragging) return;
+      if (!isDragging || !activePiece) return;
+
       setIsDragging(false);
+      
       const elementUnderMouse = document.elementFromPoint(e.clientX, e.clientY);
       const tile = elementUnderMouse?.closest('[data-tile]');
       
       if (tile) {
-        const newCoordinate = tile.getAttribute('data-tile');
-        if (newCoordinate) {
-          setPiecePosition(newCoordinate);
+        const targetCoordinate = tile.getAttribute('data-tile');
+        if (targetCoordinate && validMoves.includes(targetCoordinate)) {
+            setGameState((prev) => ({ ...prev, [activePiece]: targetCoordinate }));
+            setHasMoved((prev) => ({ ...prev, [activePiece]: true }));
+            setCurrentTurn((prev) => prev === 'player1' ? 'player2' : 'player1');
         }
       }
+      
+      setActivePiece(null);
+      setValidMoves([]); 
     };
 
     if (isDragging) {
@@ -49,7 +91,7 @@ const Board: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, activePiece, validMoves]); 
 
   const getRowTiles = (rowNum: number) => {
     switch (rowNum) {
@@ -71,40 +113,31 @@ const Board: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center w-full h-screen bg-neutral-800 overflow-hidden relative">
-      {isDragging && (
+    <div className="flex flex-col items-center justify-center w-full h-screen bg-neutral-800 overflow-hidden relative">
+      {isDragging && activePiece && (
         <div 
           className="fixed pointer-events-none z-[100]"
           style={{ 
-            left: mousePos.x, 
-            top: mousePos.y,
+            left: mousePos.x, top: mousePos.y,
             transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' 
           }}
         >
           <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]`}>
-            <img 
-              src={piece1} 
-              alt="dragging-piece" 
-              className="w-full h-full rounded-full object-cover" 
-            />
+            <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full rounded-full object-cover" />
           </div>
         </div>
       )}
-      <div className="transform scale-[0.65] origin-center">
+      
+      <div className="transform scale-[0.65] origin-center mt-12">
         <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[16px] border-[#145c2b] flex flex-col items-center">
           <div className="flex items-center mb-4 w-full justify-center">
             <div className={`${sideWidth}`}></div>
             <div className={`flex justify-between ${gridWidth} px-10`}> 
-              {columns.map((col) => (
-                <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12 flex justify-center">
-                  {col}
-                </div>
-              ))}
+              {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
             </div>
             <div className={`${sideWidth}`}></div>
           </div>
-
-          {/* Rows */}
+          
           <div className="flex flex-col space-y-1"> 
             {rows.map((row) => {
               const currentTiles = getRowTiles(row);
@@ -112,59 +145,65 @@ const Board: React.FC = () => {
 
               return (
                 <div key={row} className="flex items-center">
-                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>
-                    {row}
-                  </div>
+                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
 
                   <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
-                    {currentTiles.map((coordinate, i) => (
-                      <div
-                        key={`${row}-${i}`}
-                        data-tile={coordinate}
-                        onMouseDown={(e) => handleMouseDown(coordinate, e)}
-                        className={`
-                          group relative ${circleSize} 
-                          bg-gradient-to-br from-white to-gray-200 
-                          rounded-full 
-                          shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
-                          /* Only hover scale if NOT dragging to avoid flicker */
-                          ${!isDragging && 'hover:scale-105'} transition-transform duration-150 ease-out
-                          cursor-pointer border border-gray-300 
-                          flex-shrink-0 flex items-center justify-center
-                          z-10
-                        `}
-                      >
-                        {coordinate === piecePosition && (
-                          <img 
-                            src={piece1} 
-                            alt="piece" 
-                            className={`
-                              w-full h-full rounded-full object-cover 
-                              ${isDragging ? 'opacity-30 grayscale' : 'cursor-grab active:cursor-grabbing'}
-                            `} 
-                          />
-                        )}
-                      </div>
-                    ))}
+                    {currentTiles.map((coordinate, i) => {
+                      const pieceId = getPieceAtTile(coordinate);
+                      const isBeingDragged = pieceId === activePiece;
+                      const isValidTarget = validMoves.includes(coordinate);
+                      
+                      // Visual Feedback Logic
+                      const isMyPiece = pieceId && isPieceOwner(pieceId);
+                      const isClickable = !isDragging && isMyPiece;
+
+                      return (
+                        <div
+                          key={`${row}-${i}`}
+                          data-tile={coordinate}
+                          onMouseDown={(e) => handleMouseDown(coordinate, e)}
+                          className={`
+                            group relative ${circleSize} 
+                            bg-gradient-to-br from-white to-gray-200 
+                            rounded-full 
+                            shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
+                            ${isClickable ? 'hover:scale-105 cursor-pointer ring-4 ring-offset-2 ring-transparent hover:ring-green-400' : ''} 
+                            ${!isClickable && pieceId ? 'cursor-not-allowed opacity-90' : ''}
+                            transition-all duration-150 ease-out
+                            border border-gray-300 
+                            flex-shrink-0 flex items-center justify-center
+                            z-10
+                          `}
+                        >
+                          {pieceId && (
+                            <img 
+                              src={PIECES[pieceId]} 
+                              alt="piece" 
+                              className={`
+                                w-full h-full rounded-full object-cover 
+                                ${isBeingDragged ? 'opacity-30 grayscale' : ''}
+                                ${isClickable ? 'active:cursor-grabbing' : ''}
+                              `} 
+                            />
+                          )}
+                          {isValidTarget && !pieceId && (
+                            <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-start pl-6`}>
-                    {row}
-                  </div>
+                  <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-start pl-6`}>{row}</div>
                 </div>
               );
             })}
           </div>
-
-          {/* Bottom Letters */}
+          
           <div className="flex items-center mt-4 w-full justify-center">
             <div className={`${sideWidth}`}></div>
             <div className={`flex justify-between ${gridWidth} px-10`}>
-              {columns.map((col) => (
-                <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12 flex justify-center">
-                  {col}
-                </div>
-              ))}
+              {columns.map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
             </div>
             <div className={`${sideWidth}`}></div>
           </div>
