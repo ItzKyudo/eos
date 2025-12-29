@@ -1,9 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import logoImg from '../images/logo.png';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 
 const Register: React.FC = () => {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/create-account/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Account creation failed');
+      }
+
+      const data = await response.json();
+      console.log('Account created:', data);
+
+      // TODO :> NAVIGATE LOGIN OR HOMEPAGE IF REGISTERED
+      // navigate('/login');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#262522] flex items-center justify-center p-6 font-sans selection:bg-[#2c4dbd]/30">
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -31,15 +72,18 @@ const Register: React.FC = () => {
 
         {/* Left Side: Register Form */}
         <div className="flex-1 p-12 lg:p-16">
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleRegister}>
             {/* Username Field */}
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-widest font-bold text-gray-500 ml-1">Username</label>
               <div className="relative group">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#2c4dbd] transition-colors" size={20} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                   className="w-full bg-[#262522] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 outline-hidden focus:border-[#2c4dbd]/50 focus:ring-4 focus:ring-[#2c4dbd]/10 transition-all"
                 />
               </div>
@@ -50,9 +94,12 @@ const Register: React.FC = () => {
               <label className="text-xs uppercase tracking-widest font-bold text-gray-500 ml-1">Email Address</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#2c4dbd] transition-colors" size={20} />
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="w-full bg-[#262522] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 outline-hidden focus:border-[#2c4dbd]/50 focus:ring-4 focus:ring-[#2c4dbd]/10 transition-all"
                 />
               </div>
@@ -61,16 +108,25 @@ const Register: React.FC = () => {
               <label className="text-xs uppercase tracking-widest font-bold text-gray-500 ml-1">Password</label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#e63e3e] transition-colors" size={20} />
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   placeholder="Create a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                   className="w-full bg-[#262522] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 outline-hidden focus:border-[#e63e3e]/50 focus:ring-4 focus:ring-[#e63e3e]/10 transition-all"
                 />
               </div>
             </div>
-
-            <button className="w-full mt-2 bg-linear-to-r from-[#e63e3e] to-[#2c4dbd] text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 group hover:brightness-110 transition-all shadow-lg active:scale-[0.98]">
-              CREATE ACCOUNT
+            {error && (
+              <p className="text-sm text-red-500 font-medium">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 bg-linear-to-r from-[#e63e3e] to-[#2c4dbd] text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 group hover:brightness-110 transition-all shadow-lg active:scale-[0.98] disabled:opacity-60"
+            >
+              {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
