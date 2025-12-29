@@ -8,59 +8,61 @@ const Sidebar: React.FC = () => {
 
   return (
     <> 
-      <div className="hidden md:block w-24 lg:w-32 flex-shrink-0" />
+      {/* Spacer for fixed sidebar */}
+      <div className="hidden md:block w-20 flex-shrink-0" />
 
-      <aside className="fixed left-0 top-0 h-screen w-24 lg:w-32 bg-[#21201d] flex flex-col items-center py-8 border-r border-white/5 hidden md:flex z-50">
+      <aside className="fixed left-0 top-0 h-screen w-20 bg-[#262421] flex flex-col items-center py-6 border-r border-white/5 hidden md:flex z-50 shadow-xl">
         
-        {/* Brand Logo - Links to Landing Page */}
-        <Link to="/" className="relative group mb-12">
-          <div className="absolute -inset-2 bg-linear-to-tr from-[#2c4dbd]/20 to-[#e63e3e]/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+        {/* Brand Logo */}
+        <Link to="/" className="mb-8 p-2 hover:bg-white/5 rounded-xl transition-colors">
           <img 
             src={logoImg} 
             alt="EOS Logo" 
-            className="relative w-12 h-12 lg:w-16 lg:h-16 rounded-xl shadow-2xl transition-transform duration-500 group-hover:scale-110" 
+            className="w-10 h-10 rounded-lg shadow-lg" 
           />
         </Link>
         
         {/* Navigation */}
-        <nav className="flex flex-col gap-3 w-full px-3">
-          <SidebarItem 
-            to="/" 
-            icon={<Play size={22} />} 
-            label="Play" 
-            active={location.pathname === '/'} 
-          />
+        <nav className="flex flex-col gap-4 w-full px-2">
+          {location.pathname !== '/' && (
+            <SidebarItem 
+              to="/game" 
+              icon={<Play size={24} className="ml-0.5" />} 
+              label="Play" 
+              active={location.pathname === '/game'} 
+            />
+          )}
           <SidebarItem 
             to="/puzzle" 
-            icon={<Search size={22} />} 
+            icon={<Search size={24} />} 
             label="Puzzles" 
             active={location.pathname === '/puzzle'} 
           />
           <SidebarItem 
             to="/learn" 
-            icon={<BookOpen size={22} />} 
+            icon={<BookOpen size={24} />} 
             label="Learn" 
             active={location.pathname === '/learn'} 
           />
           <SidebarItem 
             to="/social" 
-            icon={<Users size={22} />} 
+            icon={<Users size={24} />} 
             label="Social" 
             active={location.pathname === '/social'} 
           />
           <SidebarItem 
             to="/market" 
-            icon={<ShoppingCart size={22} />} 
+            icon={<ShoppingCart size={24} />} 
             label="Store" 
             active={location.pathname === '/market'} 
           />
         </nav>
 
         {/* Footer */}
-        <div className="mt-auto w-full px-3">
+        <div className="mt-auto w-full px-2 mb-2">
           <SidebarItem 
             to="/settings" 
-            icon={<Settings size={22} />} 
+            icon={<Settings size={24} />} 
             label="Settings" 
             active={location.pathname === '/settings'} 
           />
@@ -78,21 +80,18 @@ interface SidebarItemProps {
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon, label, active = false }) => (
-  <Link to={to} className={`
-    relative group flex flex-col items-center justify-center w-full py-4 rounded-xl transition-all duration-300
-    ${active 
-      ? 'bg-[#312e2b] text-white shadow-inner shadow-black/20' 
-      : 'text-gray-500 hover:text-white hover:bg-white/5'}
-  `}>
-    {active && (
-      <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-linear-to-b from-[#2c4dbd] to-[#e63e3e] rounded-r-full" />
-    )}
-    
-    <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+  <Link to={to} className="group relative flex justify-center w-full">
+    <div className={`
+      relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-300
+      ${active 
+        ? 'bg-linear-to-br from-[#2c4dbd] to-[#e63e3e] text-white shadow-lg scale-105' 
+        : 'text-gray-400 hover:text-gray-100 hover:bg-white/10'}
+    `}>
       {icon}
     </div>
     
-    <span className="text-[10px] mt-2 font-black uppercase tracking-widest leading-none text-center">
+    {/* Minimalist Tooltip */}
+    <span className="absolute left-14 top-1/2 -translate-y-1/2 bg-black/90 text-white text-[11px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 uppercase tracking-wider shadow-xl border border-white/10 translate-x-2 group-hover:translate-x-0 duration-200">
       {label}
     </span>
   </Link>

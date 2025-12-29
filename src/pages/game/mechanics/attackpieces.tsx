@@ -1,29 +1,37 @@
 import { PieceKey, PLAYER_1_PIECES, PLAYER_2_PIECES, getValidMoves, getPieceOwner } from './piecemovements';
 import { parseCoord, toCoord } from '../utils/gameUtils';
+
 interface AttackRule {
   range: number[];      
   mandatoryMove: number; 
 }
 
 export const ATTACK_RULES: Record<string, AttackRule> = {
+  // Supremo
   piece1: { range: [1, 2], mandatoryMove: 1 },
   piece2: { range: [1, 2], mandatoryMove: 1 },
+  // Archer (Range 3)
   piece3: { range: [3], mandatoryMove: 1 },   
   piece4: { range: [3], mandatoryMove: 1 },
   piece15: { range: [3], mandatoryMove: 1 },
   piece16: { range: [3], mandatoryMove: 1 },
+  // Deacon (Range 2)
   piece5: { range: [2], mandatoryMove: 1 },  
   piece6: { range: [2], mandatoryMove: 1 },
   piece17: { range: [2], mandatoryMove: 1 },
   piece18: { range: [2], mandatoryMove: 1 },
+  // Vice Roy
   piece7: { range: [2], mandatoryMove: 2 },  
   piece8: { range: [2], mandatoryMove: 2 },
+  // Chancellor
   piece9: { range: [3], mandatoryMove: 2 },   
   piece10: { range: [3], mandatoryMove: 2 },
+  // Minister
   piece13: { range: [1], mandatoryMove: 2 }, 
   piece14: { range: [1], mandatoryMove: 2 },
   piece19: { range: [1], mandatoryMove: 2 },
   piece20: { range: [1], mandatoryMove: 2 },
+  // Stewards
   piece21: { range: [1], mandatoryMove: 1 }, 
   piece22: { range: [1], mandatoryMove: 1 },
   piece23: { range: [1], mandatoryMove: 1 },
@@ -43,6 +51,7 @@ export const ATTACK_RULES: Record<string, AttackRule> = {
   piece11: { range: [1], mandatoryMove: 1 },
   piece12: { range: [1], mandatoryMove: 1 },
 };
+
 export const getValidAttacks = (
   pieceId: PieceKey,
   currentPosition: string,
@@ -51,10 +60,10 @@ export const getValidAttacks = (
   isFirstMove: boolean
 ): string[] => {
   if (phase === 'post-move' && isFirstMove) return [];
-
   const rules = ATTACK_RULES[pieceId] || { range: [1], mandatoryMove: 1 };
   let allowedRanges = rules.range;
-  const isSteward = pieceId.includes('piece2') || pieceId.includes('piece3') || pieceId === 'piece11' || pieceId === 'piece12';
+  const idNum = parseInt(pieceId.replace('piece', ''), 10);
+  const isSteward = (idNum >= 21 && idNum <= 36) || idNum === 11 || idNum === 12;
   if (isSteward && phase === 'pre-move') {
      allowedRanges = [1, 2]; 
   }
@@ -80,10 +89,11 @@ export const getValidAttacks = (
       if (occupantId) {
         const occupantOwner = getPieceOwner(occupantId);
         const isEnemy = occupantOwner && occupantOwner !== myOwner;
+        
         if (isEnemy && allowedRanges.includes(dist)) {
            targets.push(targetCoord);
         }
-        break;// stop if may blocked pieces
+        break;
       }
     }
   });
@@ -98,7 +108,6 @@ export const getMandatoryMoves = (
 ): string[] => {
   const rule = ATTACK_RULES[pieceId];
   const requiredDist = rule ? rule.mandatoryMove : 1;
-
   const allMoves = getValidMoves(pieceId, currentPosition, false, gameState);
   const { rowNum: startRow } = parseCoord(currentPosition);
 
@@ -110,6 +119,7 @@ export const getMandatoryMoves = (
 };
 
 export type Winner = 'player1' | 'player2' | 'draw' | null;
+
 export const executeAttack = (
   targetCoord: string,
   currentGameState: Partial<Record<PieceKey, string>>
@@ -120,6 +130,7 @@ export const executeAttack = (
 
   if (!targetPieceId) return null;
 
+  // Create new state with enemy removed
   const newGameState = { ...currentGameState };
   delete newGameState[targetPieceId];
 
@@ -138,7 +149,11 @@ export const getMultiCaptureOptions = (
   gameState: Record<string, string>,
   hasAlreadyMoved: boolean 
 ) => {
+  // 1. Check for additional attacks (Chain Capture)
   const attacks = getValidAttacks(pieceId, currentPosition, gameState, 'pre-move', false);
+  
+  // 2. Check for Mandatory Move
+  // You can only move if you haven't moved yet in this turn.
   let moves: string[] = [];
   if (!hasAlreadyMoved) {
      moves = getMandatoryMoves(pieceId, currentPosition, gameState);

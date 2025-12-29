@@ -12,8 +12,8 @@ import Register from './auth/signup';
 
 
   {/* Game */}
-import Board from './pages/game/board';
-
+import Board from './pages/game/gametypes/practice';
+import GameSetup from './pages/game/gameSetup';
 
 
 function App() {
@@ -32,7 +32,7 @@ function App() {
 
     {/* Game */}
     <Route path="/board" element={<Board />} />
-    
+    <Route path="/game" element={<GameSetup />} />
   </Routes>
  );
 }
