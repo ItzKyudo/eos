@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../images/logo.png';
-import { Play, ShoppingCart, Users, BookOpen, Settings, Search } from 'lucide-react';
+import { Play, ShoppingCart, Users, BookOpen, Settings, Search, User2 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -32,6 +32,12 @@ const Sidebar: React.FC = () => {
               active={location.pathname === '/game'} 
             />
           )}
+          <SidebarItem 
+            to="/profile" 
+            icon={<User2 size={24} />} 
+            label="Profile" 
+            active={location.pathname === '/profile'} 
+          />
           <SidebarItem 
             to="/puzzle" 
             icon={<Search size={24} />} 
