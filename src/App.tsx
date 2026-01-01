@@ -16,6 +16,7 @@ import Board from './pages/game/gametypes/practice';
 import GameSetup from './pages/game/gameSetup';
 import Multiplayer from './pages/game/gametypes/multiplayer';
 import Lobby from './pages/game/lobby';
+import GuestMatchmaking from './pages/game/guestMatchmaking';
 
 function App() {
  return (
@@ -37,6 +38,7 @@ function App() {
     <Route path="/game" element={<GameSetup />} />
     <Route path="/lobby" element={<Lobby />} />
     <Route path="/multiplayer" element={<Multiplayer />} />
+    <Route path="/guest-matchmaking" element={<GuestMatchmaking />} />
   </Routes>
  );
 }

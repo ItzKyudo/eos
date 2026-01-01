@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom'; 
+import { io, Socket } from 'socket.io-client';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
 import { BOARD_COLUMNS } from '../utils/gameUtils'; 
 import { INITIAL_POSITIONS } from '../mechanics/positions';
@@ -16,10 +17,29 @@ interface GameSyncData {
   turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
 }
 
+interface MoveData {
+  matchId: string;
+  move: {
+    gameState: Partial<Record<PieceKey, string>>;
+    currentTurn: 'player1' | 'player2';
+    moveHistory: MoveLog[];
+    capturedByP1: PieceKey[];
+    capturedByP2: PieceKey[];
+    winner: Winner;
+    turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
+    hasMoved: Record<string, boolean>;
+    mandatoryMoveUsed: boolean;
+  };
+  playerId?: string;
+}
+
 const Multiplayer: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const myRole = (searchParams.get('role') as 'player1' | 'player2') || 'player1';
+  const matchId = searchParams.get('matchId');
+  const isGuest = searchParams.get('guest') === 'true';
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
   const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
@@ -42,15 +62,193 @@ const Multiplayer: React.FC = () => {
   const sideWidth = 'w-16';       
   const [p1Time, setP1Time] = useState(600);
   const [p2Time, setP2Time] = useState(600);
+  const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
 
   const perspective = myRole; 
+  
+  // Socket connection for guest matches
+  useEffect(() => {
+    if (!isGuest || !matchId) return;
+
+    // Use the same server URL configuration as guest matchmaking
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://192.168.0.110:3000';
+    const newSocket = io(serverUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      console.log('✅ Connected to game server:', newSocket.id);
+      console.log('📍 Device info:', {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        socketId: newSocket.id,
+        matchId: matchId,
+        myRole: myRole,
+      });
+      // Join the game room
+      newSocket.emit('joinGame', { matchId });
+      // Assume opponent is connected initially (will be updated by events)
+      setOpponentConnected(true);
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Reconnected to game server after ${attemptNumber} attempts`);
+      newSocket.emit('joinGame', { matchId });
+    });
+
+    newSocket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}`);
+    });
+
+    newSocket.on('reconnect_error', (error) => {
+      console.error('❌ Reconnection error:', error);
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      console.error('❌ Reconnection failed after all attempts');
+    });
+
+    newSocket.on('moveMade', (data: MoveData) => {
+      // Receive move from opponent
+      console.log('📥 Move received from opponent:', {
+        playerId: data.playerId,
+        mySocketId: newSocket.id,
+        isFromOpponent: data.playerId !== newSocket.id,
+      });
+      
+      if (data.move && data.playerId !== newSocket.id) {
+        const move = data.move;
+        console.log('✅ Applying opponent move to local state');
+        setGameState(move.gameState);
+        setCurrentTurn(move.currentTurn);
+        setMoveHistory(move.moveHistory);
+        setCapturedByP1(move.capturedByP1);
+        setCapturedByP2(move.capturedByP2);
+        setWinner(move.winner);
+        setHasMoved(move.hasMoved || {});
+        setMandatoryMoveUsed(move.mandatoryMoveUsed || false);
+        
+        if (move.currentTurn === myRole) {
+          if (move.turnPhase === 'locked') {
+            setTurnPhase('locked');
+          } else if (move.turnPhase === 'mandatory_move') {
+            setTurnPhase('mandatory_move');
+          } else {
+            setTurnPhase('select');
+          }
+        } else {
+          setTurnPhase('locked');
+        }
+      } else {
+        console.log('⚠️ Ignoring move - from self or invalid data');
+      }
+    });
+
+    newSocket.on('moveConfirmed', (data: MoveData) => {
+      // Move was confirmed by server (for guest matches, this is just confirmation)
+      console.log('Move confirmed:', data);
+    });
+
+    newSocket.on('error', (data) => {
+      console.error('Socket error:', data);
+    });
+
+    newSocket.on('playerJoined', (data: { socketId: string }) => {
+      console.log('✅ Opponent joined the game:', data.socketId);
+      setOpponentConnected(true);
+    });
+
+    newSocket.on('playerLeft', (data: { socketId: string }) => {
+      console.log('⚠️ Opponent left the game:', data.socketId);
+      setOpponentConnected(false);
+    });
+
+    newSocket.on('opponentDisconnected', (data: { matchId: string; reason: string; message: string }) => {
+      console.log('⚠️ Opponent disconnected event received:', data);
+      console.log('📍 Current matchId:', matchId, 'Event matchId:', data.matchId);
+      
+      // Only process if this event is for our current match
+      if (data.matchId !== matchId) {
+        console.log('⚠️ Ignoring opponentDisconnected event - matchId mismatch');
+        return;
+      }
+      
+      console.log('📍 Current state before update:', { myRole, winner, opponentConnected });
+      
+      setOpponentConnected(false);
+      // Set the current player as the winner since opponent disconnected
+      setWinner(myRole);
+      setTurnPhase('locked');
+      
+      console.log(`🏆 Game over! ${myRole === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} wins by opponent disconnect`);
+      console.log('📍 Winner state set to:', myRole);
+    });
+
+    newSocket.on('playerHeartbeatPong', () => {
+      // Server confirmed our heartbeat
+      // Connection is alive
+    });
+
+    // Set up periodic heartbeat ping (every 5 seconds)
+    const heartbeatInterval = setInterval(() => {
+      if (newSocket.connected && matchId) {
+        newSocket.emit('playerHeartbeat', { matchId });
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      if (newSocket) {
+        console.log('🧹 Cleaning up socket connection');
+        newSocket.disconnect();
+      }
+    };
+  }, [isGuest, matchId, myRole]);
+
+  // BroadcastChannel for local multiplayer (non-guest)
   const broadcastUpdate = (data: GameSyncData) => {
-    const channel = new BroadcastChannel('eos_game_sync');
-    channel.postMessage(data);
-    channel.close();
+    if (isGuest && socket && matchId) {
+      // Send move via socket for guest matches
+      if (socket.connected) {
+        console.log('📤 Sending move to server:', {
+          matchId,
+          currentTurn: data.currentTurn,
+          moveHistoryLength: data.moveHistory.length,
+          socketId: socket.id,
+        });
+        socket.emit('makeMove', {
+          matchId,
+          move: {
+            gameState: data.gameState,
+            currentTurn: data.currentTurn,
+            moveHistory: data.moveHistory,
+            capturedByP1: data.capturedByP1,
+            capturedByP2: data.capturedByP2,
+            winner: data.winner,
+            turnPhase: data.turnPhase,
+            hasMoved,
+            mandatoryMoveUsed,
+          },
+        });
+      } else {
+        console.error('❌ Cannot send move - socket not connected');
+      }
+    } else {
+      // Use BroadcastChannel for local matches
+      const channel = new BroadcastChannel('eos_game_sync');
+      channel.postMessage(data);
+      channel.close();
+    }
   };
 
   useEffect(() => {
+    if (isGuest) return; // Skip BroadcastChannel for guest matches
+
     const channel = new BroadcastChannel('eos_game_sync');
     
     channel.onmessage = (event) => {
@@ -75,7 +273,7 @@ const Multiplayer: React.FC = () => {
     };
 
     return () => channel.close();
-  }, [myRole]);
+  }, [myRole, isGuest]);
   useEffect(() => {
     if (winner) return;
     const timer = setInterval(() => {
@@ -384,15 +582,24 @@ const Multiplayer: React.FC = () => {
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
         
-        <div className="absolute top-4 left-4 z-50 flex gap-2">
-           <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${myRole === 'player1' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-blue-900 border-blue-600 text-blue-100'}`}>
-             <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
-             PLAYING AS: {myRole === 'player1' ? 'PLAYER 1 (BOTTOM)' : 'PLAYER 2 (TOP)'}
-           </div>
-           
-           <button onClick={() => navigate('/')} className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs">
-             Quit
-           </button>
+        <div className="absolute top-4 left-4 z-50 flex gap-2 flex-col">
+          <div className="flex gap-2">
+            <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${myRole === 'player1' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-blue-900 border-blue-600 text-blue-100'}`}>
+              <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
+              PLAYING AS: {myRole === 'player1' ? 'PLAYER 1 (BOTTOM)' : 'PLAYER 2 (TOP)'}
+            </div>
+            
+            <button onClick={() => navigate('/')} className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs">
+              Quit
+            </button>
+          </div>
+          
+          {isGuest && (
+            <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
+              <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+              OPPONENT: {opponentConnected ? 'CONNECTED' : 'DISCONNECTED'}
+            </div>
+          )}
         </div>
         {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">

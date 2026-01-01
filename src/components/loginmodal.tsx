@@ -50,9 +50,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             <div className="text-[10px] bg-white/20 px-2 py-1 rounded uppercase tracking-widest">Ranked</div>
           </button>
 
-          {/* Guest Option - Redirects to /board */}
+          {/* Guest Option - Redirects to guest matchmaking */}
           <button 
-            onClick={() => navigate('/board')}
+            onClick={() => navigate('/guest-matchmaking')}
             className="flex items-center justify-between group bg-[#312e2b] hover:bg-[#3d3935] text-white p-6 rounded-2xl font-bold text-xl transition-all border-b-4 border-black/60 active:border-b-0 active:translate-y-1"
           >
             <div className="flex items-center gap-4">
