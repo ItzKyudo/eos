@@ -92,8 +92,9 @@ const Multiplayer: React.FC = () => {
       });
       // Join the game room
       newSocket.emit('joinGame', { matchId });
-      // Assume opponent is connected initially (will be updated by events)
-      setOpponentConnected(true);
+      // Don't assume opponent is connected - wait for playerJoined event
+      // This will be set to true when we receive playerJoined event from server
+      setOpponentConnected(false);
     });
 
     newSocket.on('reconnect', (attemptNumber) => {
