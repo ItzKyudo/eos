@@ -66,9 +66,9 @@ const Matchmaking: React.FC = () => {
             setStatus('Connected! Searching for ranked opponent...');
             setIsSearching(true);
 
-            // Join matchmaking queue with token
-            console.log('📤 Emitting joinQueue with token...');
-            newSocket.emit('joinQueue', { token });
+            // Join matchmaking queue with token and time control
+            console.log('📤 Emitting joinQueue with token and time:', selectedTime);
+            newSocket.emit('joinQueue', { token, timeControl: selectedTime });
         };
 
         const handleQueued = (data: any) => {

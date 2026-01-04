@@ -63,9 +63,9 @@ const GuestMatchmaking: React.FC = () => {
       setStatus('Connected! Searching for opponent...');
       setIsSearching(true);
 
-      // Join guest queue
-      console.log('📤 Emitting joinQueue...');
-      newSocket.emit('joinQueue', {});
+      // Join guest queue with time control
+      console.log('📤 Emitting joinQueue with time:', selectedTime);
+      newSocket.emit('joinQueue', { timeControl: selectedTime });
     };
 
     const handleQueued = (data: any) => {
