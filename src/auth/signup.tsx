@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '../images/logo.png';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 
 const Register: React.FC = () => {
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +17,7 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/create-account/', {
+      const response = await fetch('http://localhost:3000/api/create-account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,8 +37,7 @@ const Register: React.FC = () => {
       const data = await response.json();
       console.log('Account created:', data);
 
-      // TODO :> NAVIGATE LOGIN OR HOMEPAGE IF REGISTERED
-      // navigate('/login');
+      navigate('/login');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -59,7 +59,7 @@ const Register: React.FC = () => {
               <img src={logoImg} alt="EOS Logo" className="w-16 h-16 rounded-2xl mb-8" />
             </Link>
             <h2 className="text-4xl font-black text-white leading-tight tracking-tighter mb-4">
-              JOIN THE <br /> 
+              JOIN THE <br />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-[#e63e3e] to-[#2c4dbd]">
                 ELITE.
               </span>
