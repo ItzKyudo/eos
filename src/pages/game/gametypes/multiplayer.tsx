@@ -40,6 +40,8 @@ const Multiplayer: React.FC = () => {
   const matchId = searchParams.get('matchId');
   const userId = searchParams.get('userId');
   const isGuest = searchParams.get('guest') === 'true';
+  const initialTime = parseInt(searchParams.get('time') || '600');
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
@@ -61,8 +63,8 @@ const Multiplayer: React.FC = () => {
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
   const sideWidth = 'w-16';
-  const [p1Time, setP1Time] = useState(600);
-  const [p2Time, setP2Time] = useState(600);
+  const [p1Time, setP1Time] = useState(initialTime);
+  const [p2Time, setP2Time] = useState(initialTime);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
 
   const perspective = myRole;

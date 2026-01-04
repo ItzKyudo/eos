@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import Sidebar from '../../components/sidebar';
 
@@ -10,6 +10,14 @@ const SOCKET_CREATION_LOCK_DURATION = 2000; // 2 second lock to prevent duplicat
 
 const GuestMatchmaking: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedTime = parseInt(searchParams.get('time') || '600');
+
+  const getModeLabel = (time: number) => {
+    if (time === 60) return 'Bullet (1m)';
+    if (time === 300) return 'Blitz (5m)';
+    return 'Rapid (10m)';
+  };
   const [socket, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<string>('Connecting...');
   const [isSearching, setIsSearching] = useState(false);
@@ -80,7 +88,7 @@ const GuestMatchmaking: React.FC = () => {
       if (data && data.yourRole && data.matchId) {
         // Use userId from server if available (for reconnection reliability)
         const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
-        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}`;
+        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}&time=${selectedTime}`;
         console.log('🚀 Navigating to game:', gameUrl);
         console.log('📍 Current location:', window.location.pathname);
 
@@ -197,7 +205,7 @@ const GuestMatchmaking: React.FC = () => {
               <div className="w-24 h-24 mx-auto mb-6 bg-[#2c4dbd]/20 rounded-full flex items-center justify-center">
                 <div className="w-16 h-16 border-4 border-[#2c4dbd] border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <h1 className="text-4xl font-extrabold text-white mb-4">Finding Opponent</h1>
+              <h1 className="text-4xl font-extrabold text-white mb-4">Finding {getModeLabel(selectedTime)} Match</h1>
               <p className="text-xl text-gray-400 mb-2">{status}</p>
               {isSearching && (
                 <>
