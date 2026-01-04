@@ -592,7 +592,16 @@ const Multiplayer: React.FC = () => {
               PLAYING AS: {myRole === 'player1' ? 'PLAYER 1 (BOTTOM)' : 'PLAYER 2 (TOP)'}
             </div>
 
-            <button onClick={() => navigate('/')} className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs">
+            <button
+              onClick={() => {
+                if (socket && matchId) {
+                  console.log('🏳️ Quitting game...');
+                  socket.emit('leaveGame', { matchId });
+                }
+                navigate('/');
+              }}
+              className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs"
+            >
               Quit
             </button>
           </div>
