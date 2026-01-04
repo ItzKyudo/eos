@@ -249,6 +249,12 @@ const Multiplayer: React.FC = () => {
     newSocket.on('gameState', (state: any) => {
       console.log('📥 Received game state sync:', state);
 
+      // Sync Presence
+      if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
+        // If more than 1 player is online, opponent must be online (in 1v1)
+        setOpponentConnected(state.onlinePlayers.length > 1);
+      }
+
       // If we have full state from memory (state.lastMove has the board)
       if (state.lastMove) {
         const m = state.lastMove;
