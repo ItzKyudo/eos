@@ -71,24 +71,35 @@ const Multiplayer: React.FC = () => {
 
   // Socket connection for all multiplayer matches (guest and authenticated)
   useEffect(() => {
-    if (!matchId) return;
+    console.log('🔄 Game Page Mounted. Params:', { matchId, isGuest, userId, initialTime });
+
+    if (!matchId) {
+      console.warn('⚠️ No matchId provided, skipping socket connection');
+      return;
+    }
 
     // Use the same server URL configuration as guest matchmaking
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+    console.log('🔌 Attempting to connect to game socket at:', serverUrl);
+
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      forceNew: true, // Force a new connection to avoid reusing the disconnected matchmaking socket
       auth: {
         token: localStorage.getItem('token')
       }
     });
 
     setSocket(newSocket);
+    // Helper to visualize connection state
+    (window as any).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to game server:', newSocket.id);
+      (window as any).gameStateDebug.status = 'Connected';
       console.log('📍 Device info:', {
         userAgent: navigator.userAgent,
         platform: navigator.platform,
@@ -98,10 +109,15 @@ const Multiplayer: React.FC = () => {
         userId: userId,
       });
       // Join the game room
+      console.log('🚪 Emitting joinGame:', { matchId, userId });
       newSocket.emit('joinGame', { matchId, userId });
       // Don't assume opponent is connected - wait for playerJoined event
       // This will be set to true when we receive playerJoined event from server
       setOpponentConnected(false);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('❌ Connection error:', err.message);
     });
 
     newSocket.on('reconnect', (attemptNumber) => {
@@ -736,6 +752,15 @@ const Multiplayer: React.FC = () => {
         canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />
+
+      {/* Debug Connection Status */}
+      {matchId && (
+        <div className="fixed bottom-4 left-4 bg-black/80 text-white p-2 rounded text-xs z-50 pointer-events-none">
+          Status: {socket?.connected ? '✅ Connected' : '⏳ Connecting...'} <br />
+          Socket ID: {socket ? socket.id : 'None'} <br />
+          Match ID: {matchId.substring(0, 8)}...
+        </div>
+      )}
     </div>
   );
 };
