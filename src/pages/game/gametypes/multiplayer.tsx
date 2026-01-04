@@ -197,6 +197,16 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(true);
     });
 
+    newSocket.on('playerReconnected', (data: { socketId: string; userId: string }) => {
+      console.log('🔄 Opponent reconnected:', data);
+      setOpponentConnected(true);
+    });
+
+    newSocket.on('playerDisconnected', (data: { socketId: string; userId: string }) => {
+      console.log('⚠️ Opponent disconnected (waiting for reconnect):', data);
+      setOpponentConnected(false);
+    });
+
     newSocket.on('playerLeft', (data: { socketId: string }) => {
       console.log('⚠️ Opponent left the game:', data.socketId);
       setOpponentConnected(false);
