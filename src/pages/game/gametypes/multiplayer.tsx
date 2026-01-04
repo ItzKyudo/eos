@@ -118,6 +118,13 @@ const Multiplayer: React.FC = () => {
 
     newSocket.on('connect_error', (err) => {
       console.error('❌ Connection error:', err.message);
+      (window as any).gameStateDebug.status = 'Error: ' + err.message;
+    });
+
+    newSocket.on('error', (err: any) => {
+      console.error('❌ Server Application Error:', err);
+      (window as any).gameStateDebug.status = 'Server Error: ' + (err.message || 'Unknown');
+      alert('Game Server Error: ' + (err.message || 'Unknown error'));
     });
 
     newSocket.on('reconnect', (attemptNumber) => {
