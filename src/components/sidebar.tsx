@@ -30,7 +30,7 @@ const Sidebar: React.FC = () => {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-4 w-full px-2">
-          {(location.pathname !== '/' || isLoggedIn) && (
+          {isLoggedIn && (
             <SidebarItem
               to="/game"
               icon={<Play size={24} className="ml-0.5" />}
