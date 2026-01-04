@@ -86,12 +86,14 @@ const Matchmaking: React.FC = () => {
                 const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
                 // guest=false is default or explicit
                 const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}&time=${selectedTime}`;
+                console.log('🚀 Authenticated user navigating to:', gameUrl);
 
                 // Clean up socket BEFORE navigating to allow game page to open its own socket
                 newSocket.removeAllListeners();
                 newSocket.disconnect();
 
                 setTimeout(() => {
+                    console.log('⏱️ Timeout finished, executing navigate');
                     navigate(gameUrl);
                 }, 100);
             }
