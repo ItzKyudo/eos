@@ -346,9 +346,99 @@ const Multiplayer: React.FC = () => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
+  const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+    const newGameState = { ...gameState, [pieceId]: targetCoord };
+    const newHasMoved = { ...hasMoved, [pieceId]: true };
+
+    const newMove: MoveLog = {
+      player: currentTurn,
+      pieceName: PIECE_MOVEMENTS[pieceId].name,
+      pieceId: pieceId,
+      from: gameState[pieceId]!,
+      to: targetCoord,
+      turnNumber: moveHistory.length + 1
+    };
+    const newHistory = [...moveHistory, newMove];
+
+    const wasFirstMove = !hasMoved[pieceId];
+    let attacks: string[] = [];
+
+    if (turnPhase === 'action') {
+      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
+    } else if (turnPhase === 'mandatory_move') {
+      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false);
+    }
+
+    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
+    const nextTurn = currentTurn;
+
+    if (attacks.length > 0) {
+      nextPhase = 'mandatory_move';
+    } else {
+      nextPhase = 'locked';
+    }
+
+    setGameState(newGameState);
+    setHasMoved(newHasMoved);
+    setMandatoryMoveUsed(true);
+    setMoveHistory(newHistory);
+    setValidMoves([]);
+    setValidAttacks(attacks);
+    setTurnPhase(nextPhase);
+    setCurrentTurn(nextTurn);
+    // Clear active piece locally after move
+    setActivePiece(null);
+
+    broadcastUpdate({
+      gameState: newGameState,
+      currentTurn: nextTurn,
+      moveHistory: newHistory,
+      capturedByP1: capturedByP1,
+      capturedByP2: capturedByP2,
+      winner: winner,
+      turnPhase: nextPhase
+    });
+  };
+
+  const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDragging || !activePiece) return;
+    setIsDragging(false);
+
+    let clientX, clientY;
+    if ('changedTouches' in e) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
+    }
+
+    const elementUnderMouse = document.elementFromPoint(clientX, clientY);
+    const tile = elementUnderMouse?.closest('[data-tile]');
+
+    if (tile) {
+      const targetCoord = tile.getAttribute('data-tile');
+
+      if (targetCoord && validMoves.includes(targetCoord)) {
+        // Execute Move via shared function
+        executeMove(activePiece, targetCoord);
+      } else {
+        // Invalid Drop: Reset if needed, or just let Drag end
+        // Current logic just stops dragging. Selection might persist (handled elsewhere).
+      }
+    }
+  }, [isDragging, activePiece, gameState, validMoves, currentTurn, hasMoved, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
+
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
     if (currentTurn !== myRole) return;
+
+    // Tap-to-Move: If tapping a valid destination for the active piece
+    if (activePiece && validMoves.includes(coordinate)) {
+      executeMove(activePiece, coordinate);
+      return;
+    }
+
     if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
     const pieceId = getPieceAtTile(coordinate);
     if (activePiece && pieceId === activePiece) {
@@ -471,80 +561,7 @@ const Multiplayer: React.FC = () => {
     });
   };
 
-  const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging || !activePiece) return;
-    setIsDragging(false);
 
-    let clientX, clientY;
-    if ('changedTouches' in e) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    } else {
-      clientX = (e as MouseEvent).clientX;
-      clientY = (e as MouseEvent).clientY;
-    }
-
-    const elementUnderMouse = document.elementFromPoint(clientX, clientY);
-    const tile = elementUnderMouse?.closest('[data-tile]');
-
-    if (tile) {
-      const targetCoord = tile.getAttribute('data-tile');
-      const currentCoord = gameState[activePiece];
-
-      if (targetCoord && validMoves.includes(targetCoord)) {
-
-        const newGameState = { ...gameState, [activePiece]: targetCoord };
-        const newHasMoved = { ...hasMoved, [activePiece]: true };
-
-        const newMove: MoveLog = {
-          player: currentTurn,
-          pieceName: PIECE_MOVEMENTS[activePiece].name,
-          pieceId: activePiece,
-          from: currentCoord!,
-          to: targetCoord,
-          turnNumber: moveHistory.length + 1
-        };
-        const newHistory = [...moveHistory, newMove];
-
-        const wasFirstMove = !hasMoved[activePiece];
-        let attacks: string[] = [];
-
-        if (turnPhase === 'action') {
-          attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
-        } else if (turnPhase === 'mandatory_move') {
-          attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', false);
-        }
-
-        let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-        const nextTurn = currentTurn;
-
-        if (attacks.length > 0) {
-          nextPhase = 'mandatory_move';
-        } else {
-          nextPhase = 'locked';
-        }
-
-        setGameState(newGameState);
-        setHasMoved(newHasMoved);
-        setMandatoryMoveUsed(true);
-        setMoveHistory(newHistory);
-        setValidMoves([]);
-        setValidAttacks(attacks);
-        setTurnPhase(nextPhase);
-        setCurrentTurn(nextTurn);
-
-        broadcastUpdate({
-          gameState: newGameState,
-          currentTurn: nextTurn,
-          moveHistory: newHistory,
-          capturedByP1: capturedByP1,
-          capturedByP2: capturedByP2,
-          winner: winner,
-          turnPhase: nextPhase
-        });
-      }
-    }
-  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, moveHistory, capturedByP1, capturedByP2, winner]);
 
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
