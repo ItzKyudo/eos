@@ -84,8 +84,11 @@ const Matchmaking: React.FC = () => {
             if (data && data.yourRole && data.matchId) {
                 // userId is optional here since we are auth'd, but good to have
                 const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
+                const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
+                const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
+
                 // guest=false is default or explicit
-                const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}&time=${selectedTime}`;
+                const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}${myNameParam}${opponentNameParam}&time=${selectedTime}`;
                 console.log('🚀 Authenticated user navigating to:', gameUrl);
 
                 // Clean up socket BEFORE navigating to allow game page to open its own socket

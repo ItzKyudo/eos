@@ -41,6 +41,8 @@ const Multiplayer: React.FC = () => {
   const userId = searchParams.get('userId');
   const isGuest = searchParams.get('guest') === 'true';
   const initialTime = parseInt(searchParams.get('time') || '600');
+  const myUsername = searchParams.get('myName') || (isGuest ? 'Guest' : 'You');
+  const opponentUsername = searchParams.get('opponentName') || 'Opponent';
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -49,6 +51,7 @@ const Multiplayer: React.FC = () => {
   const [capturedByP2, setCapturedByP2] = useState<PieceKey[]>([]);
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
+  const [gameEndReason, setGameEndReason] = useState<string | null>(null);
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
@@ -218,6 +221,18 @@ const Multiplayer: React.FC = () => {
 
       console.log(`🏆 Game over! ${myRole === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} wins by opponent disconnect`);
       console.log('📍 Winner state set to:', myRole);
+    });
+
+    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
+      console.log('🏁 Game Ended event:', data);
+      if (matchId && data.matchId !== matchId) return;
+
+      setWinner(data.winner);
+      setGameEndReason(data.reason);
+      setTurnPhase('locked');
+      if (data.reason === 'opponent_disconnect') {
+        setOpponentConnected(false);
+      }
     });
 
     /* 📥 SYNC HANDLER */
@@ -667,7 +682,7 @@ const Multiplayer: React.FC = () => {
           <div className="flex gap-2">
             <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${myRole === 'player1' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-blue-900 border-blue-600 text-blue-100'}`}>
               <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
-              PLAYING AS: {myRole === 'player1' ? 'PLAYER 1 (BOTTOM)' : 'PLAYER 2 (TOP)'}
+              {myUsername} ({myRole === 'player1' ? 'P1' : 'P2'})
             </div>
 
             <button
@@ -684,16 +699,16 @@ const Multiplayer: React.FC = () => {
             </button>
           </div>
 
-          {isGuest && (
-            <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
-              <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-              OPPONENT: {opponentConnected ? 'CONNECTED' : 'DISCONNECTED'}
-            </div>
-          )}
+          <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
+            <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+            {opponentUsername}: {opponentConnected ? 'ONLINE' : 'OFFLINE'}
+          </div>
         </div>
         {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
             GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
+            {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
+            {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
           </div>
         )}
 
