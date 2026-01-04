@@ -38,12 +38,14 @@ const Sidebar: React.FC = () => {
               active={location.pathname === '/game'}
             />
           )}
-          <SidebarItem
-            to="/profile"
-            icon={<User2 size={24} />}
-            label="Profile"
-            active={location.pathname === '/profile'}
-          />
+          {isLoggedIn && (
+            <SidebarItem
+              to="/profile"
+              icon={<User2 size={24} />}
+              label="Profile"
+              active={location.pathname === '/profile'}
+            />
+          )}
           <SidebarItem
             to="/puzzle"
             icon={<Search size={24} />}
@@ -56,12 +58,14 @@ const Sidebar: React.FC = () => {
             label="Learn"
             active={location.pathname === '/learn'}
           />
-          <SidebarItem
-            to="/social"
-            icon={<Users size={24} />}
-            label="Social"
-            active={location.pathname === '/social'}
-          />
+          {isLoggedIn && (
+            <SidebarItem
+              to="/social"
+              icon={<Users size={24} />}
+              label="Social"
+              active={location.pathname === '/social'}
+            />
+          )}
           <SidebarItem
             to="/market"
             icon={<ShoppingCart size={24} />}
@@ -72,12 +76,14 @@ const Sidebar: React.FC = () => {
 
         {/* Footer */}
         <div className="mt-auto w-full px-2 mb-2">
-          <SidebarItem
-            to="/settings"
-            icon={<Settings size={24} />}
-            label="Settings"
-            active={location.pathname === '/settings'}
-          />
+          {isLoggedIn && (
+            <SidebarItem
+              to="/settings"
+              icon={<Settings size={24} />}
+              label="Settings"
+              active={location.pathname === '/settings'}
+            />
+          )}
         </div>
       </aside>
     </>
