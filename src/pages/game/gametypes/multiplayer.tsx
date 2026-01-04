@@ -52,6 +52,8 @@ const Multiplayer: React.FC = () => {
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
   const [gameEndReason, setGameEndReason] = useState<string | null>(null);
+  const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
+  const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
@@ -255,6 +257,18 @@ const Multiplayer: React.FC = () => {
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
 
+      // Sync Disconnect Timer
+      if (state.players && Array.isArray(state.players)) {
+        // Identify opponent (anyone who is not me)
+        // Since 'userId' is available from searchParams (Step 557 line 44)
+        const op = state.players.find((p: any) => String(p.userId) !== String(userId));
+        if (op && op.disconnectedAt) {
+          setOpponentDisconnectTime(op.disconnectedAt);
+        } else {
+          setOpponentDisconnectTime(null);
+        }
+      }
+
       // If we have full state from memory (state.lastMove has the board)
       if (state.lastMove) {
         const m = state.lastMove;
@@ -373,6 +387,28 @@ const Multiplayer: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
+
+  // Disconnect Timer Effect
+  useEffect(() => {
+    if (!opponentDisconnectTime) {
+      setDisconnectTimerStr('');
+      return;
+    }
+    const updateTimer = () => {
+      const diff = 300000 - (Date.now() - opponentDisconnectTime); // 5 mins
+      if (diff <= 0) {
+        setDisconnectTimerStr('00:00');
+      } else {
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setDisconnectTimerStr(`${m}:${s.toString().padStart(2, '0')}`);
+      }
+    };
+    updateTimer(); // Initial call
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [opponentDisconnectTime]);
+
   const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
@@ -718,6 +754,11 @@ const Multiplayer: React.FC = () => {
           <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
             <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
             {opponentUsername}: {opponentConnected ? 'ONLINE' : 'OFFLINE'}
+            {!opponentConnected && disconnectTimerStr && (
+              <span className="ml-2 text-yellow-300 font-mono">
+                ({disconnectTimerStr})
+              </span>
+            )}
           </div>
         </div>
         {winner && (
