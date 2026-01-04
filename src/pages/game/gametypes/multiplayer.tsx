@@ -220,6 +220,34 @@ const Multiplayer: React.FC = () => {
       console.log('📍 Winner state set to:', myRole);
     });
 
+    /* 📥 SYNC HANDLER */
+    newSocket.on('gameState', (state: any) => {
+      console.log('📥 Received game state sync:', state);
+
+      // If we have full state from memory (state.lastMove has the board)
+      if (state.lastMove) {
+        const m = state.lastMove;
+        if (m.gameState) setGameState(m.gameState); // Board
+        if (state.moves) setMoveHistory(state.moves);
+        if (state.currentTurn) setCurrentTurn(state.currentTurn);
+        if (state.p1Time) setP1Time(state.p1Time);
+        if (state.p2Time) setP2Time(state.p2Time);
+        if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
+        if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
+
+        // Re-evaluate check/mate via local logic if needed, or trust server state
+      }
+      // Fallback for DB rehydration (raw moves only)
+      else if (state.rehydratedFromDB) {
+        // Warning: Board state is missing! 
+        // We can set move history list, but board is empty.
+        // Client will need logic to "Forward Play" moves to get board.
+        // Currently not implemented. Best effort.
+        if (state.moves) setMoveHistory(state.moves);
+        console.warn('⚠️ Synced from DB History only - Board state may be desynced until next move');
+      }
+    });
+
     newSocket.on('playerHeartbeatPong', () => {
       // Server confirmed our heartbeat
       // Connection is alive
