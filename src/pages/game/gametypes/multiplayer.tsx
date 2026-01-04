@@ -72,7 +72,7 @@ const Multiplayer: React.FC = () => {
     if (!isGuest || !matchId) return;
 
     // Use the same server URL configuration as guest matchmaking
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
