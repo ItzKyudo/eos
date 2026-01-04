@@ -435,6 +435,10 @@ const Multiplayer: React.FC = () => {
 
     // Tap-to-Move: If tapping a valid destination for the active piece
     if (activePiece && validMoves.includes(coordinate)) {
+      console.log('👆 Tap-to-Move detected:', coordinate);
+      // Prevent phantom mouse events on touch devices to avoid double-execution
+      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+
       executeMove(activePiece, coordinate);
       return;
     }
