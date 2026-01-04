@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom'; 
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
-import { BOARD_COLUMNS } from '../utils/gameUtils'; 
+import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
@@ -38,40 +38,41 @@ const Multiplayer: React.FC = () => {
   const navigate = useNavigate();
   const myRole = (searchParams.get('role') as 'player1' | 'player2') || 'player1';
   const matchId = searchParams.get('matchId');
+  const userId = searchParams.get('userId');
   const isGuest = searchParams.get('guest') === 'true';
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
   const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
-  const [capturedByP2, setCapturedByP2] = useState<PieceKey[]>([]); 
+  const [capturedByP2, setCapturedByP2] = useState<PieceKey[]>([]);
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
-  const [validMoves, setValidMoves] = useState<string[]>([]);    
+  const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
   const ghostRef = useRef<HTMLDivElement>(null);
   const [boardScale, setBoardScale] = useState(0.65);
-  const circleSize = "w-17 h-17"; 
-  const rowHeight = "h-12";       
-  const gridWidth = 'w-[900px]';  
-  const sideWidth = 'w-16';       
+  const circleSize = "w-17 h-17";
+  const rowHeight = "h-12";
+  const gridWidth = 'w-[900px]';
+  const sideWidth = 'w-16';
   const [p1Time, setP1Time] = useState(600);
   const [p2Time, setP2Time] = useState(600);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
 
-  const perspective = myRole; 
-  
+  const perspective = myRole;
+
   // Socket connection for guest matches
   useEffect(() => {
     if (!isGuest || !matchId) return;
 
     // Use the same server URL configuration as guest matchmaking
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://192.168.0.110:3000';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -89,9 +90,10 @@ const Multiplayer: React.FC = () => {
         socketId: newSocket.id,
         matchId: matchId,
         myRole: myRole,
+        userId: userId,
       });
       // Join the game room
-      newSocket.emit('joinGame', { matchId });
+      newSocket.emit('joinGame', { matchId, userId });
       // Don't assume opponent is connected - wait for playerJoined event
       // This will be set to true when we receive playerJoined event from server
       setOpponentConnected(false);
@@ -99,7 +101,7 @@ const Multiplayer: React.FC = () => {
 
     newSocket.on('reconnect', (attemptNumber) => {
       console.log(`🔄 Reconnected to game server after ${attemptNumber} attempts`);
-      newSocket.emit('joinGame', { matchId });
+      newSocket.emit('joinGame', { matchId, userId });
     });
 
     newSocket.on('reconnect_attempt', (attemptNumber) => {
@@ -121,7 +123,7 @@ const Multiplayer: React.FC = () => {
         mySocketId: newSocket.id,
         isFromOpponent: data.playerId !== newSocket.id,
       });
-      
+
       if (data.move && data.playerId !== newSocket.id) {
         const move = data.move;
         console.log('✅ Applying opponent move to local state');
@@ -133,7 +135,7 @@ const Multiplayer: React.FC = () => {
         setWinner(move.winner);
         setHasMoved(move.hasMoved || {});
         setMandatoryMoveUsed(move.mandatoryMoveUsed || false);
-        
+
         if (move.currentTurn === myRole) {
           if (move.turnPhase === 'locked') {
             setTurnPhase('locked');
@@ -172,20 +174,20 @@ const Multiplayer: React.FC = () => {
     newSocket.on('opponentDisconnected', (data: { matchId: string; reason: string; message: string }) => {
       console.log('⚠️ Opponent disconnected event received:', data);
       console.log('📍 Current matchId:', matchId, 'Event matchId:', data.matchId);
-      
+
       // Only process if this event is for our current match
       if (data.matchId !== matchId) {
         console.log('⚠️ Ignoring opponentDisconnected event - matchId mismatch');
         return;
       }
-      
+
       console.log('📍 Current state before update:', { myRole, winner, opponentConnected });
-      
+
       setOpponentConnected(false);
       // Set the current player as the winner since opponent disconnected
       setWinner(myRole);
       setTurnPhase('locked');
-      
+
       console.log(`🏆 Game over! ${myRole === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} wins by opponent disconnect`);
       console.log('📍 Winner state set to:', myRole);
     });
@@ -251,7 +253,7 @@ const Multiplayer: React.FC = () => {
     if (isGuest) return; // Skip BroadcastChannel for guest matches
 
     const channel = new BroadcastChannel('eos_game_sync');
-    
+
     channel.onmessage = (event) => {
       const data = event.data as GameSyncData;
       setGameState(data.gameState);
@@ -261,15 +263,15 @@ const Multiplayer: React.FC = () => {
       setCapturedByP2(data.capturedByP2);
       setWinner(data.winner);
       if (data.currentTurn === myRole) {
-         if (data.turnPhase === 'locked') {
-             setTurnPhase('locked');
-         } else if (data.turnPhase === 'mandatory_move') {
-             setTurnPhase('mandatory_move');
-         } else {
-             setTurnPhase('select');
-         }
+        if (data.turnPhase === 'locked') {
+          setTurnPhase('locked');
+        } else if (data.turnPhase === 'mandatory_move') {
+          setTurnPhase('mandatory_move');
+        } else {
+          setTurnPhase('select');
+        }
       } else {
-         setTurnPhase('locked');
+        setTurnPhase('locked');
       }
     };
 
@@ -278,8 +280,8 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     if (winner) return;
     const timer = setInterval(() => {
-        if (currentTurn === 'player1') setP1Time(t => Math.max(0, t - 1));
-        else setP2Time(t => Math.max(0, t - 1));
+      if (currentTurn === 'player1') setP1Time(t => Math.max(0, t - 1));
+      else setP2Time(t => Math.max(0, t - 1));
     }, 1000);
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
@@ -289,31 +291,31 @@ const Multiplayer: React.FC = () => {
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
-    if (currentTurn !== myRole) return; 
+    if (currentTurn !== myRole) return;
     if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
     const pieceId = getPieceAtTile(coordinate);
     if (activePiece && pieceId === activePiece) {
-        if (turnPhase !== 'mandatory_move') {
-            setActivePiece(null);
-            setValidMoves([]);
-            setValidAttacks([]);
-            setTurnPhase('select');
-            return;
-        }
+      if (turnPhase !== 'mandatory_move') {
+        setActivePiece(null);
+        setValidMoves([]);
+        setValidAttacks([]);
+        setTurnPhase('select');
+        return;
+      }
     } else {
-        if (!pieceId && !validMoves.includes(coordinate)) {
-            if (turnPhase === 'mandatory_move') return; 
-            setActivePiece(null);
-            setValidMoves([]);
-            setValidAttacks([]);
-            setTurnPhase('select');
-            return;
-        }
+      if (!pieceId && !validMoves.includes(coordinate)) {
+        if (turnPhase === 'mandatory_move') return;
+        setActivePiece(null);
+        setValidMoves([]);
+        setValidAttacks([]);
+        setTurnPhase('select');
+        return;
+      }
     }
 
     if (pieceId) {
-        const owner = getPieceOwner(pieceId);
-        if (owner !== myRole) return; 
+      const owner = getPieceOwner(pieceId);
+      if (owner !== myRole) return;
     }
 
     if (!pieceId) return;
@@ -323,11 +325,11 @@ const Multiplayer: React.FC = () => {
 
     let clientX, clientY;
     if ('touches' in e) {
-       clientX = e.touches[0].clientX;
-       clientY = e.touches[0].clientY;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-       clientX = (e as React.MouseEvent).clientX;
-       clientY = (e as React.MouseEvent).clientY;
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
     }
     setInitialDragPos({ x: clientX, y: clientY });
     if (turnPhase === 'select' || turnPhase === 'action') {
@@ -336,14 +338,14 @@ const Multiplayer: React.FC = () => {
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
       setValidMoves(moves);
       setValidAttacks(attacks);
-      setTurnPhase('action'); 
-    } 
+      setTurnPhase('action');
+    }
     else if (turnPhase === 'mandatory_move') {
       if (validMoves.length === 0) {
         const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
         setValidMoves(allowedMoves);
       }
-      setValidAttacks([]); 
+      setValidAttacks([]);
     }
   };
 
@@ -356,7 +358,7 @@ const Multiplayer: React.FC = () => {
     const newGameState = result.newGameState;
     const newCapturedP1 = [...capturedByP1];
     const newCapturedP2 = [...capturedByP2];
-    
+
     if (currentTurn === 'player1') newCapturedP1.push(result.capturedPieceId);
     else newCapturedP2.push(result.capturedPieceId);
 
@@ -373,22 +375,22 @@ const Multiplayer: React.FC = () => {
     const newHistory = [...moveHistory, newMove];
 
     const { attacks, moves } = getMultiCaptureOptions(
-       activePiece, 
-       newGameState[activePiece]!, 
-       newGameState as Record<string, string>,
-       mandatoryMoveUsed 
+      activePiece,
+      newGameState[activePiece]!,
+      newGameState as Record<string, string>,
+      mandatoryMoveUsed
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-    const nextTurn = currentTurn; 
+    const nextTurn = currentTurn;
 
     if (result.winner) {
-        setWinner(result.winner);
-        nextPhase = 'locked';
+      setWinner(result.winner);
+      nextPhase = 'locked';
     } else if (attacks.length > 0 || moves.length > 0) {
-        nextPhase = 'mandatory_move';
+      nextPhase = 'mandatory_move';
     } else {
-        nextPhase = 'locked'; 
+      nextPhase = 'locked';
     }
 
     setGameState(newGameState);
@@ -396,19 +398,19 @@ const Multiplayer: React.FC = () => {
     setCapturedByP2(newCapturedP2);
     setMoveHistory(newHistory);
     setValidAttacks(attacks);
-    setValidMoves(moves); 
+    setValidMoves(moves);
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
     if (result.winner) setWinner(result.winner);
 
     broadcastUpdate({
-        gameState: newGameState,
-        currentTurn: nextTurn, 
-        moveHistory: newHistory,
-        capturedByP1: newCapturedP1,
-        capturedByP2: newCapturedP2,
-        winner: result.winner,
-        turnPhase: nextPhase
+      gameState: newGameState,
+      currentTurn: nextTurn,
+      moveHistory: newHistory,
+      capturedByP1: newCapturedP1,
+      capturedByP2: newCapturedP2,
+      winner: result.winner,
+      turnPhase: nextPhase
     });
   };
 
@@ -418,51 +420,51 @@ const Multiplayer: React.FC = () => {
 
     let clientX, clientY;
     if ('changedTouches' in e) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
     } else {
-        clientX = (e as MouseEvent).clientX;
-        clientY = (e as MouseEvent).clientY;
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
     }
 
     const elementUnderMouse = document.elementFromPoint(clientX, clientY);
     const tile = elementUnderMouse?.closest('[data-tile]');
-    
+
     if (tile) {
       const targetCoord = tile.getAttribute('data-tile');
       const currentCoord = gameState[activePiece];
 
       if (targetCoord && validMoves.includes(targetCoord)) {
-        
+
         const newGameState = { ...gameState, [activePiece]: targetCoord };
         const newHasMoved = { ...hasMoved, [activePiece]: true };
-        
+
         const newMove: MoveLog = {
-            player: currentTurn,
-            pieceName: PIECE_MOVEMENTS[activePiece].name,
-            pieceId: activePiece,
-            from: currentCoord!,
-            to: targetCoord,
-            turnNumber: moveHistory.length + 1
+          player: currentTurn,
+          pieceName: PIECE_MOVEMENTS[activePiece].name,
+          pieceId: activePiece,
+          from: currentCoord!,
+          to: targetCoord,
+          turnNumber: moveHistory.length + 1
         };
         const newHistory = [...moveHistory, newMove];
 
         const wasFirstMove = !hasMoved[activePiece];
         let attacks: string[] = [];
-        
+
         if (turnPhase === 'action') {
-           attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
+          attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
         } else if (turnPhase === 'mandatory_move') {
-           attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', false);
+          attacks = getValidAttacks(activePiece, targetCoord, newGameState as Record<string, string>, 'post-move', false);
         }
 
         let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
         const nextTurn = currentTurn;
 
         if (attacks.length > 0) {
-           nextPhase = 'mandatory_move';
+          nextPhase = 'mandatory_move';
         } else {
-           nextPhase = 'locked'; 
+          nextPhase = 'locked';
         }
 
         setGameState(newGameState);
@@ -475,38 +477,38 @@ const Multiplayer: React.FC = () => {
         setCurrentTurn(nextTurn);
 
         broadcastUpdate({
-            gameState: newGameState,
-            currentTurn: nextTurn,
-            moveHistory: newHistory,
-            capturedByP1: capturedByP1,
-            capturedByP2: capturedByP2,
-            winner: winner,
-            turnPhase: nextPhase
+          gameState: newGameState,
+          currentTurn: nextTurn,
+          moveHistory: newHistory,
+          capturedByP1: capturedByP1,
+          capturedByP2: capturedByP2,
+          winner: winner,
+          turnPhase: nextPhase
         });
       }
     }
   }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, moveHistory, capturedByP1, capturedByP2, winner]);
 
   const handleSwitchTurn = () => {
-    if (currentTurn !== myRole) return; 
+    if (currentTurn !== myRole) return;
 
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
 
     setCurrentTurn(nextTurn);
-    setTurnPhase('locked'); 
+    setTurnPhase('locked');
     setActivePiece(null);
     setValidMoves([]);
     setValidAttacks([]);
     setMandatoryMoveUsed(false);
 
     broadcastUpdate({
-        gameState: gameState,
-        currentTurn: nextTurn,
-        moveHistory: moveHistory,
-        capturedByP1: capturedByP1,
-        capturedByP2: capturedByP2,
-        winner: winner,
-        turnPhase: 'select'
+      gameState: gameState,
+      currentTurn: nextTurn,
+      moveHistory: moveHistory,
+      capturedByP1: capturedByP1,
+      capturedByP2: capturedByP2,
+      winner: winner,
+      turnPhase: 'select'
     });
   };
 
@@ -524,31 +526,31 @@ const Multiplayer: React.FC = () => {
       case 12: tiles = ['B12', 'D12', 'F12', 'H12', 'J12', 'L12', 'N12', 'P12']; break;
       case 11: tiles = ['A11', 'C11', 'E11', 'G11', 'I11', 'K11', 'M11', 'O11', 'Q11']; break;
       case 10: tiles = ['B10', 'D10', 'F10', 'H10', 'J10', 'L10', 'N10', 'P10']; break;
-      case 9:  tiles = ['A9', 'C9', 'E9', 'G9', 'I9', 'K9', 'M9', 'O9', 'Q9']; break;
-      case 8:  tiles = ['B8', 'D8', 'F8', 'H8', 'J8', 'L8', 'N8', 'P8']; break;
-      case 7:  tiles = ['A7', 'C7', 'E7', 'G7', 'I7', 'K7', 'M7', 'O7', 'Q7']; break;
-      case 6:  tiles = ['B6', 'D6', 'F6', 'H6', 'J6', 'L6', 'N6', 'P6']; break;
-      case 5:  tiles = ['A5', 'C5', 'E5', 'G5', 'I5', 'K5', 'M5', 'O5', 'Q5']; break;
-      case 4:  tiles = ['B4', 'D4', 'F4', 'H4', 'J4', 'L4', 'N4', 'P4']; break;
-      case 3:  tiles = ['A3', 'C3', 'E3', 'G3', 'I3', 'K3', 'M3', 'O3', 'Q3']; break;
-      case 2:  tiles = ['B2', 'D2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2']; break;
-      case 1:  tiles = ['A1', 'C1', 'E1', 'G1', 'I1', 'K1', 'M1', 'O1', 'Q1']; break;
+      case 9: tiles = ['A9', 'C9', 'E9', 'G9', 'I9', 'K9', 'M9', 'O9', 'Q9']; break;
+      case 8: tiles = ['B8', 'D8', 'F8', 'H8', 'J8', 'L8', 'N8', 'P8']; break;
+      case 7: tiles = ['A7', 'C7', 'E7', 'G7', 'I7', 'K7', 'M7', 'O7', 'Q7']; break;
+      case 6: tiles = ['B6', 'D6', 'F6', 'H6', 'J6', 'L6', 'N6', 'P6']; break;
+      case 5: tiles = ['A5', 'C5', 'E5', 'G5', 'I5', 'K5', 'M5', 'O5', 'Q5']; break;
+      case 4: tiles = ['B4', 'D4', 'F4', 'H4', 'J4', 'L4', 'N4', 'P4']; break;
+      case 3: tiles = ['A3', 'C3', 'E3', 'G3', 'I3', 'K3', 'M3', 'O3', 'Q3']; break;
+      case 2: tiles = ['B2', 'D2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2']; break;
+      case 1: tiles = ['A1', 'C1', 'E1', 'G1', 'I1', 'K1', 'M1', 'O1', 'Q1']; break;
       default: tiles = [];
     }
     return perspective === 'player1' ? tiles : tiles.reverse();
   };
-  
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (isDragging && ghostRef.current) {
-        if(e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         let clientX, clientY;
         if ('touches' in e) {
-           clientX = e.touches[0].clientX;
-           clientY = e.touches[0].clientY;
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
         } else {
-           clientX = (e as MouseEvent).clientX;
-           clientY = (e as MouseEvent).clientY;
+          clientX = (e as MouseEvent).clientX;
+          clientY = (e as MouseEvent).clientY;
         }
         ghostRef.current.style.left = `${clientX}px`;
         ghostRef.current.style.top = `${clientY}px`;
@@ -582,19 +584,19 @@ const Multiplayer: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-        
+
         <div className="absolute top-4 left-4 z-50 flex gap-2 flex-col">
           <div className="flex gap-2">
             <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${myRole === 'player1' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-blue-900 border-blue-600 text-blue-100'}`}>
               <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
               PLAYING AS: {myRole === 'player1' ? 'PLAYER 1 (BOTTOM)' : 'PLAYER 2 (TOP)'}
             </div>
-            
+
             <button onClick={() => navigate('/')} className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs">
               Quit
             </button>
           </div>
-          
+
           {isGuest && (
             <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
               <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
@@ -615,33 +617,33 @@ const Multiplayer: React.FC = () => {
             </div>
           </div>
         )}
-        
+
         <div className="origin-center transition-transform duration-500 ease-in-out" style={{ transform: `scale(${boardScale})` }}>
           <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#145c2b] flex flex-col items-center">
-            
+
             <div className="flex items-center mb-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
-              <div className={`flex justify-between ${gridWidth} px-10`}> 
+              <div className={`flex justify-between ${gridWidth} px-10`}>
                 {getRenderCols().map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
 
-            <div className="flex flex-col space-y-1"> 
+            <div className="flex flex-col space-y-1">
               {getRenderRows().map((row) => {
-                const currentTiles = getRowTiles(row); 
+                const currentTiles = getRowTiles(row);
                 const is9TileRow = currentTiles.length === 9;
 
                 return (
                   <div key={row} className="flex items-center">
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
-                    
+
                     <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
                       {currentTiles.map((coordinate, i) => {
                         const pieceId = getPieceAtTile(coordinate);
                         const isMyPiece = pieceId && getPieceOwner(pieceId) === currentTurn;
                         const isMoveTarget = validMoves.includes(coordinate);
-                        const isAttackTarget = validAttacks.includes(coordinate); 
+                        const isAttackTarget = validAttacks.includes(coordinate);
                         const canInteract = !winner && (isMyPiece || isAttackTarget);
 
                         return (
@@ -662,14 +664,14 @@ const Multiplayer: React.FC = () => {
                             `}
                           >
                             {pieceId && (
-                              <img 
-                                src={PIECES[pieceId]} 
-                                alt="piece" 
+                              <img
+                                src={PIECES[pieceId]}
+                                alt="piece"
                                 className={`
                                   w-full h-full rounded-full object-cover 
                                   ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
                                   pointer-events-none select-none
-                                `} 
+                                `}
                               />
                             )}
                             {isMoveTarget && !pieceId && (
@@ -678,8 +680,8 @@ const Multiplayer: React.FC = () => {
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-50">
-                                   <div className="absolute w-full h-1 bg-red-600 top-1/2 -translate-y-1/2"></div>
-                                   <div className="absolute h-full w-1 bg-red-600 left-1/2 -translate-x-1/2"></div>
+                                  <div className="absolute w-full h-1 bg-red-600 top-1/2 -translate-y-1/2"></div>
+                                  <div className="absolute h-full w-1 bg-red-600 left-1/2 -translate-x-1/2"></div>
                                 </div>
                               </div>
                             )}
@@ -692,7 +694,7 @@ const Multiplayer: React.FC = () => {
                 );
               })}
             </div>
-            
+
             <div className="flex items-center mt-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
@@ -705,15 +707,15 @@ const Multiplayer: React.FC = () => {
         </div>
       </div>
 
-      <MultiplayerHUD 
+      <MultiplayerHUD
         myRole={myRole}
         gameState={{
-            currentTurn,
-            moves: moveHistory,
-            p1Time,
-            p2Time,
-            capturedByP1,
-            capturedByP2
+          currentTurn,
+          moves: moveHistory,
+          p1Time,
+          p2Time,
+          capturedByP1,
+          capturedByP2
         }}
         onSwitchTurn={handleSwitchTurn}
         canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}

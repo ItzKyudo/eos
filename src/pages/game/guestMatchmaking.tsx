@@ -22,14 +22,14 @@ const GuestMatchmaking: React.FC = () => {
       console.log('⚠️ Socket creation already in progress, skipping duplicate creation');
       return;
     }
-    
+
     // Check if socket already exists in component
     if (socketInstanceRef.current && socketInstanceRef.current.connected) {
       console.log('⚠️ Socket already exists in component, skipping creation');
       setSocket(socketInstanceRef.current);
       return;
     }
-    
+
     // Set flag to prevent duplicate creation
     isCreatingSocket = true;
     setTimeout(() => {
@@ -37,7 +37,7 @@ const GuestMatchmaking: React.FC = () => {
     }, SOCKET_CREATION_LOCK_DURATION);
 
     // Connect to socket server
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
@@ -54,10 +54,10 @@ const GuestMatchmaking: React.FC = () => {
       console.log('✅ Connected to server:', newSocket.id);
       setStatus('Connected! Searching for opponent...');
       setIsSearching(true);
-      
+
       // Join guest queue
-      console.log('📤 Emitting joinGuestQueue...');
-      newSocket.emit('joinGuestQueue', {});
+      console.log('📤 Emitting joinQueue...');
+      newSocket.emit('joinQueue', {});
     };
 
     const handleQueued = (data: any) => {
@@ -75,19 +75,21 @@ const GuestMatchmaking: React.FC = () => {
         disconnected: newSocket.disconnected,
       });
       setStatus('Match found! Starting game...');
-      
+
       // Navigate to multiplayer game with role and matchId
       if (data && data.yourRole && data.matchId) {
-        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true`;
+        // Use userId from server if available (for reconnection reliability)
+        const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
+        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}`;
         console.log('🚀 Navigating to game:', gameUrl);
         console.log('📍 Current location:', window.location.pathname);
-        
+
         // Disconnect the matchmaking socket - the game page will create a new one
         // This allows the server to recognize the new socket as a reconnection
         console.log('🔌 Disconnecting matchmaking socket to allow game socket to reconnect');
         newSocket.removeAllListeners();
         newSocket.disconnect();
-        
+
         // Small delay to ensure socket is disconnected before navigation
         setTimeout(() => {
           try {
@@ -125,20 +127,20 @@ const GuestMatchmaking: React.FC = () => {
     console.log('📝 Registering socket event handlers...');
     newSocket.on('connect', handleConnect);
     newSocket.on('queued', handleQueued);
-    
+
     // Register matchFound handler with explicit logging
     newSocket.on('matchFound', (data: any) => {
       console.log('🔔 matchFound event triggered on socket!', data);
       handleMatchFound(data);
     });
-    
+
     newSocket.on('error', handleError);
     newSocket.on('disconnect', handleDisconnect);
 
     // Debug: Log when any event is received
     const originalOnevent = (newSocket as any).onevent;
     if (originalOnevent) {
-      (newSocket as any).onevent = function(packet: any) {
+      (newSocket as any).onevent = function (packet: any) {
         console.log('📨 Socket received event:', packet[0], packet[1]);
         return originalOnevent.call(this, packet);
       };
@@ -159,9 +161,9 @@ const GuestMatchmaking: React.FC = () => {
 
     return () => {
       clearInterval(queueTimer);
-      
+
       console.log('🧹 Cleaning up matchmaking component...');
-      
+
       // Properly clean up socket connection (only if still connected)
       const socketToCleanup = socketInstanceRef.current || newSocket;
       if (socketToCleanup && socketToCleanup.connected) {
@@ -170,7 +172,7 @@ const GuestMatchmaking: React.FC = () => {
         socketToCleanup.removeAllListeners();
         socketToCleanup.disconnect();
       }
-      
+
       // Clear component ref
       socketInstanceRef.current = null;
     };
