@@ -69,9 +69,9 @@ const Multiplayer: React.FC = () => {
 
   const perspective = myRole;
 
-  // Socket connection for guest matches
+  // Socket connection for all multiplayer matches (guest and authenticated)
   useEffect(() => {
-    if (!isGuest || !matchId) return;
+    if (!matchId) return;
 
     // Use the same server URL configuration as guest matchmaking
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
@@ -220,8 +220,9 @@ const Multiplayer: React.FC = () => {
 
   // BroadcastChannel for local multiplayer (non-guest)
   const broadcastUpdate = (data: GameSyncData) => {
-    if (isGuest && socket && matchId) {
-      // Send move via socket for guest matches
+    // If we have a matchId and a connected socket, use the socket (Online Mode)
+    if (matchId && socket) {
+      // Send move via socket for matches
       if (socket.connected) {
         console.log('📤 Sending move to server:', {
           matchId,
