@@ -597,10 +597,8 @@ const Multiplayer: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      if (validMoves.length === 0) {
-        const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
-        setValidMoves(allowedMoves);
-      }
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
+      setValidMoves(allowedMoves);
       setValidAttacks([]);
     }
   };
