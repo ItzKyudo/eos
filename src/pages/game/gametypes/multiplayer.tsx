@@ -15,21 +15,13 @@ interface GameSyncData {
   capturedByP2: PieceKey[];
   winner: Winner;
   turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
+  hasMoved: Record<string, boolean>;
+  mandatoryMoveUsed: boolean;
 }
 
 interface MoveData {
   matchId: string;
-  move: {
-    gameState: Partial<Record<PieceKey, string>>;
-    currentTurn: 'player1' | 'player2';
-    moveHistory: MoveLog[];
-    capturedByP1: PieceKey[];
-    capturedByP2: PieceKey[];
-    winner: Winner;
-    turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
-    hasMoved: Record<string, boolean>;
-    mandatoryMoveUsed: boolean;
-  };
+  move: GameSyncData;
   playerId?: string;
 }
 
@@ -328,17 +320,7 @@ const Multiplayer: React.FC = () => {
         });
         socket.emit('makeMove', {
           matchId,
-          move: {
-            gameState: data.gameState,
-            currentTurn: data.currentTurn,
-            moveHistory: data.moveHistory,
-            capturedByP1: data.capturedByP1,
-            capturedByP2: data.capturedByP2,
-            winner: data.winner,
-            turnPhase: data.turnPhase,
-            hasMoved,
-            mandatoryMoveUsed,
-          },
+          move: data,
         });
       } else {
         console.error('❌ Cannot send move - socket not connected');
@@ -501,7 +483,9 @@ const Multiplayer: React.FC = () => {
       capturedByP1: capturedByP1,
       capturedByP2: capturedByP2,
       winner: winner,
-      turnPhase: nextPhase
+      turnPhase: nextPhase,
+      hasMoved: newHasMoved,
+      mandatoryMoveUsed: true
     });
   };
 
@@ -580,8 +564,20 @@ const Multiplayer: React.FC = () => {
     }
     else if (turnPhase === 'mandatory_move') {
       const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
+      let allowedAttacks: string[] = [];
+
+      // Check for attacks (Move-Then-Attack or Chain-Attack)
+      // If we already used our mandatory move (or are in a sequence), we might have post-move attacks.
+      if (mandatoryMoveUsed) {
+        allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false);
+      } else {
+        // If we haven't moved yet (e.g. just captured), check for Chain Attacks
+        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false);
+        allowedAttacks = attacks;
+      }
+
       setValidMoves(allowedMoves);
-      setValidAttacks([]);
+      setValidAttacks(allowedAttacks);
     }
   };
 
@@ -616,7 +612,9 @@ const Multiplayer: React.FC = () => {
         capturedByP1: newCapturedP1,
         capturedByP2: newCapturedP2,
         winner: result.winner,
-        turnPhase: 'locked'
+        turnPhase: 'locked',
+        hasMoved: hasMoved,
+        mandatoryMoveUsed: mandatoryMoveUsed
       });
       return;
     }
@@ -661,7 +659,9 @@ const Multiplayer: React.FC = () => {
       capturedByP1: newCapturedP1,
       capturedByP2: newCapturedP2,
       winner: winner,
-      turnPhase: nextPhase
+      turnPhase: nextPhase,
+      hasMoved: hasMoved,
+      mandatoryMoveUsed: mandatoryMoveUsed
     });
   };
 
@@ -686,7 +686,9 @@ const Multiplayer: React.FC = () => {
       capturedByP1: capturedByP1,
       capturedByP2: capturedByP2,
       winner: winner,
-      turnPhase: 'select'
+      turnPhase: 'select',
+      hasMoved: hasMoved,
+      mandatoryMoveUsed: false
     });
   };
 
