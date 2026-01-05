@@ -538,44 +538,24 @@ const Multiplayer: React.FC = () => {
     if (winner || turnPhase === 'locked') return;
     if (currentTurn !== myRole) return;
 
-    // Tap-to-Move: If tapping a valid destination for the active piece
+    // Tap-to-Move: Key difference from Practice, but kept for Multiplayer usability
     if (activePiece && validMoves.includes(coordinate)) {
-      console.log('👆 Tap-to-Move detected:', coordinate);
-      // Prevent phantom mouse events on touch devices to avoid double-execution
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-
       executeMove(activePiece, coordinate);
       return;
     }
 
     if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
+
     const pieceId = getPieceAtTile(coordinate);
-    if (activePiece && pieceId === activePiece) {
-      if (turnPhase !== 'mandatory_move') {
-        setActivePiece(null);
-        setValidMoves([]);
-        setValidAttacks([]);
-        setTurnPhase('select');
-        return;
-      }
-    } else {
-      if (!pieceId && !validMoves.includes(coordinate)) {
-        if (turnPhase === 'mandatory_move') return;
-        setActivePiece(null);
-        setValidMoves([]);
-        setValidAttacks([]);
-        setTurnPhase('select');
-        return;
-      }
-    }
+    if (!pieceId) return; // Align with Practice: Clicking empty (non-move) tile does nothing
 
-    if (pieceId) {
-      const owner = getPieceOwner(pieceId);
-      if (owner !== myRole) return;
-    }
+    // Check owner
+    const owner = getPieceOwner(pieceId);
+    if (owner !== myRole) return;
 
-    if (!pieceId) return;
     if (e.cancelable && e.type !== 'touchstart') e.preventDefault();
+
     setActivePiece(pieceId);
     setIsDragging(true);
 
@@ -588,10 +568,12 @@ const Multiplayer: React.FC = () => {
       clientY = (e as React.MouseEvent).clientY;
     }
     setInitialDragPos({ x: clientX, y: clientY });
+
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
       const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
+
       setValidMoves(moves);
       setValidAttacks(attacks);
       setTurnPhase('action');
@@ -616,6 +598,29 @@ const Multiplayer: React.FC = () => {
     if (currentTurn === 'player1') newCapturedP1.push(result.capturedPieceId);
     else newCapturedP2.push(result.capturedPieceId);
 
+    // Initial State Update (UI)
+    setGameState(newGameState);
+    setCapturedByP1(newCapturedP1);
+    setCapturedByP2(newCapturedP2);
+
+    if (result.winner) {
+      setWinner(result.winner);
+      setTurnPhase('locked');
+
+      // Note: Practice mode DOES NOT log the winning capture move.
+      // We align with that behavior here, though it means the final move isn't shown in history.
+      broadcastUpdate({
+        gameState: newGameState,
+        currentTurn: currentTurn,
+        moveHistory: moveHistory, // No new move added
+        capturedByP1: newCapturedP1,
+        capturedByP2: newCapturedP2,
+        winner: result.winner,
+        turnPhase: 'locked'
+      });
+      return;
+    }
+
     const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
     const pieceName = PIECE_MOVEMENTS[activePiece].name;
     const newMove: MoveLog = {
@@ -637,34 +642,25 @@ const Multiplayer: React.FC = () => {
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-    const nextTurn = currentTurn;
 
-    if (result.winner) {
-      setWinner(result.winner);
-      nextPhase = 'locked';
-    } else if (attacks.length > 0 || moves.length > 0) {
+    if (attacks.length > 0 || moves.length > 0) {
       nextPhase = 'mandatory_move';
     } else {
       nextPhase = 'locked';
     }
 
-    setGameState(newGameState);
-    setCapturedByP1(newCapturedP1);
-    setCapturedByP2(newCapturedP2);
     setMoveHistory(newHistory);
     setValidAttacks(attacks);
     setValidMoves(moves);
     setTurnPhase(nextPhase);
-    setCurrentTurn(nextTurn);
-    if (result.winner) setWinner(result.winner);
 
     broadcastUpdate({
       gameState: newGameState,
-      currentTurn: nextTurn,
+      currentTurn: currentTurn,
       moveHistory: newHistory,
       capturedByP1: newCapturedP1,
       capturedByP2: newCapturedP2,
-      winner: result.winner,
+      winner: winner,
       turnPhase: nextPhase
     });
   };
