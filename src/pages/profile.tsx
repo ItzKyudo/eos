@@ -10,7 +10,7 @@ import EditProfileModal from '../components/profile/EditProfileModal';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  
+
   // --- STATE ---
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,45 +26,45 @@ const Profile: React.FC = () => {
     navigate('/login');
   }, [navigate]);
 
-  
-  useEffect(() => { 
+
+  useEffect(() => {
     const fetchProfile = async () => {
-        try {
-          const token = localStorage.getItem('token');
-          if (!token) { navigate('/login'); return; }
-    
-          const response = await fetch('http://localhost:3000/api/profile', {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) { navigate('/login'); return; }
+
+        const response = await fetch('https://eos-server.onrender.com/api/profile', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         });
-    
-          if (!response.ok) {
-             if (response.status === 401) handleLogout();
-             throw new Error('Failed to fetch profile');
-          }
-    
-          const data = await response.json();
-          setUser(data);
-          if (data.show_ads !== undefined) setShowAds(data.show_ads);
-    
-        } catch (err: any) {
-          console.error(err);
-          setError('Could not load profile data');
-        } finally {
-          setLoading(false);
+
+        if (!response.ok) {
+          if (response.status === 401) handleLogout();
+          throw new Error('Failed to fetch profile');
         }
+
+        const data = await response.json();
+        setUser(data);
+        if (data.show_ads !== undefined) setShowAds(data.show_ads);
+
+      } catch (err: any) {
+        console.error(err);
+        setError('Could not load profile data');
+      } finally {
+        setLoading(false);
+      }
     };
-    
-    fetchProfile(); 
+
+    fetchProfile();
   }, [navigate, handleLogout]);
 
   const handleUpdateStatus = async (newStatus: string) => {
     // Optimistic Update
     setUser(prev => prev ? { ...prev, status_message: newStatus } : null);
-    
+
     try {
       const token = localStorage.getItem('token');
-      await fetch('http://localhost:3000/api/profile', {
+      await fetch('https://eos-server.onrender.com/api/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -82,7 +82,7 @@ const Profile: React.FC = () => {
     const body: { username: string; email: string; avatar_url?: string } = { username, email };
     if (avatar_url) body.avatar_url = avatar_url;
 
-    const response = await fetch('http://localhost:3000/api/profile', {
+    const response = await fetch('https://eos-server.onrender.com/api/profile', {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -95,16 +95,16 @@ const Profile: React.FC = () => {
     if (!response.ok) throw new Error(data.message);
 
     // Update local state
-    setUser(prev => prev ? { 
-        ...prev, 
-        username: data.user.username, 
-        email: data.user.email,
-        avatar_url: data.user.avatar_url 
+    setUser(prev => prev ? {
+      ...prev,
+      username: data.user.username,
+      email: data.user.email,
+      avatar_url: data.user.avatar_url
     } : null);
   };
 
-  const gameHistory: GameHistoryEntry[] = []; 
-  const friends: Friend[] = []; 
+  const gameHistory: GameHistoryEntry[] = [];
+  const friends: Friend[] = [];
 
   if (loading) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white">LOADING...</div>;
   if (error) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-red-400">{error}</div>;
@@ -114,22 +114,22 @@ const Profile: React.FC = () => {
       <div className="fixed inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none z-0" />
       <div className="relative z-10"><Sidebar /></div>
 
-      <EditProfileModal 
-        isOpen={showEditModal} 
+      <EditProfileModal
+        isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         onSave={handleSaveProfile}
-        initialData={{ 
-            username: user?.username || '', 
-            email: user?.email || '',
-            avatar_url: user?.avatar_url
+        initialData={{
+          username: user?.username || '',
+          email: user?.email || '',
+          avatar_url: user?.avatar_url
         }}
       />
 
       <main className="flex-1 h-screen overflow-y-auto relative z-10 p-6 lg:p-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-        
-        <ProfileHeader 
-          user={user} 
-          status={user?.status_message || ''} 
+
+        <ProfileHeader
+          user={user}
+          status={user?.status_message || ''}
           onUpdateStatus={handleUpdateStatus}
           onEditClick={() => setShowEditModal(true)}
           onLogout={handleLogout}
@@ -137,16 +137,16 @@ const Profile: React.FC = () => {
 
         <nav className="flex gap-2 border-b border-slate-700 mb-8 px-2 overflow-x-auto">
           {['overview', 'games', 'friends'].map((tab) => (
-            <button 
-              key={tab} 
-              onClick={() => setActiveTab(tab)} 
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               className={`py-3 px-6 font-bold text-sm uppercase transition-all ${activeTab === tab ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-400'}`}
             >
               {tab}
             </button>
           ))}
         </nav>
-        
+
         {activeTab === 'overview' && (
           <div className="flex flex-col xl:flex-row gap-8 animate-fadeIn">
             <div className="flex-1 space-y-6">
@@ -164,32 +164,32 @@ const Profile: React.FC = () => {
 
               <GamesTable games={gameHistory} />
             </div>
-            
+
             <aside className="w-full xl:w-80 flex-shrink-0 space-y-6">
               <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-md">
                 <h3 className="font-bold text-gray-200 mb-4">Friends Online</h3>
-                
+
                 {friends.length === 0 ? (
-                    <div className="text-center py-6 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">
-                        <div className="text-2xl mb-1">👥</div>
-                        <p>No friends added yet.</p>
-                        <button className="mt-2 text-blue-400 hover:text-blue-300 font-bold">Find Players</button>
-                    </div>
+                  <div className="text-center py-6 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">
+                    <div className="text-2xl mb-1">👥</div>
+                    <p>No friends added yet.</p>
+                    <button className="mt-2 text-blue-400 hover:text-blue-300 font-bold">Find Players</button>
+                  </div>
                 ) : (
-                    <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3">
                     {friends.map((friend) => (
-                        <div key={friend.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer">
+                      <div key={friend.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer">
                         <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center relative">
-                            <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${friend.name}`} className="w-full h-full rounded-full" alt="" />
-                            {friend.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1e293b] rounded-full"></div>}
+                          <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${friend.name}`} className="w-full h-full rounded-full" alt="" />
+                          {friend.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1e293b] rounded-full"></div>}
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-semibold text-sm text-gray-200">{friend.name}</span>
-                            <span className="text-xs text-slate-500">{friend.isOnline ? 'Online' : 'Offline'}</span>
+                          <span className="font-semibold text-sm text-gray-200">{friend.name}</span>
+                          <span className="text-xs text-slate-500">{friend.isOnline ? 'Online' : 'Offline'}</span>
                         </div>
-                        </div>
+                      </div>
                     ))}
-                    </div>
+                  </div>
                 )}
               </div>
             </aside>
