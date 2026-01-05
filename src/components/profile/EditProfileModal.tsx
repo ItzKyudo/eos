@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import supabase from '../../config/supabase.js'; 
+import supabase from '../../config/supabase';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if(isOpen) setForm(initialData);
+    if (isOpen) setForm(initialData);
     setMessage('');
   }, [isOpen, initialData]);
 
@@ -41,7 +41,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
 
       // Get Public URL
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      
+
       setForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
       setMessage('Image uploaded! Click Save to apply.');
 
@@ -71,22 +71,22 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-[#1e293b] w-full max-w-md p-6 rounded-xl border border-slate-600 shadow-2xl relative animate-fadeIn">
         <h2 className="text-xl font-bold text-white mb-4">Edit Profile</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           <div className="flex flex-col items-center gap-3 mb-4">
             <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-500 relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <img 
-                src={form.avatar_url || "/api/placeholder/200/200"} 
-                alt="Avatar Preview" 
+              <img
+                src={form.avatar_url || "/api/placeholder/200/200"}
+                alt="Avatar Preview"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                 <span className="text-xs font-bold text-white">CHANGE</span>
               </div>
             </div>
-            <input 
-              type="file" 
+            <input
+              type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
@@ -97,23 +97,23 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
 
           <div>
             <label className="block text-xs uppercase font-bold text-slate-400 mb-1">Username</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={form.username}
-              onChange={(e) => setForm({...form, username: e.target.value})}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
               className="w-full bg-[#0f172a] border border-slate-600 rounded px-3 py-3 text-white focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
             <label className="block text-xs uppercase font-bold text-slate-400 mb-1">Email</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               value={form.email}
-              onChange={(e) => setForm({...form, email: e.target.value})}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full bg-[#0f172a] border border-slate-600 rounded px-3 py-3 text-white focus:border-blue-500 focus:outline-none"
             />
           </div>
-          
+
           {message && (
             <div className={`text-sm font-bold text-center ${message.includes('Success') || message.includes('Image') ? 'text-green-400' : 'text-red-400'}`}>
               {message}
