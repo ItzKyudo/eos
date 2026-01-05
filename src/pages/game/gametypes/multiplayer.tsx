@@ -388,6 +388,43 @@ const Multiplayer: React.FC = () => {
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
 
+  // Timeout Enforcement
+  useEffect(() => {
+    if (winner) return;
+
+    const handleTimeout = (gameWinner: Winner) => {
+      if (!gameWinner) return;
+
+      // Optimistic update
+      setWinner(gameWinner);
+      setGameEndReason('timeout');
+      setTurnPhase('locked');
+
+      if (socket && matchId) {
+        console.log('⏰ Timeout! Declaring winner:', gameWinner);
+        socket.emit('gameEnd', {
+          matchId,
+          winner: gameWinner,
+          reason: 'timeout'
+        });
+      }
+    };
+
+    // Only the player who ran out of time should report it to avoid race conditions/double reporting,
+    // OR we can strictly say: If I am P1 and my time is 0, I lose.
+    // If I am P2 and my time is 0, I lose.
+
+    if (p1Time <= 0) {
+      if (myRole === 'player1') {
+        handleTimeout('player2');
+      }
+    } else if (p2Time <= 0) {
+      if (myRole === 'player2') {
+        handleTimeout('player1');
+      }
+    }
+  }, [p1Time, p2Time, winner, myRole, matchId, socket]);
+
   // Disconnect Timer Effect
   useEffect(() => {
     if (!opponentDisconnectTime) {
@@ -423,7 +460,8 @@ const Multiplayer: React.FC = () => {
       pieceId: pieceId,
       from: gameState[pieceId]!,
       to: targetCoord,
-      turnNumber: moveHistory.length + 1
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
     };
     const newHistory = [...moveHistory, newMove];
 
@@ -588,7 +626,8 @@ const Multiplayer: React.FC = () => {
       pieceId: activePiece,
       from: gameState[activePiece]!,
       to: targetCoord,
-      turnNumber: moveHistory.length + 1
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
     };
     const newHistory = [...moveHistory, newMove];
 
