@@ -35,7 +35,7 @@ const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       console.log('Login successful:', data.user);
-      navigate('/');
+      navigate('/game');
     } catch (err: any) {
       setError(err.message);
     } finally {

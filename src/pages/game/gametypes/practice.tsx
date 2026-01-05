@@ -28,8 +28,7 @@ const Board: React.FC = () => {
   const circleSize = "w-17 h-17"; 
   const rowHeight = "h-12";       
   const gridWidth = 'w-[900px]';  
-  const sideWidth = 'w-16';       
-
+  const sideWidth = 'w-16'; 
   const handleTimeout = (winner: 'player1' | 'player2') => {
     setWinner(winner);
     setTurnPhase('locked');
