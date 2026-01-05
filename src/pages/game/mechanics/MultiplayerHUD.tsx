@@ -92,17 +92,41 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
           <span className="bg-neutral-800 text-neutral-400 text-[9px] px-1.5 rounded-full">{gameState.moves.length}</span>
         </div>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-neutral-700">
-          {gameState.moves.length === 0 && <div className="text-center text-neutral-600 text-[10px] mt-4">Waiting for start...</div>}
-          {gameState.moves.map((move, index) => (
-            <div key={index} className="flex items-center text-[10px] text-neutral-400 font-mono border-b border-neutral-800/50 pb-1 mb-1 last:border-0">
-              <span className="w-6 text-neutral-600">#{move.turnNumber}</span>
-              <span className={`w-8 font-bold ${move.player === 'player1' ? 'text-green-500' : 'text-blue-500'}`}>
-                {move.player === 'player1' ? 'P1' : 'P2'}
-              </span>
-              <span className="mx-1 text-neutral-300 truncate w-16">{move.pieceName}</span>
-              <span className="ml-auto opacity-50">{move.from} → {move.to}</span>
+          {gameState.moves.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full opacity-30">
+              <span className="text-3xl mb-2">⏳</span>
+              <span className="text-[10px] font-bold tracking-widest uppercase">Ready to Start</span>
             </div>
-          ))}
+          ) : (
+            <div className="flex flex-col">
+              {gameState.moves.map((move, index) => (
+                <div key={index} className="grid grid-cols-[24px_auto_1fr] items-center gap-2 p-2 border-b border-white/5 hover:bg-white/5 transition-colors group">
+                  {/* Turn Number */}
+                  <span className="text-[9px] font-mono text-neutral-600 group-hover:text-neutral-500">
+                    {String(move.turnNumber).padStart(2, '0')}
+                  </span>
+
+                  {/* Player Badge */}
+                  <div className={`
+                      w-1.5 h-1.5 rounded-full 
+                      ${move.player === 'player1' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]'}
+                   `} />
+
+                  {/* Move Details */}
+                  <div className="flex flex-col min-w-0">
+                    <span className={`text-[10px] font-bold leading-none mb-0.5 ${move.player === 'player1' ? 'text-green-200' : 'text-blue-200'}`}>
+                      {move.pieceName}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-[9px] font-mono text-neutral-400">
+                      <span className="bg-black/30 px-1 rounded text-neutral-300">{move.from}</span>
+                      <span className="text-neutral-600">➜</span>
+                      <span className="bg-black/30 px-1 rounded text-neutral-200">{move.to}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div className={`p-3 border-t border-neutral-700 transition-all duration-300 ${myData.isMyTurn ? myData.bgColor : 'bg-neutral-800'}`}>

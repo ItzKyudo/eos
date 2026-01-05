@@ -5,6 +5,7 @@ import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from 
 import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
+import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
 
 interface GameSyncData {
@@ -860,15 +861,21 @@ const Multiplayer: React.FC = () => {
                             `}
                           >
                             {pieceId && (
-                              <img
-                                src={PIECES[pieceId]}
-                                alt="piece"
-                                className={`
-                                  w-full h-full rounded-full object-cover 
-                                  ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
-                                  pointer-events-none select-none
-                                `}
-                              />
+                              <motion.div
+                                layoutId={pieceId}
+                                transition={{ type: "spring", stiffness: 280, damping: 25, mass: 0.8 }}
+                                className="w-full h-full p-[2px] pointer-events-none"
+                              >
+                                <img
+                                  src={PIECES[pieceId]}
+                                  alt="piece"
+                                  className={`
+                                    w-full h-full rounded-full object-cover 
+                                    ${(isDragging && pieceId === activePiece) ? 'opacity-0' : ''} 
+                                    select-none shadow-md
+                                  `}
+                                />
+                              </motion.div>
                             )}
                             {isMoveTarget && !pieceId && (
                               <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
