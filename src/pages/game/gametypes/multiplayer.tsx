@@ -864,7 +864,7 @@ const Multiplayer: React.FC = () => {
                               <motion.div
                                 layoutId={pieceId}
                                 transition={{ type: "spring", stiffness: 280, damping: 25, mass: 0.8 }}
-                                className="w-full h-full p-[2px] pointer-events-none"
+                                className="w-full h-full p-[2px] pointer-events-none z-50 relative"
                               >
                                 <img
                                   src={PIECES[pieceId]}
