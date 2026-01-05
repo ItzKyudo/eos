@@ -857,7 +857,7 @@ const Multiplayer: React.FC = () => {
                               ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
                               border border-gray-300 
                               shrink-0 flex items-center justify-center
-                              shrink-0 flex items-center justify-center
+                              ${pieceId ? 'z-30' : ''}
                             `}
                           >
                             {pieceId && (
