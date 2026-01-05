@@ -473,8 +473,10 @@ const Multiplayer: React.FC = () => {
     setValidAttacks(attacks);
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
-    // Clear active piece locally after move
-    setActivePiece(null);
+    // Clear active piece locally ONLY if turn is over
+    if (nextPhase === 'locked') {
+      setActivePiece(null);
+    }
 
     broadcastUpdate({
       gameState: newGameState,
