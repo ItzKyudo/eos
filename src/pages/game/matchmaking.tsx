@@ -12,19 +12,36 @@ const Matchmaking: React.FC = () => {
     const selectedTime = parseInt(searchParams.get('time') || '600');
 
     const getModeLabel = (time: number) => {
-        if (time === 60) return 'Bullet (1m)';
-        if (time === 300) return 'Blitz (5m)';
-        return 'Rapid (10m)';
+        if (!gameModes.length) return `${time / 60}m Game`;
+        const mode = gameModes.find((m: any) => m.duration_minutes === time / 60);
+        return mode ? `${mode.title} (${mode.duration_minutes}m)` : `${time / 60}m Game`;
     };
+
     const [socket, setSocket] = useState<Socket | null>(null);
     const [status, setStatus] = useState<string>('Connecting...');
     const [isSearching, setIsSearching] = useState(false);
     const [timeInQueue, setTimeInQueue] = useState<number>(0);
+    const [gameModes, setGameModes] = useState<any[]>([]);
 
     const socketInstanceRef = useRef<Socket | null>(null);
     const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
+        // Fetch game modes
+        const fetchGameModes = async () => {
+            try {
+                const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+                const response = await fetch(`${serverUrl}/api/gamemodes`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setGameModes(data);
+                }
+            } catch (err) {
+                console.error("Error fetching game modes:", err);
+            }
+        };
+        fetchGameModes();
+
         // Check for auth token
         const token = localStorage.getItem('token');
         if (!token) {
