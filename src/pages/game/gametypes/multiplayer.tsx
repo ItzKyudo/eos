@@ -266,6 +266,10 @@ const Multiplayer: React.FC = () => {
       if (state.lastMove) {
         const m = state.lastMove;
         if (m.gameState) setGameState(m.gameState); // Board
+        if (m.hasMoved) setHasMoved(m.hasMoved);
+        if (m.mandatoryMoveUsed !== undefined) setMandatoryMoveUsed(m.mandatoryMoveUsed);
+        if (m.winner) setWinner(m.winner);
+
         if (state.moves) setMoveHistory(state.moves);
         if (state.currentTurn) setCurrentTurn(state.currentTurn);
         if (state.p1Time) setP1Time(state.p1Time);
@@ -273,7 +277,16 @@ const Multiplayer: React.FC = () => {
         if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
         if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
 
-        // Re-evaluate check/mate via local logic if needed, or trust server state
+        // Restore Phase if it's my turn
+        if (state.currentTurn === myRole) {
+          if (m.turnPhase === 'mandatory_move') {
+            setTurnPhase('mandatory_move');
+          } else {
+            setTurnPhase('select');
+          }
+        } else {
+          setTurnPhase('locked');
+        }
       }
       // Fallback for DB rehydration (raw moves only)
       else if (state.rehydratedFromDB) {
