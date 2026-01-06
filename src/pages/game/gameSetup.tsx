@@ -13,9 +13,17 @@ const GameSetup: React.FC = () => {
   // Listen for matchFound event from hook
   React.useEffect(() => {
     const handleMatchFound = (e: any) => {
-      const matchData = e.detail;
-      console.log("Navigating to game:", matchData);
-      navigate('/game', { state: matchData });
+      const data = e.detail;
+      console.log("Navigating to game:", data);
+
+      const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
+      const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
+      const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
+      const timeParam = `&time=${data.timeControl || 600}`;
+
+      const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}${myNameParam}${opponentNameParam}${timeParam}`;
+
+      navigate(gameUrl);
     };
     window.addEventListener('matchFound', handleMatchFound);
     return () => window.removeEventListener('matchFound', handleMatchFound);
