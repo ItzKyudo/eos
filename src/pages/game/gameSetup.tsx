@@ -4,7 +4,6 @@ import RightPanel from '../../components/RightPanel';
 import { PIECES } from './mechanics/piecemovements';
 import { INITIAL_POSITIONS } from './mechanics/positions';
 import { BOARD_COLUMNS } from './utils/gameUtils';
-import FriendsList from '../../components/profile/FriendsList';
 
 const GameSetup: React.FC = () => {
 
@@ -15,11 +14,7 @@ const GameSetup: React.FC = () => {
         <div className="flex-1 flex items-center justify-center bg-[#0f172a] p-4 lg:p-0 overflow-hidden relative z-10">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none" />
 
-          {/* Friends List Widget */}
-          <div className="absolute top-6 left-6 z-50 bg-[#1e293b]/90 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl w-64 hidden xl:block">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Friends Online</h3>
-            <FriendsList limit={5} showInvite={true} />
-          </div>
+
 
           <div className="transform scale-[0.35] sm:scale-[0.45] md:scale-[0.55] lg:scale-[0.60] xl:scale-[0.70] origin-center shadow-2xl transition-transform duration-500">
             <BoardPreview />

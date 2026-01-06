@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Clock, Play, Settings,
   Handshake, ArrowRight, Zap, Check, Target,
-  History, Users, Trophy, MessageSquare
+  History, Users
 } from 'lucide-react';
 import LoginModal from './loginmodal';
+import FriendsList from './profile/FriendsList';
 
 // --- TYPES ---
 type TimeControl = 600 | 300 | 60;
@@ -19,11 +20,7 @@ const MOCK_HISTORY = [
   { id: 4, opponent: 'NewbieKing', result: 'win', type: 'Bullet', date: '2d ago' },
 ];
 
-const MOCK_FRIENDS = [
-  { id: 1, name: 'Maria Santos', status: 'online', rating: 1250 },
-  { id: 2, name: 'Juan Dela Cruz', status: 'playing', rating: 1400 },
-  { id: 3, name: 'ChessMaster_PH', status: 'offline', rating: 2100 },
-];
+
 
 const RightPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -173,41 +170,12 @@ const RightPanel: React.FC = () => {
   const renderFriends = () => (
     <div className="space-y-4">
       <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Friends Online</h2>
-      <div className="flex flex-col gap-2">
-        {MOCK_FRIENDS.map((friend) => (
-          <div key={friend.id} className="bg-[#0f172a] p-3 rounded-xl border border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                  {friend.name.charAt(0)}
-                </div>
-                <div className={`
-                  absolute -bottom-1 -right-1 w-3.5 h-3.5 border-2 border-[#0f172a] rounded-full
-                  ${friend.status === 'online' ? 'bg-green-500' :
-                    friend.status === 'playing' ? 'bg-yellow-500' : 'bg-gray-500'}
-                `}></div>
-              </div>
-              <div>
-                <div className="text-sm font-bold text-gray-200">{friend.name}</div>
-                <div className="text-xs text-gray-500 flex items-center gap-1">
-                  <Trophy size={10} /> {friend.rating}
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-1">
-              <button className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
-                <MessageSquare size={16} />
-              </button>
-              <button className="p-2 hover:bg-[#D63031] bg-white/5 rounded-lg text-white transition-colors">
-                <Play size={16} fill="currentColor" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <FriendsList limit={10} showInvite={true} />
 
       <div className="pt-4 border-t border-white/5">
-        <button className="w-full py-3 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-sm rounded-xl transition-colors">
+        <button
+          onClick={() => navigate('/social')}
+          className="w-full py-3 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-sm rounded-xl transition-colors">
           <Users size={16} />
           <span>Find Friends</span>
         </button>
