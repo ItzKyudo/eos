@@ -64,6 +64,7 @@ const Multiplayer: React.FC = () => {
   const [p1Time, setP1Time] = useState(initialTime);
   const [p2Time, setP2Time] = useState(initialTime);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
+  const [showResignModal, setShowResignModal] = useState(false);
 
   const perspective = myRole;
 
@@ -924,14 +925,8 @@ const Multiplayer: React.FC = () => {
         onResign={() => {
           if (winner) {
             navigate('/');
-            return;
-          }
-          if (window.confirm('Are you sure you want to resign? You will lose this match.')) {
-            if (socket && matchId) {
-              console.log('🏳️ Resigning game...');
-              socket.emit('leaveGame', { matchId });
-            }
-            navigate('/');
+          } else {
+            setShowResignModal(true);
           }
         }}
         canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
@@ -946,6 +941,38 @@ const Multiplayer: React.FC = () => {
         </div>
       )} 
       */}
+      {/* Resignation Modal */}
+      {showResignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-neutral-800 border border-neutral-700 p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-white mb-2">Resign Game?</h3>
+            <p className="text-neutral-400 mb-6 text-sm">
+              Are you sure you want to resign? You will forfeit the match and this cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowResignModal(false)}
+                className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700/50 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (socket && matchId) {
+                    console.log('🏳️ Resigning game via modal...');
+                    socket.emit('leaveGame', { matchId });
+                  }
+                  setShowResignModal(false);
+                  navigate('/');
+                }}
+                className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105"
+              >
+                Confirm Resignation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
