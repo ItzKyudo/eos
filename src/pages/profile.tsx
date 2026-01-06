@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/sidebar';
-import { UserProfile, GameHistoryEntry, Friend } from '../components/profile/types';
+import { UserProfile, GameHistoryEntry } from '../components/profile/types';
 
 import ProfileHeader from '../components/profile/ProfileHeader';
 import StatsGrid from '../components/profile/StatsGrid';
 import GamesTable from '../components/profile/GamesTable';
 import EditProfileModal from '../components/profile/EditProfileModal';
+import FriendsList from '../components/profile/FriendsList';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -104,7 +105,7 @@ const Profile: React.FC = () => {
   };
 
   const gameHistory: GameHistoryEntry[] = [];
-  const friends: Friend[] = [];
+  // Friends list fetched via FriendsList component now
 
   if (loading) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white">LOADING...</div>;
   if (error) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-red-400">{error}</div>;
@@ -169,28 +170,7 @@ const Profile: React.FC = () => {
               <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-md">
                 <h3 className="font-bold text-gray-200 mb-4">Friends Online</h3>
 
-                {friends.length === 0 ? (
-                  <div className="text-center py-6 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">
-                    <div className="text-2xl mb-1">👥</div>
-                    <p>No friends added yet.</p>
-                    <button className="mt-2 text-blue-400 hover:text-blue-300 font-bold">Find Players</button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {friends.map((friend) => (
-                      <div key={friend.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800 cursor-pointer">
-                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center relative">
-                          <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${friend.name}`} className="w-full h-full rounded-full" alt="" />
-                          {friend.isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#1e293b] rounded-full"></div>}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm text-gray-200">{friend.name}</span>
-                          <span className="text-xs text-slate-500">{friend.isOnline ? 'Online' : 'Offline'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FriendsList className="flex flex-col gap-1" limit={10} showInvite={false} />
               </div>
             </aside>
           </div>
