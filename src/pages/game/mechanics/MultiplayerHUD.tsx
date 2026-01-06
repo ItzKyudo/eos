@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { PIECES, PieceKey } from './piecemovements';
+import { Flag } from 'lucide-react';
 
 export interface MoveLog {
   player: 'player1' | 'player2';
@@ -148,7 +149,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
         </div>
       </div>
       <div className={`p-3 border-t border-neutral-700 transition-all duration-300 ${myData.isMyTurn ? myData.bgColor : 'bg-neutral-800'}`}>
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-start mb-2">
           <div className="flex flex-col">
             <span className={`text-[10px] font-bold uppercase tracking-widest ${myData.color}`}>
               {playerDetails.myUsername} ({myData.role === 'player1' ? 'P1' : 'P2'})
@@ -158,15 +159,18 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
               <span className="text-[9px] font-medium text-neutral-400">ONLINE</span>
             </div>
           </div>
-          {myData.isMyTurn && !canSwitchTurn && <span className="text-[9px] text-green-400 font-bold">YOUR TURN</span>}
-          {myData.isMyTurn && canSwitchTurn && <span className="text-[9px] text-amber-400 font-bold animate-pulse">CONFIRM MOVE</span>}
-          <button
-            onClick={onResign}
-            className="ml-auto px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-500 hover:text-red-400 rounded text-[9px] font-bold border border-transparent hover:border-red-900/50 transition-colors uppercase tracking-wider"
-            title="Resign Game"
-          >
-            Resign
-          </button>
+
+          <div className="flex items-center gap-2">
+            {myData.isMyTurn && !canSwitchTurn && <span className="text-[9px] text-green-400 font-bold self-center">YOUR TURN</span>}
+            {myData.isMyTurn && canSwitchTurn && <span className="text-[9px] text-amber-400 font-bold animate-pulse self-center">CONFIRM MOVE</span>}
+            <button
+              onClick={onResign}
+              className="p-1.5 bg-neutral-800 hover:bg-red-900/30 text-neutral-500 hover:text-red-400 rounded-lg border border-transparent hover:border-red-900/50 transition-all group"
+              title="Resign Game"
+            >
+              <Flag className="w-3.5 h-3.5 group-hover:fill-red-400/20" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-end justify-between">
