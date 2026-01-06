@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile } from './types';
-import { PIECES } from '../../pages/game/mechanics/piecemovements'; 
+import { PIECES } from '../../pages/game/mechanics/piecemovements';
 
 interface StatsGridProps {
   user: UserProfile | null;
@@ -8,13 +8,14 @@ interface StatsGridProps {
 
 const StatsGrid: React.FC<StatsGridProps> = ({ user }) => {
   const ratings = [
-    { type: 'Bullet', rating: user?.rating_bullet || 1200, change: 0, icon: PIECES.piece11 },
-    { type: 'Blitz', rating: user?.rating_blitz || 1200, change: 0, icon: PIECES.piece3 },
-    { type: 'Rapid', rating: user?.rating_rapid || 1200, change: 0, icon: PIECES.piece9 },
+    { type: 'Standard Game', rating: user?.rating_classic || 1200, change: 0, icon: PIECES.piece11 },
+    { type: 'Quick Game', rating: user?.rating_swift || 1200, change: 0, icon: PIECES.piece3 },
+    { type: 'Rapid Game', rating: user?.rating_rapid || 1200, change: 0, icon: PIECES.piece9 },
+    { type: 'Turbo Game', rating: user?.rating_turbo || 1200, change: 0, icon: PIECES.piece5 },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
       {ratings.map((rating) => (
         <div key={rating.type} className="bg-[#1e293b] p-5 rounded-xl border border-slate-700 shadow-md hover:shadow-lg hover:border-slate-600 transition group relative overflow-hidden">
           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity transform rotate-12 scale-150 grayscale">

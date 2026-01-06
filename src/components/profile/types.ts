@@ -10,6 +10,9 @@ export interface UserProfile {
   rating_bullet?: number;
   rating_blitz?: number;
   rating_rapid?: number;
+  rating_classic?: number;
+  rating_swift?: number;
+  rating_turbo?: number;
   theme_preference?: string;
   show_ads?: boolean;
 }
