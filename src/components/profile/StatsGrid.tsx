@@ -8,10 +8,10 @@ interface StatsGridProps {
 
 const StatsGrid: React.FC<StatsGridProps> = ({ user }) => {
   const ratings = [
-    { type: 'Standard Game', rating: user?.rating_classic || 1200, change: 0, icon: PIECES.piece11 },
-    { type: 'Quick Game', rating: user?.rating_swift || 1200, change: 0, icon: PIECES.piece3 },
-    { type: 'Rapid Game', rating: user?.rating_rapid || 1200, change: 0, icon: PIECES.piece9 },
-    { type: 'Turbo Game', rating: user?.rating_turbo || 1200, change: 0, icon: PIECES.piece5 },
+    { type: 'Classic', rating: user?.rating_classic || 200, change: 0, icon: PIECES.piece11 },
+    { type: 'Swift', rating: user?.rating_swift || 200, change: 0, icon: PIECES.piece3 },
+    { type: 'Turbo', rating: user?.rating_turbo || 200, change: 0, icon: PIECES.piece5 },
+    { type: 'Rapid', rating: user?.rating_rapid || 200, change: 0, icon: PIECES.piece9 },
   ];
 
   return (
