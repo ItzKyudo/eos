@@ -35,7 +35,9 @@ const Multiplayer: React.FC = () => {
   const isGuest = searchParams.get('guest') === 'true';
   const initialTime = parseInt(searchParams.get('time') || '600');
   const myUsername = searchParams.get('myName') || (isGuest ? 'Guest' : 'You');
+  const myRating = searchParams.get('myRating') || (isGuest ? '600' : '1200');
   const opponentUsername = searchParams.get('opponentName') || 'Opponent';
+  const opponentRating = searchParams.get('opponentRating') || '1200';
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -917,7 +919,9 @@ const Multiplayer: React.FC = () => {
         }}
         playerDetails={{
           myUsername,
+          myRating,
           opponentUsername,
+          opponentRating,
           opponentConnected,
           disconnectTimer: disconnectTimerStr
         }}

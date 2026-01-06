@@ -109,7 +109,12 @@ const GuestMatchmaking: React.FC = () => {
       if (data && data.yourRole && data.matchId) {
         // Use userId from server if available (for reconnection reliability)
         const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
-        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}&time=${selectedTime}`;
+        const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
+        const myRatingParam = data.yourRating ? `&myRating=${data.yourRating}` : '';
+        const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
+        const opponentRatingParam = data.opponent?.rating ? `&opponentRating=${data.opponent.rating}` : '';
+
+        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}${myNameParam}${myRatingParam}${opponentNameParam}${opponentRatingParam}&time=${selectedTime}`;
         console.log('🚀 Navigating to game:', gameUrl);
         console.log('📍 Current location:', window.location.pathname);
 

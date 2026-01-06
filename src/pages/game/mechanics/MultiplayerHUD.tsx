@@ -24,7 +24,9 @@ interface MultiplayerHUDProps {
   };
   playerDetails: {
     myUsername: string;
+    myRating?: string;
     opponentUsername: string;
+    opponentRating?: string;
     opponentConnected: boolean;
     disconnectTimer: string;
   };
@@ -84,7 +86,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
         <div className="flex justify-between items-center mb-2">
           <div className="flex flex-col">
             <span className={`text-[10px] font-bold uppercase tracking-widest ${opponentData.color}`}>
-              {playerDetails.opponentUsername} ({opponentData.role === 'player1' ? 'P1' : 'P2'})
+              {playerDetails.opponentUsername} <span className="text-neutral-500">({playerDetails.opponentRating || '1200'})</span> ({opponentData.role === 'player1' ? 'P1' : 'P2'})
             </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className={`w-1.5 h-1.5 rounded-full ${playerDetails.opponentConnected ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 'bg-red-500'}`} />
@@ -152,7 +154,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
         <div className="flex justify-between items-start mb-2">
           <div className="flex flex-col">
             <span className={`text-[10px] font-bold uppercase tracking-widest ${myData.color}`}>
-              {playerDetails.myUsername} ({myData.role === 'player1' ? 'P1' : 'P2'})
+              {playerDetails.myUsername} <span className="text-neutral-500">({playerDetails.myRating || '1200'})</span> ({myData.role === 'player1' ? 'P1' : 'P2'})
             </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]" />
