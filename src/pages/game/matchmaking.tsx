@@ -4,9 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import Sidebar from '../../components/sidebar';
 
-// Module-level flag to prevent duplicate socket creation
-let isCreatingSocket = false;
-const SOCKET_CREATION_LOCK_DURATION = 2000;
+
 
 const Matchmaking: React.FC = () => {
     const navigate = useNavigate();
@@ -35,19 +33,7 @@ const Matchmaking: React.FC = () => {
             return;
         }
 
-        if (isCreatingSocket) {
-            return;
-        }
 
-        if (socketInstanceRef.current && socketInstanceRef.current.connected) {
-            setSocket(socketInstanceRef.current);
-            return;
-        }
-
-        isCreatingSocket = true;
-        setTimeout(() => {
-            isCreatingSocket = false;
-        }, SOCKET_CREATION_LOCK_DURATION);
 
         // Connect to socket server
         const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
@@ -79,7 +65,6 @@ const Matchmaking: React.FC = () => {
         const handleQueued = (data: any) => {
             console.log('⏳ Queued event received:', data);
             setStatus('Waiting for opponent...');
-            setTimeInQueue(0);
         };
 
         const handleMatchFound = (data: any) => {
