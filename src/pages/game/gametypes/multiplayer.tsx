@@ -56,7 +56,7 @@ const Multiplayer: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
   const ghostRef = useRef<HTMLDivElement>(null);
-  const [boardScale, setBoardScale] = useState(0.65);
+  const [boardScale, setBoardScale] = useState(0.95);
   const circleSize = "w-17 h-17";
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
@@ -769,8 +769,8 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 1024) setBoardScale(Math.min((width - 20) / 1050, 0.65));
-      else setBoardScale(0.65);
+      if (width < 1024) setBoardScale(Math.min((width - 20) / 1050, 0.95));
+      else setBoardScale(0.95);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
