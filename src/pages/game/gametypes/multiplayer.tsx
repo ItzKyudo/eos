@@ -769,11 +769,22 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 1024) setBoardScale(Math.min((width - 10) / 980, 0.95));
-      else setBoardScale(0.95);
+      // Aggressive scaling: 
+      // If width < 1024 (LG breakpoint), scale down based on width.
+      // Else, use MAX scale of 0.95.
+      if (width < 1024) {
+        const calculatedScale = Math.min((width - 10) / 980, 0.95);
+        setBoardScale(Math.max(0.3, calculatedScale)); // Prevent it from becoming too small
+      } else {
+        setBoardScale(0.95);
+      }
     };
+
+    // Call immediately and add listener
     handleResize();
     window.addEventListener('resize', handleResize);
+
+    // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
