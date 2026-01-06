@@ -938,6 +938,19 @@ const Multiplayer: React.FC = () => {
           disconnectTimer: disconnectTimerStr
         }}
         onSwitchTurn={handleSwitchTurn}
+        onResign={() => {
+          if (winner) {
+            navigate('/');
+            return;
+          }
+          if (window.confirm('Are you sure you want to resign? You will lose this match.')) {
+            if (socket && matchId) {
+              console.log('🏳️ Resigning game...');
+              socket.emit('leaveGame', { matchId });
+            }
+            navigate('/');
+          }
+        }}
         canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />

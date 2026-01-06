@@ -28,6 +28,7 @@ interface MultiplayerHUDProps {
     disconnectTimer: string;
   };
   onSwitchTurn: () => void;
+  onResign: () => void;
   canSwitchTurn: boolean;
   gameStatus: 'active' | 'finished' | 'waiting';
 }
@@ -44,7 +45,8 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
   onSwitchTurn,
   canSwitchTurn,
   gameStatus,
-  playerDetails
+  playerDetails,
+  onResign
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -158,6 +160,13 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
           </div>
           {myData.isMyTurn && !canSwitchTurn && <span className="text-[9px] text-green-400 font-bold">YOUR TURN</span>}
           {myData.isMyTurn && canSwitchTurn && <span className="text-[9px] text-amber-400 font-bold animate-pulse">CONFIRM MOVE</span>}
+          <button
+            onClick={onResign}
+            className="ml-auto px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-500 hover:text-red-400 rounded text-[9px] font-bold border border-transparent hover:border-red-900/50 transition-colors uppercase tracking-wider"
+            title="Resign Game"
+          >
+            Resign
+          </button>
         </div>
 
         <div className="flex items-end justify-between">
