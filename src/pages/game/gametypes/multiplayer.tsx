@@ -792,24 +792,7 @@ const Multiplayer: React.FC = () => {
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
 
-        <div className="absolute top-4 left-4 z-50 flex gap-2 flex-col">
-          <div className="flex gap-2">
-            {/* Quit Button Only */}
-            <button
-              onClick={() => {
-                if (socket && matchId) {
-                  console.log('🏳️ Quitting game...');
-                  socket.emit('leaveGame', { matchId });
-                }
-                navigate('/');
-              }}
-              className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs shadow-lg border border-neutral-600 font-bold"
-            >
-              Quit Game
-            </button>
-          </div>
-          {/* Opponent Status Removed from here, moved to Sidebar */}
-        </div>
+
         {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
             GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
