@@ -15,6 +15,8 @@ export const useFriendsStatus = () => {
     const [loading, setLoading] = useState(true);
     const socketRef = useRef<Socket | null>(null);
 
+    const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
+
     useEffect(() => {
         fetchFriends();
 
@@ -50,11 +52,48 @@ export const useFriendsStatus = () => {
                 ));
             });
 
+            // Challenge Events
+            newSocket.on('challengeReceived', (challenge) => {
+                console.log("Challenge Received:", challenge);
+                setIncomingChallenge(challenge);
+            });
+
+            newSocket.on('challengeDeclined', () => {
+                // Optional: Toast notification
+                alert("Challenge declined.");
+            });
+
+            newSocket.on('matchFound', (matchData) => {
+                console.log("Match Found via Invite:", matchData);
+                // Dispatch a custom event or let the component handle navigation if it's listening
+                // Ideally we return this state or use a global listener.
+                // For now, let's emit a window event or just let the hook consumer handle it?
+                // Hooks run in components. If multiple components use this hook, all get the event.
+                // We'll rely on the consumer (GameSetup) to handle navigation.
+                // Or better: store in state?
+                // Let's dispatch a window event for navigation to catch it anywhere
+                window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
+            });
+
             return () => {
                 newSocket.disconnect();
             };
         }
     }, []);
+
+    const sendChallenge = (targetUserId: number, timeControl: number, challengerName: string) => {
+        socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });
+    };
+
+    const acceptChallenge = (challengerId: number, timeControl: number) => {
+        socketRef.current?.emit('acceptChallenge', { challengerId, timeControl });
+        setIncomingChallenge(null);
+    };
+
+    const declineChallenge = (challengerId: number) => {
+        socketRef.current?.emit('declineChallenge', { challengerId });
+        setIncomingChallenge(null);
+    };
 
     const fetchFriends = async () => {
         try {
@@ -83,5 +122,5 @@ export const useFriendsStatus = () => {
         }
     };
 
-    return { friends, loading };
+    return { friends, loading, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge };
 };

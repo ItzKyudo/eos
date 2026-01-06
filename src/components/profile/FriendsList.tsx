@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { Gamepad2 } from 'lucide-react';
+import ChallengeModal from './ChallengeModal';
 
 interface FriendsListProps {
     className?: string;
@@ -9,7 +10,8 @@ interface FriendsListProps {
 }
 
 const FriendsList: React.FC<FriendsListProps> = ({ className = "", limit, showInvite = false }) => {
-    const { friends, loading } = useFriendsStatus();
+    const { friends, loading, sendChallenge } = useFriendsStatus();
+    const [selectedFriend, setSelectedFriend] = useState<any>(null);
 
     // Sort: Online first
     const sortedFriends = [...friends].sort((a, b) => {
@@ -18,6 +20,18 @@ const FriendsList: React.FC<FriendsListProps> = ({ className = "", limit, showIn
     });
 
     const displayFriends = limit ? sortedFriends.slice(0, limit) : sortedFriends;
+
+    const handleInvite = (friend: any) => {
+        setSelectedFriend(friend);
+    };
+
+    const confirmChallenge = (timeControl: number) => {
+        if (selectedFriend) {
+            // You might want to get the current user's name from context/storage to pass
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            sendChallenge(selectedFriend.user_id, timeControl, user.username || 'Friend');
+        }
+    };
 
     return (
         <div className={`space-y-3 ${className}`}>
@@ -54,13 +68,24 @@ const FriendsList: React.FC<FriendsListProps> = ({ className = "", limit, showIn
                         </div>
 
                         {showInvite && friend.isOnline && (
-                            <button className="opacity-0 group-hover:opacity-100 p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-all text-white" title="Invite to Game">
+                            <button
+                                onClick={() => handleInvite(friend)}
+                                className="opacity-0 group-hover:opacity-100 p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-all text-white"
+                                title="Invite to Game"
+                            >
                                 <Gamepad2 size={16} />
                             </button>
                         )}
                     </div>
                 ))
             )}
+
+            <ChallengeModal
+                isOpen={!!selectedFriend}
+                onClose={() => setSelectedFriend(null)}
+                onSendChallenge={confirmChallenge}
+                friendName={selectedFriend?.username || 'Friend'}
+            />
         </div>
     );
 };

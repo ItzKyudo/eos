@@ -3,9 +3,23 @@ import Sidebar from '../../components/sidebar';
 import RightPanel from '../../components/RightPanel';
 import { PIECES } from './mechanics/piecemovements';
 import { INITIAL_POSITIONS } from './mechanics/positions';
+import { useNavigate } from 'react-router-dom';
+import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { BOARD_COLUMNS } from './utils/gameUtils';
-
 const GameSetup: React.FC = () => {
+  const navigate = useNavigate();
+  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus();
+
+  // Listen for matchFound event from hook
+  React.useEffect(() => {
+    const handleMatchFound = (e: any) => {
+      const matchData = e.detail;
+      console.log("Navigating to game:", matchData);
+      navigate('/game', { state: matchData });
+    };
+    window.addEventListener('matchFound', handleMatchFound);
+    return () => window.removeEventListener('matchFound', handleMatchFound);
+  }, [navigate]);
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100">
@@ -21,6 +35,37 @@ const GameSetup: React.FC = () => {
           </div>
         </div>
         <RightPanel />
+
+        {/* Challenge Invite Overlay */}
+        {incomingChallenge && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[100] animate-slideDown">
+            <div className="bg-[#1e293b] p-4 rounded-xl shadow-2xl border border-blue-500/50 flex items-center gap-6 min-w-[320px]">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xl">
+                  {incomingChallenge.challengerName[0].toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Challenge from {incomingChallenge.challengerName}</h3>
+                  <p className="text-xs text-blue-300">Time Control: {incomingChallenge.timeControl / 60} mins</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => declineChallenge(incomingChallenge.challengerId)}
+                  className="p-2 hover:bg-white/10 rounded-lg text-gray-400 font-bold text-xs"
+                >
+                  Decline
+                </button>
+                <button
+                  onClick={() => acceptChallenge(incomingChallenge.challengerId, incomingChallenge.timeControl)}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-xs shadow-lg transition-all"
+                >
+                  Accept
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
