@@ -22,7 +22,9 @@ const GuestMatchmaking: React.FC = () => {
   const [status, setStatus] = useState<string>('Connecting...');
   const [isSearching, setIsSearching] = useState(false);
   const [timeInQueue, setTimeInQueue] = useState<number>(0);
+
   const socketInstanceRef = useRef<Socket | null>(null);
+  const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Prevent duplicate socket creation (React Strict Mode causes double execution)
@@ -63,9 +65,12 @@ const GuestMatchmaking: React.FC = () => {
       setStatus('Connected! Searching for opponent...');
       setIsSearching(true);
 
-      // Join guest queue with time control
-      console.log('📤 Emitting joinQueue with time:', selectedTime);
-      newSocket.emit('joinQueue', { timeControl: selectedTime });
+      // DELAYED JOIN: Show searching UI immediately, but wait 5s to emit joinQueue
+      console.log('⏳ Starting 5s delay before joining guest queue...');
+      joinQueueTimeoutRef.current = setTimeout(() => {
+        console.log('📤 5s delay over. Emitting joinQueue with time:', selectedTime);
+        newSocket.emit('joinQueue', { timeControl: selectedTime });
+      }, 5000);
     };
 
     const handleQueued = (data: any) => {
@@ -172,6 +177,8 @@ const GuestMatchmaking: React.FC = () => {
 
       console.log('🧹 Cleaning up matchmaking component...');
 
+      if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
+
       // Properly clean up socket connection (only if still connected)
       const socketToCleanup = socketInstanceRef.current || newSocket;
       if (socketToCleanup && socketToCleanup.connected) {
@@ -188,6 +195,7 @@ const GuestMatchmaking: React.FC = () => {
   }, [navigate]);
 
   const handleCancel = () => {
+    if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
     if (socket) {
       socket.emit('leaveQueue');
       socket.disconnect();

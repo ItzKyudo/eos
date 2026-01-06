@@ -22,7 +22,9 @@ const Matchmaking: React.FC = () => {
     const [status, setStatus] = useState<string>('Connecting...');
     const [isSearching, setIsSearching] = useState(false);
     const [timeInQueue, setTimeInQueue] = useState<number>(0);
+
     const socketInstanceRef = useRef<Socket | null>(null);
+    const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         // Check for auth token
@@ -66,9 +68,12 @@ const Matchmaking: React.FC = () => {
             setStatus('Connected! Searching for ranked opponent...');
             setIsSearching(true);
 
-            // Join matchmaking queue with token and time control
-            console.log('📤 Emitting joinQueue with token and time:', selectedTime);
-            newSocket.emit('joinQueue', { token, timeControl: selectedTime });
+            // DELAYED JOIN: Show searching UI immediately, but wait 5s to emit joinQueue
+            console.log('⏳ Starting 5s delay before joining queue...');
+            joinQueueTimeoutRef.current = setTimeout(() => {
+                console.log('📤 5s delay over. Emitting joinQueue with token and time:', selectedTime);
+                newSocket.emit('joinQueue', { token, timeControl: selectedTime });
+            }, 5000);
         };
 
         const handleQueued = (data: any) => {
@@ -134,6 +139,8 @@ const Matchmaking: React.FC = () => {
 
         return () => {
             clearInterval(queueTimer);
+            if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
+
             const socketToCleanup = socketInstanceRef.current || newSocket;
             if (socketToCleanup && socketToCleanup.connected) {
                 socketToCleanup.emit('leaveQueue');
@@ -146,6 +153,7 @@ const Matchmaking: React.FC = () => {
     }, [navigate]);
 
     const handleCancel = () => {
+        if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
         if (socket) {
             socket.emit('leaveQueue');
             socket.disconnect();
