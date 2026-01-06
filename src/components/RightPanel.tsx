@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, Play, Settings,
-  Handshake, ArrowRight, Zap, Check, Target,
+  Handshake, ArrowRight, Check, Target,
   History, Users
 } from 'lucide-react';
 import LoginModal from './loginmodal';
 import FriendsList from './profile/FriendsList';
 
 // --- TYPES ---
-type TimeControl = 600 | 300 | 60;
+type TimeControl = number; // Dynamic from DB
 type TabType = 'new' | 'history' | 'friends';
 
 // --- MOCK DATA ---
@@ -45,6 +45,42 @@ const RightPanel: React.FC = () => {
 
   // --- RENDER HELPERS ---
 
+  // State for game modes
+  const [gameModes, setGameModes] = useState<any[]>([]);
+  const [loadingModes, setLoadingModes] = useState(true);
+
+  // Fetch game modes on mount
+  React.useEffect(() => {
+    const fetchGameModes = async () => {
+      try {
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+        const response = await fetch(`${serverUrl}/api/gamemodes`);
+        if (response.ok) {
+          const data = await response.json();
+          // Sort by duration (descending) to match previous layout: 10m -> 5m -> 1m
+          const sortedModes = data.sort((a: any, b: any) => b.duration_minutes - a.duration_minutes);
+          setGameModes(sortedModes);
+
+          // Set default selected time if not already set (or reset if needed)
+          if (sortedModes.length > 0) {
+            // Default to first one (usually Standard 10m) if current selectedTime doesn't match any?
+            // Or keep 600 as default manually.
+            // Let's ensure selectedTime matches one of the modes if possible.
+            // For now, we keep 600 as initial state in `useState(600)` but we could update it here.
+          }
+        } else {
+          console.error("Failed to fetch game modes");
+        }
+      } catch (error) {
+        console.error("Error fetching game modes:", error);
+      } finally {
+        setLoadingModes(false);
+      }
+    };
+
+    fetchGameModes();
+  }, []);
+
   const renderNewGame = () => (
     <>
       <div className="space-y-3">
@@ -56,27 +92,31 @@ const RightPanel: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <TimeCard
-            minutes="10"
-            type="Rapid"
-            active={selectedTime === 600}
-            onClick={() => setSelectedTime(600)}
-            icon={<Clock size={18} />}
-          />
-          <TimeCard
-            minutes="5"
-            type="Blitz"
-            active={selectedTime === 300}
-            onClick={() => setSelectedTime(300)}
-            icon={<Zap size={18} />}
-          />
-          <TimeCard
-            minutes="1"
-            type="Bullet"
-            active={selectedTime === 60}
-            onClick={() => setSelectedTime(60)}
-            icon={<Zap size={18} />}
-          />
+          {loadingModes ? (
+            // Skeleton loader or fallback
+            <>
+              <div className="h-24 bg-white/5 rounded-xl animate-pulse"></div>
+              <div className="h-24 bg-white/5 rounded-xl animate-pulse"></div>
+              <div className="h-24 bg-white/5 rounded-xl animate-pulse"></div>
+            </>
+          ) : (
+            gameModes.map((mode) => (
+              <TimeCard
+                key={mode.game_mode_id}
+                minutes={String(mode.duration_minutes)}
+                type={mode.title}
+                active={selectedTime === mode.duration_minutes * 60}
+                onClick={() => setSelectedTime((mode.duration_minutes * 60) as TimeControl)}
+                icon={<Clock size={18} />} // Use generic clock for all, or differ based on duration
+              />
+            ))
+          )}
+          {/* Fallback if no modes found (shouldn't happen with correct DB) */}
+          {!loadingModes && gameModes.length === 0 && (
+            <div className="col-span-3 text-center text-xs text-gray-500">
+              No game modes available
+            </div>
+          )}
         </div>
       </div>
 
