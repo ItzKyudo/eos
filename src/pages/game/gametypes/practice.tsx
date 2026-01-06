@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom'; 
+import { useSearchParams } from 'react-router-dom';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
-import { BOARD_COLUMNS } from '../utils/gameUtils'; 
+import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MoveHistory, { useGameHistory } from '../mechanics/MoveHistory';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
@@ -14,21 +14,21 @@ const Board: React.FC = () => {
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
-  const [viewMode, setViewMode] = useState<'auto' | 'locked'>('auto'); 
+  const [viewMode, setViewMode] = useState<'auto' | 'locked'>('auto');
   const [perspective, setPerspective] = useState<'player1' | 'player2'>('player1');
   const { moveHistory, capturedByP1, capturedByP2, addMove, addCapture } = useGameHistory();
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
-  const [validMoves, setValidMoves] = useState<string[]>([]);    
+  const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const ghostRef = useRef<HTMLDivElement>(null);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
-  const [boardScale, setBoardScale] = useState(0.65);
-  const circleSize = "w-17 h-17"; 
-  const rowHeight = "h-12";       
-  const gridWidth = 'w-[900px]';  
-  const sideWidth = 'w-16'; 
+  const [boardScale, setBoardScale] = useState(0.95);
+  const circleSize = "w-17 h-17";
+  const rowHeight = "h-12";
+  const gridWidth = 'w-[900px]';
+  const sideWidth = 'w-16';
   const handleTimeout = (winner: 'player1' | 'player2') => {
     setWinner(winner);
     setTurnPhase('locked');
@@ -41,7 +41,7 @@ const Board: React.FC = () => {
 
     const pieceId = getPieceAtTile(coordinate);
     if (!pieceId) return;
-    
+
     const owner = getPieceOwner(pieceId);
     if ((turnPhase === 'select' || turnPhase === 'action') && owner !== currentTurn) return;
 
@@ -52,11 +52,11 @@ const Board: React.FC = () => {
 
     let clientX, clientY;
     if ('touches' in e) {
-       clientX = e.touches[0].clientX;
-       clientY = e.touches[0].clientY;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-       clientX = (e as React.MouseEvent).clientX;
-       clientY = (e as React.MouseEvent).clientY;
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
     }
     setInitialDragPos({ x: clientX, y: clientY });
 
@@ -64,15 +64,15 @@ const Board: React.FC = () => {
       const isFirstMove = !hasMoved[pieceId];
       const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
-      
+
       setValidMoves(moves);
       setValidAttacks(attacks);
-      setTurnPhase('action'); 
-    } 
+      setTurnPhase('action');
+    }
     else if (turnPhase === 'mandatory_move') {
       const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
       setValidMoves(allowedMoves);
-      setValidAttacks([]); 
+      setValidAttacks([]);
     }
   };
 
@@ -104,21 +104,21 @@ const Board: React.FC = () => {
     });
 
     const currentPos = gameState[activePiece]!;
-    
+
     const { attacks, moves } = getMultiCaptureOptions(
-       activePiece, 
-       currentPos, 
-       result.newGameState as Record<string, string>,
-       mandatoryMoveUsed 
+      activePiece,
+      currentPos,
+      result.newGameState as Record<string, string>,
+      mandatoryMoveUsed
     );
 
     setValidAttacks(attacks);
     setValidMoves(moves);
 
     if (attacks.length > 0 || moves.length > 0) {
-        setTurnPhase('mandatory_move');
+      setTurnPhase('mandatory_move');
     } else {
-        setTurnPhase('locked');
+      setTurnPhase('locked');
     }
   };
 
@@ -128,11 +128,11 @@ const Board: React.FC = () => {
 
     let clientX, clientY;
     if ('changedTouches' in e) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
     } else {
-        clientX = (e as MouseEvent).clientX;
-        clientY = (e as MouseEvent).clientY;
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
     }
 
     const elementUnderMouse = document.elementFromPoint(clientX, clientY);
@@ -161,29 +161,29 @@ const Board: React.FC = () => {
 
         let attacks: string[] = [];
         if (turnPhase === 'action') {
-           attacks = getValidAttacks(
-             activePiece, targetCoord, 
-             { ...gameState, [activePiece]: targetCoord } as Record<string, string>, 
-             'post-move', 
-             wasFirstMove 
-           );
+          attacks = getValidAttacks(
+            activePiece, targetCoord,
+            { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
+            'post-move',
+            wasFirstMove
+          );
         } else if (turnPhase === 'mandatory_move') {
-           attacks = getValidAttacks(
-             activePiece, targetCoord, 
-             { ...gameState, [activePiece]: targetCoord } as Record<string, string>, 
-             'post-move', 
-             false
-           );
+          attacks = getValidAttacks(
+            activePiece, targetCoord,
+            { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
+            'post-move',
+            false
+          );
         }
 
         if (attacks.length > 0) {
-           setValidMoves([]); 
-           setValidAttacks(attacks);
-           setTurnPhase('mandatory_move'); 
+          setValidMoves([]);
+          setValidAttacks(attacks);
+          setTurnPhase('mandatory_move');
         } else {
-           setValidMoves([]);    
-           setValidAttacks([]);  
-           setTurnPhase('locked');
+          setValidMoves([]);
+          setValidAttacks([]);
+          setTurnPhase('locked');
         }
       }
     }
@@ -199,7 +199,7 @@ const Board: React.FC = () => {
   };
 
   const togglePerspective = () => {
-    setViewMode('locked'); 
+    setViewMode('locked');
     setPerspective(prev => prev === 'player1' ? 'player2' : 'player1');
   };
 
@@ -212,14 +212,14 @@ const Board: React.FC = () => {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (isDragging && ghostRef.current) {
-        if(e.cancelable) e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         let clientX, clientY;
         if ('touches' in e) {
-           clientX = e.touches[0].clientX;
-           clientY = e.touches[0].clientY;
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
         } else {
-           clientX = (e as MouseEvent).clientX;
-           clientY = (e as MouseEvent).clientY;
+          clientX = (e as MouseEvent).clientX;
+          clientY = (e as MouseEvent).clientY;
         }
         ghostRef.current.style.left = `${clientX}px`;
         ghostRef.current.style.top = `${clientY}px`;
@@ -244,9 +244,9 @@ const Board: React.FC = () => {
     const handleResize = () => {
       const width = window.innerWidth;
       if (width < 1024) {
-        setBoardScale(Math.min((width - 20) / 1050, 0.65));
+        setBoardScale(Math.min((width - 10) / 980, 0.95));
       } else {
-        setBoardScale(0.65);
+        setBoardScale(0.95);
       }
     };
     handleResize();
@@ -274,15 +274,15 @@ const Board: React.FC = () => {
       case 12: tiles = ['B12', 'D12', 'F12', 'H12', 'J12', 'L12', 'N12', 'P12']; break;
       case 11: tiles = ['A11', 'C11', 'E11', 'G11', 'I11', 'K11', 'M11', 'O11', 'Q11']; break;
       case 10: tiles = ['B10', 'D10', 'F10', 'H10', 'J10', 'L10', 'N10', 'P10']; break;
-      case 9:  tiles = ['A9', 'C9', 'E9', 'G9', 'I9', 'K9', 'M9', 'O9', 'Q9']; break;
-      case 8:  tiles = ['B8', 'D8', 'F8', 'H8', 'J8', 'L8', 'N8', 'P8']; break;
-      case 7:  tiles = ['A7', 'C7', 'E7', 'G7', 'I7', 'K7', 'M7', 'O7', 'Q7']; break;
-      case 6:  tiles = ['B6', 'D6', 'F6', 'H6', 'J6', 'L6', 'N6', 'P6']; break;
-      case 5:  tiles = ['A5', 'C5', 'E5', 'G5', 'I5', 'K5', 'M5', 'O5', 'Q5']; break;
-      case 4:  tiles = ['B4', 'D4', 'F4', 'H4', 'J4', 'L4', 'N4', 'P4']; break;
-      case 3:  tiles = ['A3', 'C3', 'E3', 'G3', 'I3', 'K3', 'M3', 'O3', 'Q3']; break;
-      case 2:  tiles = ['B2', 'D2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2']; break;
-      case 1:  tiles = ['A1', 'C1', 'E1', 'G1', 'I1', 'K1', 'M1', 'O1', 'Q1']; break;
+      case 9: tiles = ['A9', 'C9', 'E9', 'G9', 'I9', 'K9', 'M9', 'O9', 'Q9']; break;
+      case 8: tiles = ['B8', 'D8', 'F8', 'H8', 'J8', 'L8', 'N8', 'P8']; break;
+      case 7: tiles = ['A7', 'C7', 'E7', 'G7', 'I7', 'K7', 'M7', 'O7', 'Q7']; break;
+      case 6: tiles = ['B6', 'D6', 'F6', 'H6', 'J6', 'L6', 'N6', 'P6']; break;
+      case 5: tiles = ['A5', 'C5', 'E5', 'G5', 'I5', 'K5', 'M5', 'O5', 'Q5']; break;
+      case 4: tiles = ['B4', 'D4', 'F4', 'H4', 'J4', 'L4', 'N4', 'P4']; break;
+      case 3: tiles = ['A3', 'C3', 'E3', 'G3', 'I3', 'K3', 'M3', 'O3', 'Q3']; break;
+      case 2: tiles = ['B2', 'D2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2']; break;
+      case 1: tiles = ['A1', 'C1', 'E1', 'G1', 'I1', 'K1', 'M1', 'O1', 'Q1']; break;
       default: tiles = [];
     }
     return perspective === 'player1' ? tiles : tiles.reverse();
@@ -290,20 +290,20 @@ const Board: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
-      
+
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-        
+
         <div className="absolute top-4 left-4 z-50 flex gap-2">
-           <button 
-             onClick={togglePerspective}
-             className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg border border-neutral-600 flex items-center gap-2 transition-all"
-           >
-             <span className="text-xl">↻</span>
-             {perspective === 'player1' ? 'View: P1 (Bottom)' : 'View: P2 (Top)'}
-           </button>
-           {viewMode === 'locked' && (
-             <button onClick={() => setViewMode('auto')} className="text-[10px] text-neutral-400 underline">Reset Auto</button>
-           )}
+          <button
+            onClick={togglePerspective}
+            className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg border border-neutral-600 flex items-center gap-2 transition-all"
+          >
+            <span className="text-xl">↻</span>
+            {perspective === 'player1' ? 'View: P1 (Bottom)' : 'View: P2 (Top)'}
+          </button>
+          {viewMode === 'locked' && (
+            <button onClick={() => setViewMode('auto')} className="text-[10px] text-neutral-400 underline">Reset Auto</button>
+          )}
         </div>
 
         {winner && (
@@ -311,19 +311,19 @@ const Board: React.FC = () => {
             GAME OVER! {winner === 'player1' ? 'BOTTOM' : 'TOP'} WINS!
           </div>
         )}
-        
+
         {turnPhase === 'mandatory_move' && !winner && (
-           <div className="absolute top-24 z-50 bg-yellow-600 text-white px-6 py-2 rounded-full shadow-lg font-bold animate-pulse text-center">
-             {validMoves.length > 0 ? "Capture Successful! You MUST move now." : "Capture Successful! Capture again or End Turn."}
-           </div>
+          <div className="absolute top-24 z-50 bg-yellow-600 text-white px-6 py-2 rounded-full shadow-lg font-bold animate-pulse text-center">
+            {validMoves.length > 0 ? "Capture Successful! You MUST move now." : "Capture Successful! Capture again or End Turn."}
+          </div>
         )}
 
         {isDragging && activePiece && (
-          <div 
+          <div
             ref={ghostRef}
             className="fixed pointer-events-none z-100"
-            style={{ 
-              left: initialDragPos.x, 
+            style={{
+              left: initialDragPos.x,
               top: initialDragPos.y,
               transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)',
               willChange: 'left, top'
@@ -334,30 +334,30 @@ const Board: React.FC = () => {
             </div>
           </div>
         )}
-        
-        <div 
-            className="origin-center transition-transform duration-500 ease-in-out"
-            style={{ transform: `scale(${boardScale})` }}
+
+        <div
+          className="origin-center transition-transform duration-500 ease-in-out"
+          style={{ transform: `scale(${boardScale})` }}
         >
           <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#145c2b] flex flex-col items-center">
-            
+
             <div className="flex items-center mb-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
-              <div className={`flex justify-between ${gridWidth} px-10`}> 
+              <div className={`flex justify-between ${gridWidth} px-10`}>
                 {getRenderCols().map((col) => <div key={col} className="text-[#a3dcb5] text-center font-bold text-xl w-12">{col}</div>)}
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
-            
-            <div className="flex flex-col space-y-1"> 
+
+            <div className="flex flex-col space-y-1">
               {getRenderRows().map((row) => {
-                const currentTiles = getRowTiles(row); 
+                const currentTiles = getRowTiles(row);
                 const is9TileRow = currentTiles.length === 9;
 
                 return (
                   <div key={row} className="flex items-center">
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-6`}>{row}</div>
-                    
+
                     <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
                       {currentTiles.map((coordinate, i) => {
                         const pieceId = getPieceAtTile(coordinate);
@@ -384,14 +384,14 @@ const Board: React.FC = () => {
                             `}
                           >
                             {pieceId && (
-                              <img 
-                                src={PIECES[pieceId]} 
-                                alt="piece" 
+                              <img
+                                src={PIECES[pieceId]}
+                                alt="piece"
                                 className={`
                                   w-full h-full rounded-full object-cover 
                                   ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
                                   pointer-events-none select-none
-                                `} 
+                                `}
                               />
                             )}
                             {isMoveTarget && !pieceId && (
@@ -400,8 +400,8 @@ const Board: React.FC = () => {
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-50">
-                                   <div className="absolute w-full h-1 bg-red-600 top-1/2 -translate-y-1/2"></div>
-                                   <div className="absolute h-full w-1 bg-red-600 left-1/2 -translate-x-1/2"></div>
+                                  <div className="absolute w-full h-1 bg-red-600 top-1/2 -translate-y-1/2"></div>
+                                  <div className="absolute h-full w-1 bg-red-600 left-1/2 -translate-x-1/2"></div>
                                 </div>
                               </div>
                             )}
@@ -414,7 +414,7 @@ const Board: React.FC = () => {
                 );
               })}
             </div>
-            
+
             <div className="flex items-center mt-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
@@ -426,17 +426,17 @@ const Board: React.FC = () => {
         </div>
       </div>
 
-      <MoveHistory 
-        moves={moveHistory} 
-        currentTurn={currentTurn} 
+      <MoveHistory
+        moves={moveHistory}
+        currentTurn={currentTurn}
         onSwitchTurn={handleSwitchTurn}
         canSwitchTurn={turnPhase === 'locked'}
         capturedByP1={capturedByP1}
         capturedByP2={capturedByP2}
         onTimeout={handleTimeout}
-        initialTime={timeLimit} 
+        initialTime={timeLimit}
       />
-      
+
     </div>
   );
 };

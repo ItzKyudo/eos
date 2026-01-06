@@ -769,7 +769,7 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 1024) setBoardScale(Math.min((width - 20) / 1050, 0.95));
+      if (width < 1024) setBoardScale(Math.min((width - 10) / 980, 0.95));
       else setBoardScale(0.95);
     };
     handleResize();
