@@ -21,6 +21,12 @@ interface MultiplayerHUDProps {
     capturedByP1: PieceKey[];
     capturedByP2: PieceKey[];
   };
+  playerDetails: {
+    myUsername: string;
+    opponentUsername: string;
+    opponentConnected: boolean;
+    disconnectTimer: string;
+  };
   onSwitchTurn: () => void;
   canSwitchTurn: boolean;
   gameStatus: 'active' | 'finished' | 'waiting';
@@ -37,7 +43,8 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
   gameState,
   onSwitchTurn,
   canSwitchTurn,
-  gameStatus
+  gameStatus,
+  playerDetails
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -72,9 +79,18 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
     <div className="w-full lg:w-72 h-[30vh] lg:h-auto bg-neutral-900 border-l border-neutral-700 flex flex-col shadow-2xl z-20 font-sans">
       <div className={`p-3 border-b border-neutral-800 transition-colors duration-300 ${opponentData.isTheirTurn ? 'bg-neutral-800/80' : 'bg-neutral-900/50'}`}>
         <div className="flex justify-between items-center mb-2">
-          <span className={`text-[10px] font-bold uppercase tracking-widest ${opponentData.color}`}>
-            Opponent ({opponentData.role === 'player1' ? 'P1' : 'P2'})
-          </span>
+          <div className="flex flex-col">
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${opponentData.color}`}>
+              {playerDetails.opponentUsername} ({opponentData.role === 'player1' ? 'P1' : 'P2'})
+            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${playerDetails.opponentConnected ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 'bg-red-500'}`} />
+              <span className={`text-[9px] font-medium ${playerDetails.opponentConnected ? 'text-neutral-400' : 'text-red-400'}`}>
+                {playerDetails.opponentConnected ? 'ONLINE' : 'OFFLINE'}
+                {!playerDetails.opponentConnected && playerDetails.disconnectTimer && ` (${playerDetails.disconnectTimer})`}
+              </span>
+            </div>
+          </div>
           {opponentData.isTheirTurn && <span className="text-[9px] text-yellow-500 animate-pulse font-bold">THINKING...</span>}
         </div>
         <div className="flex items-end justify-between">
@@ -131,9 +147,15 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
       </div>
       <div className={`p-3 border-t border-neutral-700 transition-all duration-300 ${myData.isMyTurn ? myData.bgColor : 'bg-neutral-800'}`}>
         <div className="flex justify-between items-center mb-2">
-          <span className={`text-[10px] font-bold uppercase tracking-widest ${myData.color}`}>
-            YOU ({myData.role === 'player1' ? 'P1' : 'P2'})
-          </span>
+          <div className="flex flex-col">
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${myData.color}`}>
+              {playerDetails.myUsername} ({myData.role === 'player1' ? 'P1' : 'P2'})
+            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]" />
+              <span className="text-[9px] font-medium text-neutral-400">ONLINE</span>
+            </div>
+          </div>
           {myData.isMyTurn && !canSwitchTurn && <span className="text-[9px] text-green-400 font-bold">YOUR TURN</span>}
           {myData.isMyTurn && canSwitchTurn && <span className="text-[9px] text-amber-400 font-bold animate-pulse">CONFIRM MOVE</span>}
         </div>

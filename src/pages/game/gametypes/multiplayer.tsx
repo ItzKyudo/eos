@@ -794,11 +794,7 @@ const Multiplayer: React.FC = () => {
 
         <div className="absolute top-4 left-4 z-50 flex gap-2 flex-col">
           <div className="flex gap-2">
-            <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${myRole === 'player1' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-blue-900 border-blue-600 text-blue-100'}`}>
-              <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
-              {myUsername} ({myRole === 'player1' ? 'P1' : 'P2'})
-            </div>
-
+            {/* Quit Button Only */}
             <button
               onClick={() => {
                 if (socket && matchId) {
@@ -807,21 +803,12 @@ const Multiplayer: React.FC = () => {
                 }
                 navigate('/');
               }}
-              className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs"
+              className="px-3 py-2 bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 text-xs shadow-lg border border-neutral-600 font-bold"
             >
-              Quit
+              Quit Game
             </button>
           </div>
-
-          <div className={`px-4 py-2 rounded-lg font-bold shadow-lg border text-xs flex items-center gap-2 ${opponentConnected ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'}`}>
-            <div className={`w-2 h-2 rounded-full ${opponentConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-            {opponentUsername}: {opponentConnected ? 'ONLINE' : 'OFFLINE'}
-            {!opponentConnected && disconnectTimerStr && (
-              <span className="ml-2 text-yellow-300 font-mono">
-                ({disconnectTimerStr})
-              </span>
-            )}
-          </div>
+          {/* Opponent Status Removed from here, moved to Sidebar */}
         </div>
         {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
@@ -944,19 +931,25 @@ const Multiplayer: React.FC = () => {
           capturedByP1,
           capturedByP2
         }}
+        playerDetails={{
+          myUsername,
+          opponentUsername,
+          opponentConnected,
+          disconnectTimer: disconnectTimerStr
+        }}
         onSwitchTurn={handleSwitchTurn}
         canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />
 
-      {/* Debug Connection Status */}
+      {/* Debug Connection Status (Hidden for Production feel, but can be toggled if needed) */}
+      {/* 
       {matchId && (
-        <div className="fixed bottom-4 left-4 bg-black/80 text-white p-2 rounded text-xs z-50 pointer-events-none">
-          Status: {socket?.connected ? '✅ Connected' : '⏳ Connecting...'} <br />
-          Socket ID: {socket ? socket.id : 'None'} <br />
-          Match ID: {matchId.substring(0, 8)}...
+        <div className="fixed bottom-4 left-4 bg-black/80 text-white p-2 rounded text-xs z-50 pointer-events-none opacity-50 hover:opacity-100 transition-opacity">
+          Status: {socket?.connected ? '✅' : '⏳'} | ID: {socket ? socket.id.substring(0,4) : '-'}
         </div>
-      )}
+      )} 
+      */}
     </div>
   );
 };
