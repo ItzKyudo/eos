@@ -39,10 +39,10 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
 
       if (uploadError) throw uploadError;
 
-      // Get Public URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      // Manually construct the URL as per user requirement
+      const manualUrl = `https://qkkvavhvyidylqjgbsrs.supabase.co/storage/v1/object/public/avatars/${filePath}`;
 
-      setForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      setForm(prev => ({ ...prev, avatar_url: manualUrl }));
       setMessage('Image uploaded! Click Save to apply.');
 
     } catch (error: any) {
