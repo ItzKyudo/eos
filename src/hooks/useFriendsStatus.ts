@@ -10,7 +10,7 @@ interface Friend {
     isOnline?: boolean;
 }
 
-export const useFriendsStatus = () => {
+export const useFriendsStatus = (options: { enableInvites?: boolean } = { enableInvites: false }) => {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
     const socketRef = useRef<Socket | null>(null);
@@ -24,10 +24,6 @@ export const useFriendsStatus = () => {
         const token = localStorage.getItem('token');
         if (token) {
             const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
-            // Check if we can reuse an existing socket or need a new one
-            // ideally we reuse a global socket context, but for now specific for status
-            // To avoid multiple connections, we can try to use a slightly different pattern 
-            // or just have a lightweight connection if the main game one isn't active.
 
             const newSocket = io(serverUrl, {
                 auth: { token },
@@ -52,34 +48,28 @@ export const useFriendsStatus = () => {
                 ));
             });
 
-            // Challenge Events
-            newSocket.on('challengeReceived', (challenge) => {
-                console.log("Challenge Received:", challenge);
-                setIncomingChallenge(challenge);
-            });
+            // Challenge Events - Only if enabled (Global Listener)
+            if (options.enableInvites) {
+                newSocket.on('challengeReceived', (challenge) => {
+                    console.log("Challenge Received:", challenge);
+                    setIncomingChallenge(challenge);
+                });
 
-            newSocket.on('challengeDeclined', () => {
-                // Optional: Toast notification
-                alert("Challenge declined.");
-            });
+                newSocket.on('challengeDeclined', () => {
+                    // alert("Challenge declined."); // Optional
+                });
 
-            newSocket.on('matchFound', (matchData) => {
-                console.log("Match Found via Invite:", matchData);
-                // Dispatch a custom event or let the component handle navigation if it's listening
-                // Ideally we return this state or use a global listener.
-                // For now, let's emit a window event or just let the hook consumer handle it?
-                // Hooks run in components. If multiple components use this hook, all get the event.
-                // We'll rely on the consumer (GameSetup) to handle navigation.
-                // Or better: store in state?
-                // Let's dispatch a window event for navigation to catch it anywhere
-                window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
-            });
+                newSocket.on('matchFound', (matchData) => {
+                    console.log("Match Found via Invite:", matchData);
+                    window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
+                });
+            }
 
             return () => {
                 newSocket.disconnect();
             };
         }
-    }, []);
+    }, [options.enableInvites]); // Re-run if option changes
 
     const sendChallenge = (targetUserId: number, timeControl: number, challengerName: string) => {
         socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });

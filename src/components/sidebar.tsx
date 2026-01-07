@@ -11,7 +11,7 @@ const Sidebar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Global Invite Listener
-  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus();
+  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ enableInvites: true });
 
   useEffect(() => {
     const token = localStorage.getItem('token');

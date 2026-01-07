@@ -46,16 +46,19 @@ const FriendsList: React.FC<FriendsListProps> = ({ className = "", limit, showIn
                 displayFriends.map(friend => (
                     <div key={friend.friendship_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-3">
-                            <div className="relative w-10 h-10 rounded-full bg-gray-700 overflow-hidden">
-                                {friend.avatar_url ? (
-                                    <img src={friend.avatar_url} alt={friend.username} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-gray-400 font-bold">
-                                        {friend.username[0].toUpperCase()}
-                                    </div>
-                                )}
-                                {/* Status Dot - Top Right */}
-                                <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#1e293b] z-10
+                            <div className="relative w-10 h-10">
+                                {/* Avatar Wrapper */}
+                                <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden">
+                                    {friend.avatar_url ? (
+                                        <img src={friend.avatar_url} alt={friend.username} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-gray-400 font-bold">
+                                            {friend.username[0].toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Status Dot - Outside Top Right */}
+                                <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#1e293b] z-20
                                     ${friend.isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-500'}`}
                                 />
                             </div>
