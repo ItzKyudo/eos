@@ -32,6 +32,22 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, in
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Delete old avatar if exists to prevent clutter
+      if (form.avatar_url && form.avatar_url.includes('/avatars/')) {
+        const oldPath = form.avatar_url.split('/avatars/').pop();
+        if (oldPath) {
+          const { error: deleteError } = await supabase.storage
+            .from('avatars')
+            .remove([oldPath]);
+
+          if (deleteError) {
+            console.warn('Failed to delete old avatar:', deleteError);
+          } else {
+            console.log('Old avatar deleted:', oldPath);
+          }
+        }
+      }
+
       // Upload to Supabase
       const { error: uploadError } = await supabase.storage
         .from('avatars')
