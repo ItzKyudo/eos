@@ -10,7 +10,7 @@ interface Friend {
     isOnline?: boolean;
 }
 
-export const useFriendsStatus = (options: { enableInvites?: boolean } = { enableInvites: false }) => {
+export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconnectionOnConnect?: boolean } = { enableInvites: false, checkReconnectionOnConnect: false }) => {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
     const socketRef = useRef<Socket | null>(null);
@@ -40,6 +40,12 @@ export const useFriendsStatus = (options: { enableInvites?: boolean } = { enable
                         isOnline: onlineIds.includes(f.user_id)
                     })));
                 });
+
+                // Check for reconnection if requested
+                if (options.checkReconnectionOnConnect) {
+                    console.log("Checking for active match on connect...");
+                    newSocket.emit('checkReconnection', { token });
+                }
             });
 
             newSocket.on('friendStatusUpdate', ({ userId, isOnline }: { userId: number, isOnline: boolean }) => {
@@ -85,6 +91,13 @@ export const useFriendsStatus = (options: { enableInvites?: boolean } = { enable
         setIncomingChallenge(null);
     };
 
+    const checkReconnection = () => {
+        const token = localStorage.getItem('token');
+        if (token && socketRef.current) {
+            socketRef.current.emit('checkReconnection', { token });
+        }
+    };
+
     const fetchFriends = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -112,5 +125,5 @@ export const useFriendsStatus = (options: { enableInvites?: boolean } = { enable
         }
     };
 
-    return { friends, loading, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge };
+    return { friends, loading, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection };
 };

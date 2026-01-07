@@ -8,7 +8,8 @@ import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { BOARD_COLUMNS } from './utils/gameUtils';
 const GameSetup: React.FC = () => {
   const navigate = useNavigate();
-  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus();
+  // Check for reconnection when landing on Game Setup
+  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ checkReconnectionOnConnect: true });
 
   // Listen for matchFound event from hook
   React.useEffect(() => {
