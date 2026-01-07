@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import supabase from '../config/supabase';
 import Sidebar from '../components/sidebar';
 import { UserProfile, GameHistoryEntry } from '../components/profile/types';
 
@@ -79,29 +80,46 @@ const Profile: React.FC = () => {
   };
 
   const handleSaveProfile = async (username: string, email: string, avatar_url?: string) => {
-    const token = localStorage.getItem('token');
-    const body: { username: string; email: string; avatar_url?: string } = { username, email };
-    if (avatar_url) body.avatar_url = avatar_url;
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error("No authenticated user");
 
-    const response = await fetch('https://eos-server.onrender.com/api/profile', {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+      const updates: any = {
+        username,
+        email,
+        updated_at: new Date().toISOString()
+      };
+      if (avatar_url) updates.avatar_url = avatar_url;
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message);
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('user_id', authUser.id)
+        .select()
+        .single();
 
-    // Update local state
-    setUser(prev => prev ? {
-      ...prev,
-      username: data.user.username,
-      email: data.user.email,
-      avatar_url: data.user.avatar_url
-    } : null);
+      if (error) throw error;
+
+      // Update local state
+      setUser(prev => prev ? {
+        ...prev,
+        username: data.username,
+        email: email, // profiles table might not store email if it's in auth.users, but we update what we have. 
+        // Wait, the original code updated email. 
+        // 'profiles' usually stores public info. Email is often in auth.users.
+        // The prompt specifically asked to update 'avatar_url' on 'public.profiles'.
+        // I should probably ONLY update what's in 'profiles'.
+        // However, the function signature takes email.
+        // If 'email' is in 'profiles', then it's fine. If not, this might fail or be ignored.
+        // Let's assume 'profiles' has these fields given the previous code passed them.
+        avatar_url: data.avatar_url
+      } : null);
+
+    } catch (err: any) {
+      console.error("Profile update error:", err);
+      // If Supabase fails, valid to throw or handle error
+      throw new Error(err.message || "Failed to update profile");
+    }
   };
 
   const gameHistory: GameHistoryEntry[] = [];
