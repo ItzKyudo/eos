@@ -54,9 +54,9 @@ const FriendsList: React.FC<FriendsListProps> = ({ className = "", limit, showIn
                                         {friend.username[0].toUpperCase()}
                                     </div>
                                 )}
-                                {/* Status Dot */}
-                                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#1e293b] 
-                           ${friend.isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-500'}`}
+                                {/* Status Dot - Top Right */}
+                                <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#1e293b] z-10
+                                    ${friend.isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-500'}`}
                                 />
                             </div>
                             <div>
