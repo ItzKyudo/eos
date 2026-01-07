@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import supabase from '../config/supabase';
 import Sidebar from '../components/sidebar';
 import { UserProfile, GameHistoryEntry } from '../components/profile/types';
 
@@ -81,51 +80,31 @@ const Profile: React.FC = () => {
 
   const handleSaveProfile = async (username: string, email: string, avatar_url?: string) => {
     try {
-      // Attempt to sync session from localStorage if present
       const token = localStorage.getItem('token');
-      if (token) {
-        // We attempt to set the session
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: token,
-          refresh_token: token
-        });
-        if (sessionError) console.warn("Error setting session from token:", sessionError);
-      }
+      const body: { username: string; email: string; avatar_url?: string } = { username, email };
+      if (avatar_url) body.avatar_url = avatar_url;
 
-      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+      const response = await fetch('https://eos-server.onrender.com/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
 
-      if (userError || !authUser) {
-        console.error("Auth error:", userError);
-        throw new Error("No authenticated user. Please log in again.");
-      }
-
-      const updates: any = {
-        username,
-        email,
-        updated_at: new Date().toISOString()
-      };
-      if (avatar_url) updates.avatar_url = avatar_url;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('user_id', authUser.id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
 
       // Update local state
       setUser(prev => prev ? {
         ...prev,
-        username: data.username,
-        email: email,
-        avatar_url: data.avatar_url
+        username: data.user.username,
+        email: data.user.email,
+        avatar_url: data.user.avatar_url
       } : null);
-
     } catch (err: any) {
       console.error("Profile update error:", err);
-      // If Supabase fails, valid to throw or handle error
       throw new Error(err.message || "Failed to update profile");
     }
   };
