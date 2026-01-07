@@ -81,8 +81,23 @@ const Profile: React.FC = () => {
 
   const handleSaveProfile = async (username: string, email: string, avatar_url?: string) => {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error("No authenticated user");
+      // Attempt to sync session from localStorage if present
+      const token = localStorage.getItem('token');
+      if (token) {
+        // We attempt to set the session
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: token,
+          refresh_token: token
+        });
+        if (sessionError) console.warn("Error setting session from token:", sessionError);
+      }
+
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !authUser) {
+        console.error("Auth error:", userError);
+        throw new Error("No authenticated user. Please log in again.");
+      }
 
       const updates: any = {
         username,
@@ -104,14 +119,7 @@ const Profile: React.FC = () => {
       setUser(prev => prev ? {
         ...prev,
         username: data.username,
-        email: email, // profiles table might not store email if it's in auth.users, but we update what we have. 
-        // Wait, the original code updated email. 
-        // 'profiles' usually stores public info. Email is often in auth.users.
-        // The prompt specifically asked to update 'avatar_url' on 'public.profiles'.
-        // I should probably ONLY update what's in 'profiles'.
-        // However, the function signature takes email.
-        // If 'email' is in 'profiles', then it's fine. If not, this might fail or be ignored.
-        // Let's assume 'profiles' has these fields given the previous code passed them.
+        email: email,
         avatar_url: data.avatar_url
       } : null);
 
