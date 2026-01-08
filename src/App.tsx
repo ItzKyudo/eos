@@ -19,6 +19,11 @@ import Lobby from './pages/game/lobby';
 import GuestMatchmaking from './pages/game/guestMatchmaking';
 import Matchmaking from './pages/game/matchmaking';
 
+{/* Admin Dashboard */ }
+import Dashboard from './pages/admin/dashboard';
+import UserManagement from './pages/admin/manage-user';
+import OrderManagement from './pages/admin/manage-orders';
+
 function App() {
   return (
     <Routes>
@@ -41,6 +46,12 @@ function App() {
       <Route path="/multiplayer" element={<Multiplayer />} />
       <Route path="/guest-matchmaking" element={<GuestMatchmaking />} />
       <Route path="/matchmaking" element={<Matchmaking />} />
+
+      {/* Admin Dashboard */}
+      <Route path="/admin/dashboard" element={<Dashboard />} />
+      <Route path="/admin/users" element={<UserManagement />} />
+      <Route path="/admin/orders" element={<OrderManagement />} />
+
     </Routes>
   );
 }
