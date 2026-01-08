@@ -24,7 +24,7 @@ const Board: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const ghostRef = useRef<HTMLDivElement>(null);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
-  const [boardScale, setBoardScale] = useState(0.95);
+  const [boardScale, setBoardScale] = useState(0.80);
   const circleSize = "w-17 h-17";
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
