@@ -58,7 +58,7 @@ const Multiplayer: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
   const ghostRef = useRef<HTMLDivElement>(null);
-  const [boardScale, setBoardScale] = useState(0.80);
+  const [boardScale, setBoardScale] = useState(0.85);
   const circleSize = "w-17 h-17";
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
@@ -776,10 +776,10 @@ const Multiplayer: React.FC = () => {
       // If width < 1024 (LG breakpoint), scale down based on width.
       // Else, use MAX scale of 0.95.
       if (width < 1024) {
-        const calculatedScale = Math.min((width - 10) / 980, 0.95);
+        const calculatedScale = Math.min((width - 10) / 980, 0.85);
         setBoardScale(Math.max(0.3, calculatedScale)); // Prevent it from becoming too small
       } else {
-        setBoardScale(0.95);
+        setBoardScale(0.85);
       }
     };
 
