@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
 import Swal from 'sweetalert2'; // Import SweetAlert2
-import { 
-  Search, 
-  Shield, 
-  ShieldAlert, 
-  Trash2, 
-  Edit2, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Search,
+  Shield,
+  ShieldAlert,
+  Trash2,
+  Edit2,
+  CheckCircle,
+  XCircle,
   Ban,
   ChevronLeft,
   ChevronRight,
@@ -36,7 +36,7 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({ username: '', email: '', role: '' });
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'http://localhost:3000';
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -45,19 +45,19 @@ const ManageUsers = () => {
       const res = await fetch(`${API_URL}/api/admin/users?page=${page}&search=${searchTerm}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         // Handle both Array and Object responses safely
         if (Array.isArray(data)) {
-           setUsers(data);
-           setTotalPages(1);
+          setUsers(data);
+          setTotalPages(1);
         } else if (data && Array.isArray(data.users)) {
-           setUsers(data.users);
-           setTotalPages(data.totalPages || 1);
+          setUsers(data.users);
+          setTotalPages(data.totalPages || 1);
         } else {
-           setUsers([]);
+          setUsers([]);
         }
       } else {
         console.error("Fetch failed:", data);
@@ -95,9 +95,9 @@ const ManageUsers = () => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/users/${userId}/ban`, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action })
       });
@@ -109,7 +109,7 @@ const ManageUsers = () => {
           `User has been ${action}ned successfully.`,
           'success'
         );
-        fetchUsers(); 
+        fetchUsers();
       } else {
         // Error Notification
         const err = await res.json();
@@ -169,16 +169,16 @@ const ManageUsers = () => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/users/${editingUser.user_id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       });
 
       if (res.ok) {
-        setEditingUser(null); 
-        fetchUsers(); 
+        setEditingUser(null);
+        fetchUsers();
         Swal.fire({
           icon: 'success',
           title: 'Updated!',
@@ -205,17 +205,17 @@ const ManageUsers = () => {
             <p className="text-gray-500 text-sm mt-1">Manage player accounts and roles</p>
           </div>
           <div className="relative">
-             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-             <input 
-               type="text" 
-               placeholder="Search..." 
-               className="pl-10 pr-4 py-2 border rounded-lg w-64 focus:ring-2 focus:ring-blue-500 outline-none"
-               value={searchTerm}
-               onChange={e => {
-                   setSearchTerm(e.target.value);
-                   setPage(1);
-               }}
-             />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="pl-10 pr-4 py-2 border rounded-lg w-64 focus:ring-2 focus:ring-blue-500 outline-none"
+              value={searchTerm}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
 
@@ -232,7 +232,7 @@ const ManageUsers = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={5} className="p-12 text-center text-gray-400 flex justify-center items-center gap-2"><Loader className="animate-spin"/> Loading users...</td></tr>
+                <tr><td colSpan={5} className="p-12 text-center text-gray-400 flex justify-center items-center gap-2"><Loader className="animate-spin" /> Loading users...</td></tr>
               ) : users.length === 0 ? (
                 <tr><td colSpan={5} className="p-8 text-center text-gray-400">No users found</td></tr>
               ) : (
@@ -244,54 +244,53 @@ const ManageUsers = () => {
                           {user.profiles?.country_flag || '🌍'}
                         </div>
                         <div>
-                            <div className="font-medium text-gray-900">{user.username}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="font-medium text-gray-900">{user.username}</div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                       {user.role === 'banned' ? (
-                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                           <Ban size={12}/> Banned
-                         </span>
-                       ) : (
-                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                           <CheckCircle size={12}/> Active
-                         </span>
-                       )}
+                      {user.role === 'banned' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                          <Ban size={12} /> Banned
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          <CheckCircle size={12} /> Active
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
-                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                         user.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-600 border-gray-200'
-                       }`}>
-                         {user.role === 'admin' && <Shield size={12}/>}
-                         {user.role.toUpperCase()}
-                       </span>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${user.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-600 border-gray-200'
+                        }`}>
+                        {user.role === 'admin' && <Shield size={12} />}
+                        {user.role.toUpperCase()}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
+                      {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button 
-                        onClick={() => handleEditClick(user)} 
+                      <button
+                        onClick={() => handleEditClick(user)}
                         className="text-blue-500 hover:bg-blue-50 p-2 rounded transition-colors"
                         title="Edit User"
                       >
-                        <Edit2 size={18}/>
+                        <Edit2 size={18} />
                       </button>
-                      <button 
-                        onClick={() => handleBanToggle(user.user_id, user.role)} 
+                      <button
+                        onClick={() => handleBanToggle(user.user_id, user.role)}
                         className={`p-2 rounded transition-colors ${user.role === 'banned' ? 'text-green-500 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
                         title={user.role === 'banned' ? 'Unban' : 'Ban'}
                       >
-                        {user.role === 'banned' ? <CheckCircle size={18}/> : <ShieldAlert size={18}/>}
+                        {user.role === 'banned' ? <CheckCircle size={18} /> : <ShieldAlert size={18} />}
                       </button>
-                      <button 
-                        onClick={() => handleDelete(user.user_id)} 
+                      <button
+                        onClick={() => handleDelete(user.user_id)}
                         className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
                         title="Delete User"
                       >
-                        <Trash2 size={18}/>
+                        <Trash2 size={18} />
                       </button>
                     </td>
                   </tr>
@@ -306,19 +305,19 @@ const ManageUsers = () => {
               Page {page} of {totalPages}
             </span>
             <div className="flex gap-2">
-              <button 
-                onClick={() => setPage(p => Math.max(1, p - 1))} 
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1 || loading}
                 className="px-3 py-1.5 border rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
               >
-                <ChevronLeft size={16}/> Previous
+                <ChevronLeft size={16} /> Previous
               </button>
-              <button 
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages || loading}
                 className="px-3 py-1.5 border rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
               >
-                Next <ChevronRight size={16}/>
+                Next <ChevronRight size={16} />
               </button>
             </div>
           </div>
@@ -330,32 +329,32 @@ const ManageUsers = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-gray-800">Edit User</h3>
-              <button onClick={() => setEditingUser(null)}><XCircle size={20} className="text-gray-400 hover:text-gray-600"/></button>
+              <button onClick={() => setEditingUser(null)}><XCircle size={20} className="text-gray-400 hover:text-gray-600" /></button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Username</label>
-                <input 
+                <input
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
                   value={formData.username}
-                  onChange={e => setFormData({...formData, username: e.target.value})}
+                  onChange={e => setFormData({ ...formData, username: e.target.value })}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
-                <input 
+                <input
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
                   value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label>
-                <select 
+                <select
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                   value={formData.role}
-                  onChange={e => setFormData({...formData, role: e.target.value})}
+                  onChange={e => setFormData({ ...formData, role: e.target.value })}
                 >
                   <option value="player">Player</option>
                   <option value="admin">Admin</option>
@@ -365,13 +364,13 @@ const ManageUsers = () => {
             </div>
 
             <div className="p-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
-              <button 
+              <button
                 onClick={() => setEditingUser(null)}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleSaveEdit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md"
               >
