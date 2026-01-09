@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
-import { 
-  Users, 
-  Swords, 
-  Activity, 
+import {
+  Users,
+  Swords,
+  Activity,
   Trophy,
   Box,
   Wifi,
@@ -41,8 +41,8 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  
-  const API_URL = 'http://localhost:3000'; 
+
+  const API_URL = 'https://eos-server.onrender.com';
 
   useEffect(() => {
     fetchDashboardData(page);
@@ -51,14 +51,14 @@ const Dashboard = () => {
   const fetchDashboardData = async (pageNum: number) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token'); 
-      
+      const token = localStorage.getItem('token');
+
       const res = await fetch(`${API_URL}/api/admin/dashboard?page=${pageNum}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (res.ok) {
         const jsonData = await res.json();
         setData(jsonData);
@@ -91,28 +91,28 @@ const Dashboard = () => {
           <p className="text-gray-500 mt-1">Overview of EOS performance</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <KPICard 
-            title="Total Players" 
-            value={data.metrics.total_users} 
+          <KPICard
+            title="Total Players"
+            value={data.metrics.total_users}
             icon={<Users size={24} className="text-blue-600" />}
             bgColor="bg-blue-50"
           />
-          <KPICard 
-            title="Games Played" 
-            value={data.metrics.total_games_played} 
+          <KPICard
+            title="Games Played"
+            value={data.metrics.total_games_played}
             icon={<Swords size={24} className="text-indigo-600" />}
             bgColor="bg-indigo-50"
           />
-          <KPICard 
-            title="Active Players" 
-            value={data.metrics.active_players} 
+          <KPICard
+            title="Active Players"
+            value={data.metrics.active_players}
             icon={<Wifi size={24} className="text-green-600" />}
             bgColor="bg-green-50"
           />
           {/* Revenue Card: Displays Sum of total_amount */}
-          <KPICard 
-            title="Total Revenue" 
-            value={`₱${Number(data.metrics.total_revenue).toLocaleString()}`} 
+          <KPICard
+            title="Total Revenue"
+            value={`₱${Number(data.metrics.total_revenue).toLocaleString()}`}
             icon={<DollarSign size={24} className="text-orange-600" />}
             bgColor="bg-orange-50"
           />
@@ -120,7 +120,7 @@ const Dashboard = () => {
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Recent Games Table (With Pagination) */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -130,7 +130,7 @@ const Dashboard = () => {
               </h2>
               <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-md">Page {page}</span>
             </div>
-            
+
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold">
@@ -149,8 +149,8 @@ const Dashboard = () => {
                       <td className="px-6 py-4 text-gray-500 text-sm font-mono">#{game.id}</td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium">
-                          <span className="text-blue-600">{game.player1}</span> 
-                          <span className="text-gray-400 mx-1">vs</span> 
+                          <span className="text-blue-600">{game.player1}</span>
+                          <span className="text-gray-400 mx-1">vs</span>
                           <span className="text-red-600">{game.player2}</span>
                         </div>
                         <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
@@ -170,7 +170,7 @@ const Dashboard = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-gray-500">
-                        {new Date(game.played_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {new Date(game.played_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
                     </tr>
                   ))}
@@ -183,15 +183,15 @@ const Dashboard = () => {
 
             {/* Pagination Controls */}
             <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <button 
-                onClick={handlePrevPage} 
+              <button
+                onClick={handlePrevPage}
                 disabled={page === 1 || loading}
                 className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg hover:bg-white transition-all"
               >
                 <ChevronLeft size={16} /> Previous
               </button>
-              <button 
-                onClick={handleNextPage} 
+              <button
+                onClick={handleNextPage}
                 disabled={data.recentGames.length < 5 || loading}
                 className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg hover:bg-white transition-all"
               >
@@ -226,7 +226,7 @@ const Dashboard = () => {
               )}
             </div>
           </div>
-          
+
         </div>
       </main>
     </div>
