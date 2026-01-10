@@ -22,6 +22,7 @@ import Matchmaking from './pages/game/matchmaking';
 {/* Admin Dashboard */ }
 import Dashboard from './pages/admin/dashboard';
 import UserManagement from './pages/admin/manage-user';
+import ItemManagement from './pages/admin/manage-market';
 import OrderManagement from './pages/admin/manage-orders';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -52,6 +53,7 @@ function App() {
       <Route element={<ProtectedRoute role="admin" />}>
         <Route path="/admin/dashboard" element={<Dashboard />} />
         <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/items" element={<ItemManagement />} />
         <Route path="/admin/orders" element={<OrderManagement />} />
       </Route>
 
