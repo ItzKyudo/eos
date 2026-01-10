@@ -6,6 +6,7 @@ import MarketPage from './pages/market/market';
 import PuzzlePage from './pages/puzzle';
 import SettingsPage from './pages/settings';
 import Profile from './pages/profile';
+import { Home } from 'lucide-react';
 {/* Auth*/ }
 import Login from './auth/login';
 import Register from './auth/signup';
@@ -52,6 +53,15 @@ function App() {
       <Route path="/admin/users" element={<UserManagement />} />
       <Route path="/admin/orders" element={<OrderManagement />} />
 
+      <Route path="*" element={
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#262522] text-white">
+          <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
+          <p className="text-gray-400 mb-8">The page you are looking for does not exist.</p>
+          <a href="/" className="px-6 py-3 bg-[#e63e3e] rounded-lg font-bold hover:bg-[#ff4f4f] transition-colors">
+            Go Home
+          </a>
+        </div>
+      } />
     </Routes>
   );
 }
