@@ -23,6 +23,7 @@ import Matchmaking from './pages/game/matchmaking';
 import Dashboard from './pages/admin/dashboard';
 import UserManagement from './pages/admin/manage-user';
 import OrderManagement from './pages/admin/manage-orders';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -48,9 +49,11 @@ function App() {
       <Route path="/matchmaking" element={<Matchmaking />} />
 
       {/* Admin Dashboard */}
-      <Route path="/admin/dashboard" element={<Dashboard />} />
-      <Route path="/admin/users" element={<UserManagement />} />
-      <Route path="/admin/orders" element={<OrderManagement />} />
+      <Route element={<ProtectedRoute role="admin" />}>
+        <Route path="/admin/dashboard" element={<Dashboard />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/orders" element={<OrderManagement />} />
+      </Route>
 
       <Route path="*" element={
         <div className="flex flex-col items-center justify-center min-h-screen bg-[#262522] text-white">
