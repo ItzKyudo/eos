@@ -121,39 +121,81 @@ const ManageUsers = () => {
   };
 
   const handleDelete = async (userId: string) => {
-    // 1. Confirmation Modal (Critical Action)
-    const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: "You won't be able to revert this! All user data will be permanently deleted.",
-      icon: 'warning',
+    // 1. Password Verification Step
+    const { value: password } = await Swal.fire({
+      title: 'Admin Verification',
+      text: 'Enter your password to proceed',
+      input: 'password',
+      inputPlaceholder: 'Enter your password',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Yes, delete user!'
+      confirmButtonText: 'Verify',
+      confirmButtonColor: '#e63e3e',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'You need to enter your password!';
+        }
+        return null;
+      }
     });
 
-    if (!result.isConfirmed) return;
+    if (!password) return; // User cancelled
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+      // Verify Password with Backend
+      const verifyRes = await fetch(`${API_URL}/api/admin/verify-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
+
+      if (!verifyRes.ok) {
+        Swal.fire('Error', 'Incorrect password. Action denied.', 'error');
+        return;
+      }
+
+      // 2. Phrase Confirmation Step
+      const { value: phrase } = await Swal.fire({
+        title: 'Final Confirmation',
+        text: 'Type "I want to delete this user" to confirm.',
+        input: 'text',
+        inputPlaceholder: 'I want to delete this user',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Permanently Delete',
+        inputValidator: (value) => {
+          if (value !== 'I want to delete this user') {
+            return 'Incorrect phrase. Deletion cancelled.';
+          }
+          return null;
+        }
+      });
+
+      if (!phrase) return; // User failed or cancelled
+
+      // 3. Execute Soft Delete
+      const deleteRes = await fetch(`${API_URL}/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (res.ok) {
-        // 2. Success Notification
+      if (deleteRes.ok) {
         Swal.fire(
           'Deleted!',
-          'The user has been deleted.',
+          'User account has been anonymized and deactivated.',
           'success'
         );
         fetchUsers();
       } else {
-        const err = await res.json();
+        const err = await deleteRes.json();
         Swal.fire('Error', err.message || 'Failed to delete user', 'error');
       }
+
     } catch (error) {
+      console.error(error);
       Swal.fire('Error', 'Network error occurred', 'error');
     }
   };
