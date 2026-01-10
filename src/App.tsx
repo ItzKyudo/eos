@@ -6,7 +6,6 @@ import MarketPage from './pages/market/market';
 import PuzzlePage from './pages/puzzle';
 import SettingsPage from './pages/settings';
 import Profile from './pages/profile';
-import { Home } from 'lucide-react';
 {/* Auth*/ }
 import Login from './auth/login';
 import Register from './auth/signup';
