@@ -213,7 +213,7 @@ const MarketPage: React.FC = () => {
             <div className="flex items-center gap-2 mb-6">
                 <button onClick={() => setCheckoutStep(1)} className="text-gray-400 hover:text-white"><ChevronRight size={20} className="rotate-180" /></button>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Truck className="text-[#e63e3e]" /> Shipping Info
+                    <Truck className="text-[#e63e3e]" /> Order Info
                 </h3>
             </div>
 
@@ -236,15 +236,6 @@ const MarketPage: React.FC = () => {
                         value={contactNumber}
                         onChange={(e) => setContactNumber(e.target.value)}
                         placeholder="0912 345 6789"
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Delivery Address</label>
-                    <textarea
-                        className="w-full bg-[#262522] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#2c4dbd] h-24 resize-none"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="House No., Street, City, Province"
                     />
                 </div>
             </div>
