@@ -131,7 +131,7 @@ const MarketPage: React.FC = () => {
             const payload = {
                 items: cart.map(i => ({ item_id: i.item_id, quantity: i.cartQuantity })),
                 recipient_name: recipientName,
-                // In a real app, you'd send address/contact too
+                contact_no: contactNumber,
                 payment_method: paymentMethod
             };
 
