@@ -57,7 +57,7 @@ const MarketPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-    const API_BASE = "http://localhost:3000/api/market";
+    const API_BASE = "https://eos-server.onrender.com/api/market";
     const USER_TOKEN = localStorage.getItem('token');
 
     useEffect(() => {
