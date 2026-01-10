@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
-import supabase from '../../config/supabase';
+// import supabase from '../../config/supabase';
 import Swal from 'sweetalert2';
 import {
     Search,
@@ -85,21 +85,25 @@ const ManageMarket = () => {
 
         setIsUploading(true);
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const formData = new FormData();
+            formData.append('image', file);
 
-            const { error: uploadError } = await supabase.storage
-                .from('items')
-                .upload(filePath, file);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/market/upload`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
 
-            if (uploadError) {
-                throw uploadError;
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Upload failed');
             }
 
-            const { data } = supabase.storage.from('items').getPublicUrl(filePath);
-
-            setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+            setFormData(prev => ({ ...prev, image_url: data.url }));
 
         } catch (error: any) {
             console.error('Upload Error:', error);
