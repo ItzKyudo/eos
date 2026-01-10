@@ -11,7 +11,6 @@ import {
     XCircle,
     Loader,
     Package,
-    Image as ImageIcon,
     Upload
 } from 'lucide-react';
 
@@ -403,44 +402,41 @@ const ManageMarket = () => {
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Product Image</label>
                                 <div className="space-y-3">
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            {/* Hidden File Input */}
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleImageUpload}
-                                            />
+                                    <div className="flex flex-col gap-2">
+                                        {/* Hidden File Input */}
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                        />
 
-                                            <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                                    <input
-                                                        className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                                                        placeholder="https://..."
-                                                        value={formData.image_url}
-                                                        onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                                                    />
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                            className="w-full h-12 bg-gray-50 hover:bg-gray-100 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl flex items-center justify-center gap-2 text-gray-500 hover:text-blue-500 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                        >
+                                            {isUploading ? <Loader size={20} className="animate-spin" /> : <Upload size={20} className="group-hover:scale-110 transition-transform" />}
+                                            {isUploading ? 'Uploading Image...' : (formData.image_url ? 'Change Image' : 'Upload Image')}
+                                        </button>
+
+                                        {formData.image_url && (
+                                            <div className="relative group rounded-xl overflow-hidden border border-gray-200">
+                                                <div className="h-48 w-full bg-gray-50 flex items-center justify-center">
+                                                    <img src={formData.image_url} alt="Preview" className="h-full object-contain" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL'} />
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    disabled={isUploading}
-                                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                    onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
                                                 >
-                                                    {isUploading ? <Loader size={18} className="animate-spin" /> : <Upload size={18} />}
+                                                    <XCircle size={16} />
                                                 </button>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
-
-                                    {formData.image_url && (
-                                        <div className="h-40 w-full bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group">
-                                            <img src={formData.image_url} alt="Preview" className="h-full object-contain" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL'} />
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
