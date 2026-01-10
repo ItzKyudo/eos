@@ -45,7 +45,6 @@ const MarketPage: React.FC = () => {
 
     // Checkout Form Data
     const [recipientName, setRecipientName] = useState("");
-    const [address, setAddress] = useState("");
     const [contactNumber, setContactNumber] = useState("");
     const [paymentMethod, setPaymentMethod] = useState<string>(""); // 'card', 'gcash', 'maya'
 
@@ -111,7 +110,7 @@ const MarketPage: React.FC = () => {
             if (!USER_TOKEN) { alert("Please Login to checkout."); return; }
             setCheckoutStep(2);
         } else if (checkoutStep === 2) {
-            if (!recipientName || !address || !contactNumber) {
+            if (!recipientName || !contactNumber) {
                 alert("Please fill in all shipping details.");
                 return;
             }

@@ -7,7 +7,7 @@ const ManageOrders = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/orders', {
+    fetch('https://eos-server.onrender.com/api/admin/orders', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => res.json())
@@ -16,20 +16,20 @@ const ManageOrders = () => {
   }, []);
 
   const getStatusBadge = (status: string) => {
-    switch(status.toLowerCase()) {
-      case 'completed': 
-        return <span className="flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-medium"><CheckCircle size={12}/> Completed</span>;
-      case 'pending': 
-        return <span className="flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-medium"><Clock size={12}/> Pending</span>;
-      default: 
-        return <span className="flex items-center gap-1 text-red-700 bg-red-100 px-2 py-1 rounded-full text-xs font-medium"><XCircle size={12}/> {status}</span>;
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return <span className="flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-medium"><CheckCircle size={12} /> Completed</span>;
+      case 'pending':
+        return <span className="flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-medium"><Clock size={12} /> Pending</span>;
+      default:
+        return <span className="flex items-center gap-1 text-red-700 bg-red-100 px-2 py-1 rounded-full text-xs font-medium"><XCircle size={12} /> {status}</span>;
     }
   };
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64 p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
@@ -51,7 +51,7 @@ const ManageOrders = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                 <tr><td colSpan={5} className="p-8 text-center text-gray-500">Loading orders...</td></tr>
+                <tr><td colSpan={5} className="p-8 text-center text-gray-500">Loading orders...</td></tr>
               ) : orders.map((order: any) => (
                 <tr key={order.order_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-mono text-gray-500">#{order.order_id}</td>
