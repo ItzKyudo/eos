@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Sidebar from '../../components/admin/Sidebar';
+import supabase from '../../config/supabase';
 import Swal from 'sweetalert2';
 import {
     Search,
@@ -10,7 +11,8 @@ import {
     XCircle,
     Loader,
     Package,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Upload
 } from 'lucide-react';
 
 interface MarketItem {
@@ -46,7 +48,11 @@ const ManageMarket = () => {
         image_url: ''
     });
 
-    const API_URL = 'http://localhost:3000'; // Make sure this matches your environment
+    // Upload State
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const API_URL = 'https://eos-server.onrender.com'; // Make sure this matches your environment
 
     const fetchItems = useCallback(async () => {
         setLoading(true);
@@ -73,6 +79,36 @@ const ManageMarket = () => {
     useEffect(() => {
         fetchItems();
     }, [fetchItems]);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('items')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data } = supabase.storage.from('items').getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+
+        } catch (error: any) {
+            console.error('Upload Error:', error);
+            Swal.fire('Upload Failed', error.message || 'Could not upload image', 'error');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     // Filter items based on search
     const filteredItems = items.filter(item =>
@@ -106,6 +142,7 @@ const ManageMarket = () => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingItem(null);
+        setIsUploading(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -364,23 +401,47 @@ const ManageMarket = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Image URL</label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input
-                                            className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                            placeholder="https://..."
-                                            value={formData.image_url}
-                                            onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                                        />
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Product Image</label>
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            {/* Hidden File Input */}
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                            />
+
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                                    <input
+                                                        className="w-full border border-gray-300 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+                                                        placeholder="https://..."
+                                                        value={formData.image_url}
+                                                        onChange={e => setFormData({ ...formData, image_url: e.target.value })}
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={isUploading}
+                                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                >
+                                                    {isUploading ? <Loader size={18} className="animate-spin" /> : <Upload size={18} />}
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    {formData.image_url && (
+                                        <div className="h-40 w-full bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group">
+                                            <img src={formData.image_url} alt="Preview" className="h-full object-contain" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL'} />
+                                        </div>
+                                    )}
                                 </div>
-                                {formData.image_url && (
-                                    <div className="mt-2 h-32 w-full bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
-                                        <img src={formData.image_url} alt="Preview" className="h-full object-contain" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+Image+URL'} />
-                                    </div>
-                                )}
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
@@ -393,9 +454,10 @@ const ManageMarket = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2"
+                                    disabled={isUploading}
+                                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
                                 >
-                                    {editingItem ? <><CheckCircle size={18} /> Save Changes</> : <><Plus size={18} /> Create Item</>}
+                                    {isUploading ? 'Uploading...' : (editingItem ? <><CheckCircle size={18} /> Save Changes</> : <><Plus size={18} /> Create Item</>)}
                                 </button>
                             </div>
                         </form>
