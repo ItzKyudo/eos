@@ -459,10 +459,11 @@ const MarketPage: React.FC = () => {
 
                         <button
                             onClick={fetchOrders}
-                            className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
+                            className="group relative bg-[#262522] h-14 px-6 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center gap-3 transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
                             title="My Orders"
                         >
-                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" /> My Orders
+                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-gray-300 group-hover:text-white transition-colors">My Orders</span>
                         </button>
                     </div>
                 </header>
