@@ -125,7 +125,7 @@ const ManageOrders = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold">
               <tr>
-                <th className="px-6 py-4">Order ID</th>
+                <th className="px-6 py-4">Receipt No</th>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Contact</th>
                 <th className="px-6 py-4">Date</th>
@@ -141,7 +141,9 @@ const ManageOrders = () => {
                 <tr><td colSpan={7} className="p-12 text-center text-gray-400">No {activeTab} orders found</td></tr>
               ) : filteredOrders.map((order: any) => (
                 <tr key={order.order_id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-mono text-gray-500">#{order.order_id}</td>
+                  <td className="px-6 py-4 text-sm font-mono text-gray-500">
+                    {order.receipt_no ? `#${order.receipt_no}` : `#${order.order_id}`}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{order.users?.username || 'Unknown'}</div>
                     <div className="text-xs text-gray-500">{order.recipient_name}</div>
@@ -205,7 +207,9 @@ const ManageOrders = () => {
                   <Package size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">Order #{selectedOrder.order_id}</h3>
+                  <h3 className="font-bold text-gray-900">
+                    {selectedOrder.receipt_no ? `Receipt #${selectedOrder.receipt_no}` : `Order #${selectedOrder.order_id}`}
+                  </h3>
                   <p className="text-xs text-gray-500">{new Date(selectedOrder.order_date).toLocaleString()}</p>
                 </div>
               </div>

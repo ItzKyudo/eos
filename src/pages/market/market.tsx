@@ -405,25 +405,27 @@ const MarketPage: React.FC = () => {
                         </h1>
                     </div>
 
-                    <button
-                        onClick={() => { setIsCartOpen(true); setCheckoutStep(1); }}
-                        className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#e63e3e] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#e63e3e]/20"
-                    >
-                        <ShoppingCart className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
-                        {cart.length > 0 && (
-                            <span className="absolute -top-2 -right-2 bg-[#e63e3e] text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center border-2 border-[#1a1917] shadow-lg animate-bounce">
-                                {cart.length}
-                            </span>
-                        )}
-                    </button>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => { setIsCartOpen(true); setCheckoutStep(1); }}
+                            className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#e63e3e] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#e63e3e]/20"
+                        >
+                            <ShoppingCart className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                            {cart.length > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-[#e63e3e] text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center border-2 border-[#1a1917] shadow-lg animate-bounce">
+                                    {cart.length}
+                                </span>
+                            )}
+                        </button>
 
-                    <button
-                        onClick={fetchOrders}
-                        className="ml-4 group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
-                        title="My Orders"
-                    >
-                        <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
-                    </button>
+                        <button
+                            onClick={fetchOrders}
+                            className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
+                            title="My Orders"
+                        >
+                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                        </button>
+                    </div>
                 </header>
 
                 <div className="w-full max-w-8xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24 relative z-10">
