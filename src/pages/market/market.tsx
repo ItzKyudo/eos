@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from '../../components/sidebar';
-import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, CreditCard, Wallet, Truck, ChevronRight } from "lucide-react";
+import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, CreditCard, Wallet, Truck, ChevronRight, History, ScrollText } from "lucide-react";
 
 interface MarketItem {
     item_id: number;
@@ -22,6 +22,27 @@ interface ReceiptData {
     total: number;
     date: string;
     payment_method: string;
+}
+
+interface OrderItem {
+    quantity: number;
+    items: {
+        item_name: string;
+        price: number;
+        image_url: string;
+    }
+}
+
+interface OrderHistoryItem {
+    order_id: number;
+    receipt_no: number;
+    recipient_name: string;
+    contact_no: string;
+    status: string;
+    total_amount: number;
+    order_date: string;
+    payment_method: string; // Ensure this is returned from DB or remove if not
+    order_items: OrderItem[];
 }
 
 const MarketPage: React.FC = () => {
@@ -55,6 +76,11 @@ const MarketPage: React.FC = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+    // Orders History State
+    const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
+    const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null);
 
     const API_BASE = "https://eos-server.onrender.com/api/market";
     const USER_TOKEN = localStorage.getItem('token');
@@ -157,6 +183,20 @@ const MarketPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const fetchOrders = async () => {
+        if (!USER_TOKEN) { alert("Please login to view orders."); return; }
+        try {
+            const res = await fetch(`${API_BASE}/my-orders`, {
+                headers: { 'Authorization': `Bearer ${USER_TOKEN}` }
+            });
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setOrders(data);
+                setIsOrdersOpen(true);
+            }
+        } catch (e) { console.error(e); alert("Failed to fetch orders."); }
     };
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
@@ -376,6 +416,14 @@ const MarketPage: React.FC = () => {
                             </span>
                         )}
                     </button>
+
+                    <button
+                        onClick={fetchOrders}
+                        className="ml-4 group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
+                        title="My Orders"
+                    >
+                        <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                    </button>
                 </header>
 
                 <div className="w-full max-w-8xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24 relative z-10">
@@ -458,6 +506,101 @@ const MarketPage: React.FC = () => {
                             {checkoutStep === 2 && renderCheckoutFormStep()}
                             {checkoutStep === 3 && renderPaymentStep()}
                             {checkoutStep === 4 && renderReceipt()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- ORDERS DRAWER --- */}
+            {isOrdersOpen && (
+                <div className="fixed inset-0 z-50 flex justify-end">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsOrdersOpen(false)} />
+                    <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
+                        <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
+                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                <ScrollText size={18} /> My Orders
+                            </h2>
+                            <button onClick={() => { setIsOrdersOpen(false); setSelectedOrder(null); }} className="bg-[#312e2b] p-2 rounded-lg hover:bg-white hover:text-black transition-all">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-2 custom-scrollbar">
+                            {selectedOrder ? (
+                                <div className="animate-in slide-in-from-right duration-300">
+                                    <button onClick={() => setSelectedOrder(null)} className="mb-4 text-sm text-[#2c4dbd] font-bold flex items-center gap-1 hover:underline">
+                                        <ChevronRight className="rotate-180" size={16} /> Back to List
+                                    </button>
+
+                                    <div className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-4">
+                                        <div className="text-center mb-6">
+                                            <div className="w-16 h-16 bg-blue-500/20 text-[#2c4dbd] rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <Package size={32} />
+                                            </div>
+                                            <h3 className="text-xl font-black text-white">Order Details</h3>
+                                            <p className="text-gray-500 text-xs uppercase tracking-wide">#{selectedOrder.receipt_no || selectedOrder.order_id}</p>
+                                        </div>
+
+                                        <div className="space-y-3 pt-4 border-t border-white/10">
+                                            {selectedOrder.order_items.map((oi, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-sm">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded bg-gray-800 overflow-hidden">
+                                                            <img src={oi.items?.image_url} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <span className="text-gray-300">
+                                                            <span className="text-white font-bold">{oi.quantity}x</span> {oi.items?.item_name || "Item"}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-white font-mono">₱{(oi.items?.price * oi.quantity).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="pt-4 mt-2 border-t border-white/10 space-y-2">
+                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span> <span className="text-yellow-500 font-bold uppercase text-xs px-2 py-0.5 bg-yellow-500/10 rounded">{selectedOrder.status}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{new Date(selectedOrder.order_date).toLocaleDateString()}</span></div>
+                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Total</span> <span className="text-[#2c4dbd] font-black text-lg">₱{selectedOrder.total_amount.toLocaleString()}</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                orders.length === 0 ? (
+                                    <div className="text-center text-gray-500 py-10 opacity-50">
+                                        <History size={48} className="mx-auto mb-4" />
+                                        <p>No past orders found.</p>
+                                    </div>
+                                ) : (
+                                    orders.map(order => (
+                                        <div
+                                            key={order.order_id}
+                                            onClick={() => setSelectedOrder(order)}
+                                            className="bg-[#262522] p-4 rounded-xl border border-white/5 hover:border-[#2c4dbd]/50 cursor-pointer transition-all hover:bg-[#2c2b28] group"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h4 className="text-white font-bold text-sm">Order #{order.receipt_no || order.order_id}</h4>
+                                                    <span className="text-xs text-gray-500">{new Date(order.order_date).toLocaleDateString()}</span>
+                                                </div>
+                                                <span className="text-[#2c4dbd] font-black text-sm">₱{order.total_amount.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-3">
+                                                <div className="flex -space-x-2">
+                                                    {order.order_items.map((oi, i) => i < 3 && (
+                                                        <div key={i} className="w-6 h-6 rounded-full bg-gray-800 border border-[#262522] overflow-hidden">
+                                                            <img src={oi.items?.image_url} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                    {order.order_items.length > 3 && (
+                                                        <div className="w-6 h-6 rounded-full bg-gray-700 border border-[#262522] flex items-center justify-center text-[8px] text-white">+{order.order_items.length - 3}</div>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] uppercase font-bold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded group-hover:bg-yellow-500 group-hover:text-black transition-colors">{order.status}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )
+                            )}
                         </div>
                     </div>
                 </div>
