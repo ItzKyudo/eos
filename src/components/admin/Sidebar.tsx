@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, ShoppingBag, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Package, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const Sidebar = () => {
@@ -9,7 +9,7 @@ const Sidebar = () => {
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, href: '/admin/dashboard' },
     { name: 'Manage Users', icon: <Users size={20} />, href: '/admin/users' },
     { name: 'Manage Items', icon: <ShoppingBag size={20} />, href: '/admin/items' },
-    { name: 'Manage Orders', icon: <ShoppingBag size={20} />, href: '/admin/orders' },
+    { name: 'Manage Orders', icon: <Package size={20} />, href: '/admin/orders' },
   ];
 
   return (
@@ -29,8 +29,8 @@ const Sidebar = () => {
               key={item.href}
               to={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${isActive
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                ? 'bg-blue-50 text-blue-600 font-medium'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
             >
               {item.icon}
