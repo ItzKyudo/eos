@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../../components/sidebar';
-import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, CreditCard, Wallet, Truck, ChevronRight, History, ScrollText } from "lucide-react";
+import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, CreditCard, Wallet, Truck, ChevronRight, History, ScrollText, Printer, Download } from "lucide-react";
+import html2canvas from 'html2canvas';
 
 interface MarketItem {
     item_id: number;
@@ -60,6 +61,9 @@ const MarketPage: React.FC = () => {
     // Stepper State inside the Cart/Checkout Modal
     // 1 = Cart View, 2 = Checkout Form, 3 = Payment, 4 = Success
     const [checkoutStep, setCheckoutStep] = useState<number>(1);
+
+    // Receipt Ref for printing/saving
+    const receiptRef = useRef<HTMLDivElement>(null);
 
     // Selected Item for Details Modal
     const [selectedItem, setSelectedItem] = useState<MarketItem | null>(null);
@@ -200,6 +204,30 @@ const MarketPage: React.FC = () => {
     };
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+
+
+    // --- ACTIONS ---
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleDownloadImage = async () => {
+        if (!receiptRef.current) return;
+        try {
+            const canvas = await html2canvas(receiptRef.current, {
+                backgroundColor: '#1a1917',
+                scale: 2
+            } as any);
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `Receipt-${receipt?.receipt_number || selectedOrder?.receipt_no || 'EOS'}.png`;
+            link.click();
+        } catch (err) {
+            console.error("Failed to save receipt image", err);
+            alert("Failed to save image.");
+        }
+    };
 
     // --- RENDER HELPERS ---
     const renderCartStep = () => (
@@ -369,17 +397,28 @@ const MarketPage: React.FC = () => {
         if (!receipt) return null;
         return (
             <div className="flex flex-col h-full animate-in zoom-in-95 duration-300 items-center justify-center text-center p-4">
-                <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-green-500/20">
-                    <CheckCircle size={40} className="text-white" />
-                </div>
-                <h2 className="text-2xl font-black text-white mb-2">Order Confirmed!</h2>
-                <p className="text-gray-400 text-sm mb-8">Thank you for your purchase.</p>
+                <div ref={receiptRef} className="w-full bg-[#1a1917] p-4 rounded-xl">
+                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-green-500/20 mx-auto">
+                        <CheckCircle size={40} className="text-white" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white mb-2">Order Confirmed!</h2>
+                    <p className="text-gray-400 text-sm mb-8">Thank you for your purchase.</p>
 
-                <div className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-3 mb-6">
-                    <div className="flex justify-between text-sm"><span className="text-gray-500">Receipt No.</span> <span className="text-white font-mono">{receipt.receipt_number}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{receipt.date}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-500">Method</span> <span className="text-white uppercase">{receipt.payment_method || paymentMethod}</span></div>
-                    <div className="flex justify-between text-sm border-t border-white/10 pt-3 mt-3"><span className="text-gray-500 font-bold">Total Paid</span> <span className="text-[#2c4dbd] font-black">₱{receipt.total.toLocaleString()}</span></div>
+                    <div className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-3 mb-6">
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Receipt No.</span> <span className="text-white font-mono">{receipt.receipt_number}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{receipt.date}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Method</span> <span className="text-white uppercase">{receipt.payment_method || paymentMethod}</span></div>
+                        <div className="flex justify-between text-sm border-t border-white/10 pt-3 mt-3"><span className="text-gray-500 font-bold">Total Paid</span> <span className="text-[#2c4dbd] font-black">₱{receipt.total.toLocaleString()}</span></div>
+                    </div>
+                </div>
+
+                <div className="flex gap-2 w-full mb-4">
+                    <button onClick={handlePrint} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
+                        <Printer size={16} /> Print
+                    </button>
+                    <button onClick={handleDownloadImage} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
+                        <Download size={16} /> Save
+                    </button>
                 </div>
 
                 <button onClick={() => { setIsCartOpen(false); setReceipt(null); setCheckoutStep(1); }} className="text-gray-400 hover:text-white font-bold text-sm">Close</button>
@@ -423,7 +462,7 @@ const MarketPage: React.FC = () => {
                             className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
                             title="My Orders"
                         >
-                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" /> My Orders
                         </button>
                     </div>
                 </header>
@@ -534,7 +573,7 @@ const MarketPage: React.FC = () => {
                                         <ChevronRight className="rotate-180" size={16} /> Back to List
                                     </button>
 
-                                    <div className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-4">
+                                    <div ref={receiptRef} className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-4">
                                         <div className="text-center mb-6">
                                             <div className="w-16 h-16 bg-blue-500/20 text-[#2c4dbd] rounded-full flex items-center justify-center mx-auto mb-3">
                                                 <Package size={32} />
@@ -564,6 +603,15 @@ const MarketPage: React.FC = () => {
                                             <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{new Date(selectedOrder.order_date).toLocaleDateString()}</span></div>
                                             <div className="flex justify-between text-sm"><span className="text-gray-500">Total</span> <span className="text-[#2c4dbd] font-black text-lg">₱{selectedOrder.total_amount.toLocaleString()}</span></div>
                                         </div>
+                                    </div>
+
+                                    <div className="flex gap-2 w-full mt-4">
+                                        <button onClick={handlePrint} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
+                                            <Printer size={16} /> Print
+                                        </button>
+                                        <button onClick={handleDownloadImage} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
+                                            <Download size={16} /> Save
+                                        </button>
                                     </div>
                                 </div>
                             ) : (
