@@ -26,7 +26,16 @@ import ItemManagement from './pages/admin/manage-market';
 import OrderManagement from './pages/admin/manage-orders';
 import ProtectedRoute from './components/ProtectedRoute';
 
+{/* Under Testing */ }
+import UnderTesting from './pages/UnderTesting';
+
+const IS_MAINTENANCE_MODE = true;
+
 function App() {
+  const isAdmin = localStorage.getItem('site_bypass') === 'true';
+if (IS_MAINTENANCE_MODE && !isAdmin) {
+    return <UnderTesting />;
+  }
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
