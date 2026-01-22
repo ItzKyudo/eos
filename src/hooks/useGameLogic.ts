@@ -1,0 +1,213 @@
+import { useState, useEffect } from 'react';
+import { INITIAL_POSITIONS } from '../pages/game/mechanics/positions';
+import { PIECE_MOVEMENTS, PieceKey} from '../pages/game/mechanics/piecemovements';
+import { getValidAttacks, executeAttack, getMultiCaptureOptions, Winner } from '../pages/game/mechanics/attackpieces';
+import { GameSyncData, MoveLog, PlayerRole, TurnPhase } from '../types/gameTypes';
+
+export const useGameLogic = (
+  initialTime: number,
+  myRole: PlayerRole,
+  onStateChange: (newState: GameSyncData) => void
+) => {
+  // State
+  const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
+  const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
+  const [currentTurn, setCurrentTurn] = useState<PlayerRole>('player1');
+  const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
+  const [capturedByP2, setCapturedByP2] = useState<PieceKey[]>([]);
+  const [winner, setWinner] = useState<Winner>(null);
+  const [turnPhase, setTurnPhase] = useState<TurnPhase>('select');
+  const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
+  const [gameEndReason, setGameEndReason] = useState<string | null>(null);
+
+  // Timers
+  const [p1Time, setP1Time] = useState(initialTime);
+  const [p2Time, setP2Time] = useState(initialTime);
+
+  // Helper to broadcast state via callback (to socket/channel)
+  const broadcast = (overrides: Partial<GameSyncData> = {}) => {
+    const data: GameSyncData = {
+      gameState,
+      currentTurn: overrides.currentTurn || currentTurn,
+      moveHistory,
+      capturedByP1,
+      capturedByP2,
+      winner,
+      turnPhase: overrides.turnPhase || turnPhase,
+      hasMoved,
+      mandatoryMoveUsed: overrides.mandatoryMoveUsed ?? mandatoryMoveUsed,
+      ...overrides
+    };
+    onStateChange(data);
+  };
+
+  // Timer Countdown
+  useEffect(() => {
+    if (winner) return;
+    const timer = setInterval(() => {
+      if (currentTurn === 'player1') setP1Time(t => Math.max(0, t - 1));
+      else setP2Time(t => Math.max(0, t - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [currentTurn, winner]);
+
+  // Sync Handling (Applying move from opponent)
+  const applyRemoteMove = (data: GameSyncData) => {
+    setGameState(data.gameState);
+    setCurrentTurn(data.currentTurn);
+    setMoveHistory(data.moveHistory);
+    setCapturedByP1(data.capturedByP1);
+    setCapturedByP2(data.capturedByP2);
+    setWinner(data.winner);
+    setHasMoved(data.hasMoved || {});
+    setMandatoryMoveUsed(data.mandatoryMoveUsed || false);
+    
+    // Sync timers if provided by server
+    if (data.p1Time !== undefined) setP1Time(data.p1Time);
+    if (data.p2Time !== undefined) setP2Time(data.p2Time);
+
+    // Determine local phase
+    if (data.currentTurn === myRole) {
+      if (data.turnPhase === 'locked') setTurnPhase('locked');
+      else if (data.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+      else setTurnPhase('select');
+    } else {
+      setTurnPhase('locked');
+    }
+  };
+
+  // --- Actions ---
+
+  const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+    const newGameState = { ...gameState, [pieceId]: targetCoord };
+    const newHasMoved = { ...hasMoved, [pieceId]: true };
+
+    const newMove: MoveLog = {
+      player: currentTurn,
+      pieceName: PIECE_MOVEMENTS[pieceId].name,
+      pieceId: pieceId,
+      from: gameState[pieceId]!,
+      to: targetCoord,
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
+    };
+    const newHistory = [...moveHistory, newMove];
+
+    const wasFirstMove = !hasMoved[pieceId];
+    let attacks: string[] = [];
+
+    // Post-move attack checks
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
+      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', turnPhase === 'action' ? wasFirstMove : false);
+    }
+
+    let nextPhase: TurnPhase = 'locked';
+    if (attacks.length > 0) nextPhase = 'mandatory_move';
+    
+    // Update Local
+    setGameState(newGameState);
+    setHasMoved(newHasMoved);
+    setMoveHistory(newHistory);
+    setMandatoryMoveUsed(true);
+    setTurnPhase(nextPhase);
+
+    // Broadcast
+    broadcast({ 
+        gameState: newGameState, 
+        hasMoved: newHasMoved, 
+        moveHistory: newHistory, 
+        turnPhase: nextPhase,
+        mandatoryMoveUsed: true 
+    });
+
+    return { nextPhase, attacks };
+  };
+
+  const executeAttackAction = (targetCoord: string, activePiece: PieceKey) => {
+     const result = executeAttack(targetCoord, gameState);
+     if (!result) return null;
+
+     const { newGameState, capturedPieceId, winner: newWinner } = result;
+     const newCapturedP1 = [...capturedByP1];
+     const newCapturedP2 = [...capturedByP2];
+
+     if (currentTurn === 'player1') newCapturedP1.push(capturedPieceId);
+     else newCapturedP2.push(capturedPieceId);
+
+     if (newWinner) {
+        setGameState(newGameState);
+        setCapturedByP1(newCapturedP1);
+        setCapturedByP2(newCapturedP2);
+        setWinner(newWinner);
+        setTurnPhase('locked');
+        broadcast({ 
+            gameState: newGameState, 
+            winner: newWinner, 
+            capturedByP1: newCapturedP1, 
+            capturedByP2: newCapturedP2, 
+            turnPhase: 'locked' 
+        });
+        return { winner: newWinner };
+     }
+
+     const newMove: MoveLog = {
+        player: currentTurn,
+        pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures`,
+        pieceId: activePiece,
+        from: gameState[activePiece]!,
+        to: targetCoord,
+        turnNumber: moveHistory.length + 1,
+        timestamp: Date.now()
+     };
+     const newHistory = [...moveHistory, newMove];
+
+     // Check for chain attacks
+     const { attacks, moves } = getMultiCaptureOptions(
+        activePiece, 
+        newGameState[activePiece]!, 
+        newGameState as Record<string, string>, 
+        mandatoryMoveUsed
+     );
+
+     const nextPhase = (attacks.length > 0 || moves.length > 0) ? 'mandatory_move' : 'locked';
+
+     setGameState(newGameState);
+     setCapturedByP1(newCapturedP1);
+     setCapturedByP2(newCapturedP2);
+     setMoveHistory(newHistory);
+     setTurnPhase(nextPhase);
+
+     broadcast({
+        gameState: newGameState,
+        capturedByP1: newCapturedP1,
+        capturedByP2: newCapturedP2,
+        moveHistory: newHistory,
+        turnPhase: nextPhase
+     });
+
+     return { nextPhase, attacks, moves };
+  };
+
+  const switchTurn = () => {
+    const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+    setCurrentTurn(nextTurn);
+    setTurnPhase('locked'); 
+    setMandatoryMoveUsed(false);
+
+    broadcast({
+        currentTurn: nextTurn,
+        turnPhase: 'select', 
+        mandatoryMoveUsed: false
+    });
+  };
+
+  return {
+    gameState, moveHistory, currentTurn, capturedByP1, capturedByP2,
+    winner, setWinner, gameEndReason, setGameEndReason,
+    turnPhase, setTurnPhase,
+    hasMoved, mandatoryMoveUsed,
+    p1Time, setP1Time, p2Time, setP2Time,
+    applyRemoteMove, executeMove, executeAttackAction, switchTurn
+  };
+};
