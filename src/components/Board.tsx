@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { PIECES, PieceKey, getPieceOwner } from '../pages/game/mechanics/piecemovements';
-import { getRenderRows, getRenderCols, getRowTiles, getPieceAtTile } from '../pages/game//utils/gameUtils';
+import { getRenderRows, getRenderCols, getRowTiles, getPieceAtTile, parseCoord } from '../pages/game/utils/gameUtils';
 import { PlayerRole, TurnPhase, Winner } from '../types/gameTypes';
 
 interface BoardProps {
@@ -143,6 +143,15 @@ const Board: React.FC<BoardProps> = ({
                       const isMoveTarget = validMoves.includes(coordinate);
                       const isAttackTarget = validAttacks.includes(coordinate);
                       const canInteract = !winner && ((pieceId && getPieceOwner(pieceId) === currentTurn) || isAttackTarget);
+                      
+                      // --- Advance Move Logic (Color Calculation) ---
+                      let isAdvanceMove = false;
+                      if (isMoveTarget && activePiece && gameState[activePiece]) {
+                         const start = parseCoord(gameState[activePiece]!);
+                         const end = parseCoord(coordinate);
+                         const dist = Math.abs(end.rowNum - start.rowNum);
+                         if (dist === 3) isAdvanceMove = true;
+                      }
 
                       return (
                         <div
@@ -186,8 +195,16 @@ const Board: React.FC<BoardProps> = ({
                             </motion.div>
                           )}
                           {isMoveTarget && !pieceId && (
-                            <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                            <div className={`
+                              absolute rounded-full animate-pulse z-20 
+                              ${isAdvanceMove 
+                                 ? 'w-4 h-4 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)]' 
+                                 : 'w-4 h-4 bg-green-500 shadow-[0_0_15px_rgba(74,222,128,1)]' 
+                              }
+                            `} />
                           )}
+                          
+                          {/* Attack Indicator Ring */}
                           {isAttackTarget && (
                             <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]" />
                           )}

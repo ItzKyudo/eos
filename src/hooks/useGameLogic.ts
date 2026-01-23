@@ -3,6 +3,7 @@ import { INITIAL_POSITIONS } from '../pages/game/mechanics/positions';
 import { PIECE_MOVEMENTS, PieceKey} from '../pages/game/mechanics/piecemovements';
 import { getValidAttacks, executeAttack, getMultiCaptureOptions, Winner } from '../pages/game/mechanics/attackpieces';
 import { GameSyncData, MoveLog, PlayerRole, TurnPhase } from '../types/gameTypes';
+import { parseCoord } from '../pages/game/utils/gameUtils'
 
 export const useGameLogic = (
   initialTime: number,
@@ -25,7 +26,7 @@ export const useGameLogic = (
   const [p1Time, setP1Time] = useState(initialTime);
   const [p2Time, setP2Time] = useState(initialTime);
 
-  // Helper to broadcast state via callback (to socket/channel)
+  // Helper to broadcast state
   const broadcast = (overrides: Partial<GameSyncData> = {}) => {
     const data: GameSyncData = {
       gameState,
@@ -52,7 +53,7 @@ export const useGameLogic = (
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
 
-  // Sync Handling (Applying move from opponent)
+  // Sync Handling
   const applyRemoteMove = (data: GameSyncData) => {
     setGameState(data.gameState);
     setCurrentTurn(data.currentTurn);
@@ -63,11 +64,9 @@ export const useGameLogic = (
     setHasMoved(data.hasMoved || {});
     setMandatoryMoveUsed(data.mandatoryMoveUsed || false);
     
-    // Sync timers if provided by server
     if (data.p1Time !== undefined) setP1Time(data.p1Time);
     if (data.p2Time !== undefined) setP2Time(data.p2Time);
 
-    // Determine local phase
     if (data.currentTurn === myRole) {
       if (data.turnPhase === 'locked') setTurnPhase('locked');
       else if (data.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
@@ -80,14 +79,23 @@ export const useGameLogic = (
   // --- Actions ---
 
   const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+    const startCoord = gameState[pieceId]!;
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
+
+    // --- NEW LOGIC: Calculate Distance for Advance Move Rule ---
+    const startPos = parseCoord(startCoord);
+    const endPos = parseCoord(targetCoord);
+    // In this grid system, moving diagonally changes row by 1 per step.
+    // Therefore, row difference equals distance.
+    const moveDistance = Math.abs(endPos.rowNum - startPos.rowNum);
+    const isAdvanceMove = moveDistance === 3; 
 
     const newMove: MoveLog = {
       player: currentTurn,
       pieceName: PIECE_MOVEMENTS[pieceId].name,
       pieceId: pieceId,
-      from: gameState[pieceId]!,
+      from: startCoord,
       to: targetCoord,
       turnNumber: moveHistory.length + 1,
       timestamp: Date.now()
@@ -96,14 +104,23 @@ export const useGameLogic = (
 
     const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
+    let nextPhase: TurnPhase = 'locked';
 
-    // Post-move attack checks
-    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
-      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', turnPhase === 'action' ? wasFirstMove : false);
+    // Rule: If Advance Move (3 tiles), player cannot capture afterward.
+    // Otherwise, check for potential attacks.
+    if (!isAdvanceMove && (turnPhase === 'action' || turnPhase === 'mandatory_move')) {
+      attacks = getValidAttacks(
+        pieceId, 
+        targetCoord, 
+        newGameState as Record<string, string>, 
+        'post-move', 
+        turnPhase === 'action' ? wasFirstMove : false
+      );
     }
 
-    let nextPhase: TurnPhase = 'locked';
-    if (attacks.length > 0) nextPhase = 'mandatory_move';
+    if (attacks.length > 0) {
+      nextPhase = 'mandatory_move';
+    }
     
     // Update Local
     setGameState(newGameState);
