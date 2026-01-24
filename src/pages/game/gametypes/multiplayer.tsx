@@ -1,5 +1,4 @@
-// src/pages/game/gametypes/multiplayer.tsx
-import React, { useState, useEffect, useCallback } from 'react'; // Removed unused useRef
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MultiplayerHUD from '../mechanics/MultiplayerHUD';
 import { PlayerRole, GameSyncData, Winner } from '../../../types/gameTypes';
@@ -10,48 +9,53 @@ import { useGameSocket } from '../../../hooks/useGameSocket';
 import { useGameLogic } from '../../../hooks/useGameLogic';
 import Board from '../../../components/Board';
 
+// Local interface for sync state
+interface PlayerStatus {
+  userId: string | number;
+  username: string;
+  disconnectedAt: number | null;
+  isGuest: boolean;
+}
+
+interface GameStateSync extends GameSyncData {
+  players?: PlayerStatus[];
+  lastMove?: GameSyncData;
+  onlinePlayers?: string[];
+}
+
 const Multiplayer: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
   const myRole = (searchParams.get('role') as PlayerRole) || 'player1';
   const matchId = searchParams.get('matchId');
+  
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = searchParams.get('userId') || storedUser.id || storedUser.user_id;
-  const isGuest = searchParams.get('guest') === 'true';
-  const initialTime = parseInt(searchParams.get('time') || '600');
   
-  const myUsername = searchParams.get('myName') || (isGuest ? 'Guest' : storedUser.username || 'You');
-  const myRating = searchParams.get('myRating') || (isGuest ? '600' : '1200');
-  const opponentUsername = searchParams.get('opponentName') || 'Opponent';
-  const opponentRating = searchParams.get('opponentRating') || '1200';
-
-  const gameLogic = useGameLogic(initialTime, myRole, (newState) => {
-    socketHook.emitMove(newState);
-  });
-
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
 
-  const handleMoveReceived = useCallback((move: GameSyncData) => {
+  const initialTime = parseInt(searchParams.get('time') || '600');
+
+  const gameLogic = useGameLogic(initialTime, myRole, (newState) => {
+    socketHook.emitMove(newState);
+  });
+
+  const onMoveReceived = useCallback((move: GameSyncData) => {
     gameLogic.applyRemoteMove(move);
   }, [gameLogic]);
 
-  const handleSyncState = useCallback((state: any) => {
+  const onSyncState = useCallback((state: GameStateSync) => {
     if (state.lastMove) gameLogic.applyRemoteMove(state.lastMove);
   }, [gameLogic]);
 
-  const handleOpponentDisconnect = useCallback(() => {
-    console.log("Opponent visually disconnected");
+  const onOpponentReconnect = useCallback((data: { socketId: string; userId: string }) => {
+    console.log("Opponent Reconnected:", data.userId);
   }, []);
 
-  const handleOpponentReconnect = useCallback((data: { socketId: string; userId: string | number }) => {
-    console.log("Opponent returned:", data.userId);
-  }, []);
-
-  const handleGameEnd = useCallback((data: { winner: Winner; reason: string }) => {
+  const onGameEnd = useCallback((data: { winner: Winner; reason: string }) => {
     gameLogic.setWinner(data.winner);
     gameLogic.setGameEndReason(data.reason);
     gameLogic.setTurnPhase('locked');
@@ -60,12 +64,11 @@ const Multiplayer: React.FC = () => {
   const socketHook = useGameSocket({
     matchId,
     userId,
-    // Removed myRole as it is no longer in the props definition
-    onMoveReceived: handleMoveReceived,
-    onSyncState: handleSyncState,
-    onOpponentDisconnect: handleOpponentDisconnect,
-    onOpponentReconnect: handleOpponentReconnect,
-    onGameEnd: handleGameEnd
+    onMoveReceived,
+    onSyncState,
+    onOpponentDisconnect: () => {},
+    onOpponentReconnect,
+    onGameEnd
   });
 
   const handleTileClick = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
@@ -101,19 +104,19 @@ const Multiplayer: React.FC = () => {
   };
 
   const handlePieceDrop = (pieceId: PieceKey, targetCoord: string) => {
-     const result = gameLogic.executeMove(pieceId, targetCoord);
-     setValidMoves([]);
-     setValidAttacks(result.attacks);
-     if (result.nextPhase === 'locked') setActivePiece(null);
+    const result = gameLogic.executeMove(pieceId, targetCoord);
+    setValidMoves([]);
+    setValidAttacks(result.attacks);
+    if (result.nextPhase === 'locked') setActivePiece(null);
   };
 
   const handleAttackClick = (targetCoord: string) => {
-     if (!activePiece) return;
-     const result = gameLogic.executeAttackAction(targetCoord, activePiece);
-     if (result && !result.winner) {
-        setValidAttacks(result.attacks || []);
-        setValidMoves(result.moves || []);
-     }
+    if (!activePiece) return;
+    const result = gameLogic.executeAttackAction(targetCoord, activePiece);
+    if (result && !result.winner) {
+       setValidAttacks(result.attacks || []);
+       setValidMoves(result.moves || []);
+    }
   };
 
   const handleSwitchTurn = () => {
@@ -133,22 +136,27 @@ const Multiplayer: React.FC = () => {
       setDisconnectTimerStr('');
       return;
     }
-    const update = () => {
-      const gracePeriod = 300000;
-      const diff = gracePeriod - (Date.now() - socketHook.opponentDisconnectTime!);
-      if (diff <= 0) setDisconnectTimerStr('00:00');
-      else {
+    const interval = setInterval(() => {
+      const diff = 300000 - (Date.now() - socketHook.opponentDisconnectTime!);
+      if (diff <= 0) {
+        setDisconnectTimerStr('00:00');
+        clearInterval(interval);
+      } else {
         const m = Math.floor(diff / 60000);
         const s = Math.floor((diff % 60000) / 1000);
         setDisconnectTimerStr(`${m}:${s.toString().padStart(2, '0')}`);
       }
-    };
-    const interval = setInterval(update, 1000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [socketHook.opponentDisconnectTime]);
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden relative">
+        {/* display socket id */}
+        <div className="fixed top-2 left-2 z-100 bg-black/60 text-white p-2 rounded text-[10px] font-mono pointer-events-none border border-white/10">
+          ID: {socketHook.socket?.id || 'Connecting...'}
+        </div>
+
         <Board
            gameState={gameLogic.gameState}
            perspective={myRole}
@@ -176,7 +184,8 @@ const Multiplayer: React.FC = () => {
                 capturedByP2: gameLogic.capturedByP2
             }}
             playerDetails={{
-                myUsername, myRating, opponentUsername, opponentRating,
+                myUsername: storedUser.username || 'You',
+                opponentUsername: searchParams.get('opponentName') || 'Opponent',
                 opponentConnected: socketHook.opponentConnected,
                 disconnectTimer: disconnectTimerStr
             }}
