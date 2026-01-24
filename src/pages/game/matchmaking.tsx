@@ -1,111 +1,163 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import Sidebar from '../../components/sidebar';
 
-// Define interfaces to eliminate 'any'
-interface MatchData {
-    yourRole: string;
-    matchId: string;
-    yourUserId?: string;
-    yourUsername?: string;
-    yourRating?: string;
-    opponent?: {
-        username: string;
-        rating: string;
-    };
-    timeControl?: number;
-}
 
-interface GameMode {
-    duration_minutes: number;
-    title: string;
-}
 
 const Matchmaking: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const selectedTime = parseInt(searchParams.get('time') || '600');
-    const [socket, setSocket] = useState<Socket | null>(null);
-    const [status, setStatus] = useState<string>('Connecting...');
-    const [timeInQueue, setTimeInQueue] = useState<number>(0);
-    const [gameModes, setGameModes] = useState<GameMode[]>([]);
-
-    const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const getModeLabel = (time: number) => {
         if (!gameModes.length) return `${time / 60}m Game`;
-        const mode = gameModes.find((m) => m.duration_minutes === time / 60);
+        const mode = gameModes.find((m: any) => m.duration_minutes === time / 60);
         return mode ? `${mode.title} (${mode.duration_minutes}m)` : `${time / 60}m Game`;
     };
 
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [status, setStatus] = useState<string>('Connecting...');
+    const [isSearching, setIsSearching] = useState(false);
+    const [timeInQueue, setTimeInQueue] = useState<number>(0);
+    const [gameModes, setGameModes] = useState<any[]>([]);
+
+    const socketInstanceRef = useRef<Socket | null>(null);
+    const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
+        // Fetch game modes
         const fetchGameModes = async () => {
             try {
                 const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
                 const response = await fetch(`${serverUrl}/api/gamemodes`);
                 if (response.ok) {
-                    const data: GameMode[] = await response.json();
+                    const data = await response.json();
                     setGameModes(data);
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Error fetching game modes:", err);
+            }
         };
         fetchGameModes();
 
+        // Check for auth token
         const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
+        if (!token) {
+            // Redirect to login if not authenticated
+            navigate('/login');
+            return;
+        }
 
+
+
+        // Connect to socket server
         const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
         const newSocket = io(serverUrl, {
-            transports: ['websocket'],
-            auth: { token }
+            transports: ['websocket', 'polling'],
+            autoConnect: true,
+            reconnection: true,
+            auth: {
+                token: token // Start standardizing on auth handshake too, though matchmakingHandler uses payload
+            }
         });
 
+        socketInstanceRef.current = newSocket;
         setSocket(newSocket);
 
-        newSocket.on('connect', () => {
-            setStatus('Connected! Searching...');
+        const handleConnect = () => {
+            console.log('✅ Connected to server:', newSocket.id);
+            setStatus('Connected! Searching for ranked opponent...');
+            setIsSearching(true);
+
+            // DELAYED JOIN: Show searching UI immediately, but wait 5s to emit joinQueue
+            console.log('⏳ Starting 5s delay before joining queue...');
             joinQueueTimeoutRef.current = setTimeout(() => {
+                console.log('📤 5s delay over. Emitting joinQueue with token and time:', selectedTime);
                 newSocket.emit('joinQueue', { token, timeControl: selectedTime });
             }, 5000);
-        });
+        };
 
-        newSocket.on('matchFound', (data: MatchData) => {
+        const handleQueued = (data: any) => {
+            console.log('⏳ Queued event received:', data);
+            setStatus('Waiting for opponent...');
+        };
+
+        const handleMatchFound = (data: any) => {
+            console.log('🎮 Match found!', data);
             setStatus('Match found! Starting game...');
-            
-            newSocket.removeAllListeners();
-            newSocket.disconnect();
 
             if (data && data.yourRole && data.matchId) {
+                // userId is optional here since we are auth'd, but good to have
                 const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
                 const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
                 const myRatingParam = data.yourRating ? `&myRating=${data.yourRating}` : '';
                 const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
                 const opponentRatingParam = data.opponent?.rating ? `&opponentRating=${data.opponent.rating}` : '';
 
+                // guest=false is default or explicit
                 const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}${myNameParam}${myRatingParam}${opponentNameParam}${opponentRatingParam}&time=${selectedTime}`;
-                
+                console.log('🚀 Authenticated user navigating to:', gameUrl);
+
+                // Clean up socket BEFORE navigating to allow game page to open its own socket
+                newSocket.removeAllListeners();
+                newSocket.disconnect();
+
                 setTimeout(() => {
+                    console.log('⏱️ Timeout finished, executing navigate');
                     navigate(gameUrl);
-                }, 500);
+                }, 100);
             }
-        });
+        };
 
-        newSocket.on('error', (data: { message?: string }) => {
+        const handleError = (data: any) => {
+            console.error('❌ Socket error:', data);
             setStatus(`Error: ${data.message || 'Unknown error'}`);
-        });
+            if (data.message === 'Invalid authentication token') {
+                // Token expired or invalid
+                localStorage.removeItem('token');
+                navigate('/login');
+            }
+        };
 
-        const queueTimer = setInterval(() => setTimeInQueue(prev => prev + 1), 1000);
+        const handleDisconnect = (reason: string) => {
+            console.log('❌ Disconnected:', reason);
+            setStatus('Disconnected');
+            setIsSearching(false);
+        };
+
+        newSocket.on('connect', handleConnect);
+        newSocket.on('queued', handleQueued);
+        newSocket.on('matchFound', handleMatchFound);
+        newSocket.on('error', handleError);
+        newSocket.on('disconnect', handleDisconnect);
+
+        if (newSocket.connected) {
+            handleConnect();
+        }
+
+        const queueTimer = setInterval(() => {
+            setTimeInQueue(prev => prev + 1);
+        }, 1000);
 
         return () => {
             clearInterval(queueTimer);
             if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
-            newSocket.disconnect();
-        };
-    }, [navigate, selectedTime]);
 
+            const socketToCleanup = socketInstanceRef.current || newSocket;
+            if (socketToCleanup && socketToCleanup.connected) {
+                socketToCleanup.emit('leaveQueue');
+                socketToCleanup.removeAllListeners();
+                socketToCleanup.disconnect();
+            }
+            socketInstanceRef.current = null;
+        };
+
+    }, [navigate]);
 
     const handleCancel = () => {
+        if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
         if (socket) {
             socket.emit('leaveQueue');
             socket.disconnect();
@@ -117,14 +169,35 @@ const Matchmaking: React.FC = () => {
         <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans">
             <Sidebar />
             <main className="flex-1 flex items-center justify-center p-8">
-                <div className="w-full max-w-2xl text-center bg-[#312e2b] rounded-2xl p-12 border border-[#3d3935] shadow-2xl">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-green-900/20 rounded-full flex items-center justify-center">
-                        <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-full max-w-2xl text-center">
+                    <div className="bg-[#312e2b] rounded-2xl p-12 shadow-2xl border border-[#3d3935]">
+                        <div className="mb-8">
+                            <div className="w-24 h-24 mx-auto mb-6 bg-green-900/20 rounded-full flex items-center justify-center">
+                                <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                            <h1 className="text-4xl font-extrabold text-white mb-4">Finding {getModeLabel(selectedTime)} Match</h1>
+                            <p className="text-xl text-gray-400 mb-2">{status}</p>
+                            {isSearching && (
+                                <>
+                                    <p className="text-sm text-gray-500 mt-4">
+                                        Searching for opponents with similar rating...
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-2">
+                                        Time in queue: {timeInQueue}s
+                                    </p>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="mt-8 flex gap-4 justify-center">
+                            <button
+                                onClick={handleCancel}
+                                className="px-6 py-3 bg-[#3d3935] hover:bg-[#4a4540] text-white rounded-lg font-semibold transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
-                    <h1 className="text-4xl font-extrabold text-white mb-4">Finding {getModeLabel(selectedTime)}</h1>
-                    <p className="text-xl text-gray-400">{status}</p>
-                    <p className="text-xs text-gray-600 mt-4">Queue Time: {timeInQueue}s</p>
-                    <button onClick={handleCancel} className="mt-8 px-6 py-3 bg-[#3d3935] hover:bg-[#4a4540] text-white rounded-lg font-semibold">Cancel</button>
                 </div>
             </main>
         </div>
