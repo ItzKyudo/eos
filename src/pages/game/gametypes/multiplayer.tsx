@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+// src/pages/game/gametypes/multiplayer.tsx
+import React, { useState, useEffect, useCallback } from 'react'; // Removed unused useRef
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MultiplayerHUD from '../mechanics/MultiplayerHUD';
 import { PlayerRole, GameSyncData, Winner } from '../../../types/gameTypes';
@@ -15,11 +16,8 @@ const Multiplayer: React.FC = () => {
   
   const myRole = (searchParams.get('role') as PlayerRole) || 'player1';
   const matchId = searchParams.get('matchId');
-  
-  // FIX: Ensure userId is a stable UUID from storage
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = searchParams.get('userId') || storedUser.id || storedUser.user_id;
-  
   const isGuest = searchParams.get('guest') === 'true';
   const initialTime = parseInt(searchParams.get('time') || '600');
   
@@ -28,46 +26,50 @@ const Multiplayer: React.FC = () => {
   const opponentUsername = searchParams.get('opponentName') || 'Opponent';
   const opponentRating = searchParams.get('opponentRating') || '1200';
 
+  const gameLogic = useGameLogic(initialTime, myRole, (newState) => {
+    socketHook.emitMove(newState);
+  });
+
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
-  
-  const emitMoveRef = useRef<((s: GameSyncData) => void) | null>(null);
-  const emitGameEndRef = useRef<((winner: Winner, reason: string) => void) | null>(null);
 
-  const gameLogic = useGameLogic(initialTime, myRole, (newState) => {
-    if (emitMoveRef.current) emitMoveRef.current(newState);
-  });
+  const handleMoveReceived = useCallback((move: GameSyncData) => {
+    gameLogic.applyRemoteMove(move);
+  }, [gameLogic]);
+
+  const handleSyncState = useCallback((state: any) => {
+    if (state.lastMove) gameLogic.applyRemoteMove(state.lastMove);
+  }, [gameLogic]);
+
+  const handleOpponentDisconnect = useCallback(() => {
+    console.log("Opponent visually disconnected");
+  }, []);
+
+  const handleOpponentReconnect = useCallback((data: { socketId: string; userId: string | number }) => {
+    console.log("Opponent returned:", data.userId);
+  }, []);
+
+  const handleGameEnd = useCallback((data: { winner: Winner; reason: string }) => {
+    gameLogic.setWinner(data.winner);
+    gameLogic.setGameEndReason(data.reason);
+    gameLogic.setTurnPhase('locked');
+  }, [gameLogic]);
 
   const socketHook = useGameSocket({
     matchId,
     userId,
-    myRole,
-    onMoveReceived: (move) => gameLogic.applyRemoteMove(move),
-    onSyncState: (state) => {
-        if (state.lastMove) gameLogic.applyRemoteMove(state.lastMove);
-    },
-    onOpponentDisconnect: () => {
-        // Handle visual disconnect state but don't end game immediately (grace period handled by HUD timer)
-    },
-    onOpponentReconnect: () => {
-        // Opponent returned
-    },
-    onGameEnd: (data) => {
-        gameLogic.setWinner(data.winner);
-        gameLogic.setGameEndReason(data.reason);
-        gameLogic.setTurnPhase('locked');
-    }
+    // Removed myRole as it is no longer in the props definition
+    onMoveReceived: handleMoveReceived,
+    onSyncState: handleSyncState,
+    onOpponentDisconnect: handleOpponentDisconnect,
+    onOpponentReconnect: handleOpponentReconnect,
+    onGameEnd: handleGameEnd
   });
 
-  emitMoveRef.current = socketHook.emitMove;
-  emitGameEndRef.current = socketHook.emitGameEnd;
-
-  // ... (Interaction handlers remain same as previous refactor)
   const handleTileClick = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
-    if (gameLogic.winner || gameLogic.turnPhase === 'locked') return;
-    if (gameLogic.currentTurn !== myRole) return;
+    if (gameLogic.winner || gameLogic.turnPhase === 'locked' || gameLogic.currentTurn !== myRole) return;
 
     if (activePiece && validMoves.includes(coordinate)) {
       handlePieceDrop(activePiece, coordinate);
@@ -84,16 +86,15 @@ const Multiplayer: React.FC = () => {
     const capturedFirst = gameLogic.startWithCapture[pieceId] || false;
 
     if (gameLogic.turnPhase === 'select' || gameLogic.turnPhase === 'action') {
-      setValidMoves(getValidMoves(pieceId, coordinate, isFirstMove, gameLogic.gameState as Record<string,string>, capturedFirst));
-      setValidAttacks(getValidAttacks(pieceId, coordinate, gameLogic.gameState as Record<string,string>, 'pre-move', isFirstMove));
+      setValidMoves(getValidMoves(pieceId, coordinate, isFirstMove, gameLogic.gameState as Record<string, string>, capturedFirst));
+      setValidAttacks(getValidAttacks(pieceId, coordinate, gameLogic.gameState as Record<string, string>, 'pre-move', isFirstMove));
       gameLogic.setTurnPhase('action');
     } 
     else if (gameLogic.turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameLogic.gameState as Record<string,string>, capturedFirst);
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameLogic.gameState as Record<string, string>, capturedFirst);
       const allowedAttacks = gameLogic.mandatoryMoveUsed 
-        ? getValidAttacks(pieceId, coordinate, gameLogic.gameState as Record<string,string>, 'post-move', false)
-        : getMultiCaptureOptions(pieceId, coordinate, gameLogic.gameState as Record<string,string>, false, capturedFirst).attacks;
-      
+        ? getValidAttacks(pieceId, coordinate, gameLogic.gameState as Record<string, string>, 'post-move', false)
+        : getMultiCaptureOptions(pieceId, coordinate, gameLogic.gameState as Record<string, string>, false, capturedFirst).attacks;
       setValidMoves(allowedMoves);
       setValidAttacks(allowedAttacks);
     }
@@ -133,7 +134,7 @@ const Multiplayer: React.FC = () => {
       return;
     }
     const update = () => {
-      const gracePeriod = 300000; // 5 mins
+      const gracePeriod = 300000;
       const diff = gracePeriod - (Date.now() - socketHook.opponentDisconnectTime!);
       if (diff <= 0) setDisconnectTimerStr('00:00');
       else {
