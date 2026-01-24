@@ -46,11 +46,9 @@ export const useGameSocket = ({
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
     
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'], 
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      forceNew: true,
       auth: { token: localStorage.getItem('token') }
     });
 
