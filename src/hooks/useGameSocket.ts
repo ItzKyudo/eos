@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameSyncData, MoveData, Winner } from '../types/gameTypes';
 
-// Defined interfaces to eliminate 'any'
 interface PlayerStatus {
   userId: string | number;
   username: string;
@@ -22,7 +21,7 @@ interface UseGameSocketProps {
   userId: string | null;
   onMoveReceived: (move: GameSyncData) => void;
   onOpponentDisconnect: () => void;
-  onOpponentReconnect: (data: { socketId: string; userId: string }) => void;
+  onOpponentReconnect: (data: { socketId: string; userId: string | number }) => void;
   onGameEnd: (data: { matchId: string; winner: Winner; reason: string }) => void;
   onSyncState: (state: GameStateSync) => void;
 }
@@ -39,80 +38,80 @@ export const useGameSocket = ({
   const [socket, setSocket] = useState<Socket | null>(null);
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
+  const hbRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
 
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
-    
-    const newSocket = io(serverUrl, {
-      transports: ['websocket'], 
-      reconnection: true,
-      reconnectionAttempts: 5,
-      auth: { token: localStorage.getItem('token') }
-    });
+    const connectionDelay = setTimeout(() => {
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+      
+      const newSocket = io(serverUrl, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 2000,
+        auth: { token: localStorage.getItem('token') },
+        forceNew: true
+      });
 
-    setSocket(newSocket);
+      setSocket(newSocket);
 
-    newSocket.on('connect', () => {
-      newSocket.emit('joinGame', { matchId, userId });
-      setOpponentConnected(false);
-    });
+      newSocket.on('connect', () => {
+        newSocket.emit('joinGame', { matchId, userId });
+      });
 
-    newSocket.on('moveMade', (data: MoveData) => {
-      if (data.move && data.playerId !== newSocket.id) {
-        onMoveReceived(data.move);
-      }
-    });
-
-    newSocket.on('gameState', (state: GameStateSync) => {
-      if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
-        setOpponentConnected(state.onlinePlayers.length > 1);
-      }
-
-      if (state.players && Array.isArray(state.players)) {
-        const op = state.players.find((p) => String(p.userId) !== String(userId));
-        if (op?.disconnectedAt) {
-          setOpponentDisconnectTime(op.disconnectedAt);
-        } else {
-          setOpponentDisconnectTime(null);
+      newSocket.on('moveMade', (data: MoveData) => {
+        if (data.move && data.playerId !== newSocket.id) {
+          onMoveReceived(data.move);
         }
-      }
-      onSyncState(state);
-    });
+      });
 
-    newSocket.on('playerJoined', () => {
-      setOpponentConnected(true);
-    });
+      newSocket.on('gameState', (state: GameStateSync) => {
+        if (state.onlinePlayers) {
+          setOpponentConnected(state.onlinePlayers.length > 1);
+        }
 
-    newSocket.on('playerReconnected', (data: { socketId: string; userId: string }) => {
-      setOpponentConnected(true);
-      onOpponentReconnect(data);
-    });
+        if (state.players) {
+          const opponent = state.players.find((p) => String(p.userId) !== String(userId));
+          if (opponent?.disconnectedAt) setOpponentDisconnectTime(opponent.disconnectedAt);
+          else setOpponentDisconnectTime(null);
+        }
+        onSyncState(state);
+      });
 
-    newSocket.on('playerDisconnected', () => setOpponentConnected(false));
-    newSocket.on('playerLeft', () => setOpponentConnected(false));
+      newSocket.on('playerJoined', () => setOpponentConnected(true));
+      
+      newSocket.on('playerReconnected', (data: { socketId: string; userId: string | number }) => {
+        setOpponentConnected(true);
+        onOpponentReconnect(data);
+      });
 
-    newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
-      if (data.matchId === matchId) {
-        setOpponentConnected(false);
-        onOpponentDisconnect();
-      }
-    });
+      newSocket.on('playerDisconnected', () => setOpponentConnected(false));
+      
+      newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
+         if (data.matchId === matchId) {
+           setOpponentConnected(false);
+           onOpponentDisconnect();
+         }
+      });
 
-    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
-      onGameEnd(data);
-    });
+      newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
+        onGameEnd(data);
+      });
 
-    const heartbeat = setInterval(() => {
-      if (newSocket.connected) newSocket.emit('playerHeartbeat', { matchId });
-    }, 5000);
+      hbRef.current = setInterval(() => {
+         if (newSocket.connected) newSocket.emit('playerHeartbeat', { matchId });
+      }, 5000);
+
+    }, 800);
 
     return () => {
-      clearInterval(heartbeat);
-      newSocket.disconnect();
+      clearTimeout(connectionDelay);
+      if (hbRef.current) clearInterval(hbRef.current);
+      if (socket) socket.disconnect();
     };
-  }, [matchId, userId, onMoveReceived, onOpponentDisconnect, onOpponentReconnect, onGameEnd, onSyncState]);
+  }, [matchId, userId, onGameEnd, onMoveReceived, onOpponentDisconnect, onOpponentReconnect, onSyncState, socket]);
 
   const emitMove = useCallback((moveData: GameSyncData) => {
     if (socket?.connected) socket.emit('makeMove', { matchId, move: moveData });

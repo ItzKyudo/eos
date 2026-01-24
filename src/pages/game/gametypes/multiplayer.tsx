@@ -32,12 +32,19 @@ const Multiplayer: React.FC = () => {
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = searchParams.get('userId') || storedUser.id || storedUser.user_id;
   
+  const isGuest = searchParams.get('guest') === 'true';
+  const initialTime = parseInt(searchParams.get('time') || '600');
+  
+  // FIXED: These are now used in the playerDetails object below
+  const myUsername = searchParams.get('myName') || (isGuest ? 'Guest' : storedUser.username || 'You');
+  const myRating = searchParams.get('myRating') || (isGuest ? '600' : '1200');
+  const opponentUsername = searchParams.get('opponentName') || 'Opponent';
+  const opponentRating = searchParams.get('opponentRating') || '1200';
+
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
-
-  const initialTime = parseInt(searchParams.get('time') || '600');
 
   const gameLogic = useGameLogic(initialTime, myRole, (newState) => {
     socketHook.emitMove(newState);
@@ -51,8 +58,8 @@ const Multiplayer: React.FC = () => {
     if (state.lastMove) gameLogic.applyRemoteMove(state.lastMove);
   }, [gameLogic]);
 
-  const onOpponentReconnect = useCallback((data: { socketId: string; userId: string }) => {
-    console.log("Opponent Reconnected:", data.userId);
+  const onOpponentReconnect = useCallback((data: { socketId: string; userId: string | number }) => {
+    console.log("Opponent returned:", data.userId);
   }, []);
 
   const onGameEnd = useCallback((data: { winner: Winner; reason: string }) => {
@@ -152,7 +159,6 @@ const Multiplayer: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden relative">
-        {/* display socket id */}
         <div className="fixed top-2 left-2 z-100 bg-black/60 text-white p-2 rounded text-[10px] font-mono pointer-events-none border border-white/10">
           ID: {socketHook.socket?.id || 'Connecting...'}
         </div>
@@ -184,8 +190,10 @@ const Multiplayer: React.FC = () => {
                 capturedByP2: gameLogic.capturedByP2
             }}
             playerDetails={{
-                myUsername: storedUser.username || 'You',
-                opponentUsername: searchParams.get('opponentName') || 'Opponent',
+                myUsername, 
+                myRating,   
+                opponentUsername,
+                opponentRating,   
                 opponentConnected: socketHook.opponentConnected,
                 disconnectTimer: disconnectTimerStr
             }}
