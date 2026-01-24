@@ -13,6 +13,8 @@ interface BoardProps {
   validMoves: string[];
   validAttacks: string[];
   activePiece: PieceKey | null;
+  // We pass 'hasMoved' to know if it's a first move for coloring logic
+  hasMoved?: Record<string, boolean>; 
   onTileClick: (coord: string, e: React.MouseEvent | React.TouchEvent) => void;
   onPieceDrop: (pieceId: PieceKey, targetCoord: string) => void;
   onAttackClick: (coord: string) => void;
@@ -20,7 +22,7 @@ interface BoardProps {
 
 const Board: React.FC<BoardProps> = ({
   gameState, perspective, turnPhase, currentTurn, winner,
-  validMoves, validAttacks, activePiece,
+  validMoves, validAttacks, activePiece, hasMoved,
   onTileClick, onPieceDrop, onAttackClick
 }) => {
   // Styles
@@ -53,7 +55,11 @@ const Board: React.FC<BoardProps> = ({
   // Drag Handlers
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, pieceId?: PieceKey) => {
     if (!pieceId || winner || turnPhase === 'locked') return;
-    if (getPieceOwner(pieceId) !== perspective) return; 
+    
+    // --- FIX: Strict Perspective Check Removed ---
+    // Instead of checking against 'perspective' (which might be P1 while P2 is playing locally),
+    // we check against 'currentTurn'.
+    if (getPieceOwner(pieceId) !== currentTurn) return; 
 
     setIsDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -144,13 +150,28 @@ const Board: React.FC<BoardProps> = ({
                       const isAttackTarget = validAttacks.includes(coordinate);
                       const canInteract = !winner && ((pieceId && getPieceOwner(pieceId) === currentTurn) || isAttackTarget);
                       
-                      // --- Advance Move Logic (Color Calculation) ---
-                      let isAdvanceMove = false;
+                      // --- Dot Color Logic ---
+                      let dotColorClass = 'bg-green-500 shadow-[0_0_15px_rgba(74,222,128,1)]'; // Default Green
+
                       if (isMoveTarget && activePiece && gameState[activePiece]) {
                          const start = parseCoord(gameState[activePiece]!);
                          const end = parseCoord(coordinate);
                          const dist = Math.abs(end.rowNum - start.rowNum);
-                         if (dist === 3) isAdvanceMove = true;
+                         
+                         // Check if this is the piece's first move
+                         const isFirstMove = hasMoved ? !hasMoved[activePiece] : false;
+
+                         if (isFirstMove) {
+                           // First Move (Development Move): Always Green (1-4 tiles)
+                           dotColorClass = 'bg-green-500 shadow-[0_0_15px_rgba(74,222,128,1)]';
+                         } else {
+                           // Subsequent Moves: 
+                           // - Distance 3 (Advance Move) -> Yellow
+                           // - Distance 1, 2, 4 -> Green
+                           if (dist === 3) {
+                              dotColorClass = 'bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,1)]';
+                           }
+                         }
                       }
 
                       return (
@@ -194,14 +215,10 @@ const Board: React.FC<BoardProps> = ({
                               />
                             </motion.div>
                           )}
+                          
+                          {/* Move Indicator Dots */}
                           {isMoveTarget && !pieceId && (
-                            <div className={`
-                              absolute rounded-full animate-pulse z-20 
-                              ${isAdvanceMove 
-                                 ? 'w-4 h-4 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,1)]' 
-                                 : 'w-4 h-4 bg-green-500 shadow-[0_0_15px_rgba(74,222,128,1)]' 
-                              }
-                            `} />
+                            <div className={`absolute rounded-full animate-pulse z-20 w-4 h-4 ${dotColorClass}`} />
                           )}
                           
                           {/* Attack Indicator Ring */}

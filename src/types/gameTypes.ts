@@ -23,6 +23,7 @@ export interface GameSyncData {
   winner: Winner;
   turnPhase: TurnPhase;
   hasMoved: Record<string, boolean>;
+  startWithCapture: Record<string, boolean>; 
   mandatoryMoveUsed: boolean;
   onlinePlayers?: string[]; 
   p1Time?: number;

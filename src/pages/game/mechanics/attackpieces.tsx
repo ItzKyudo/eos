@@ -7,31 +7,24 @@ interface AttackRule {
 }
 
 export const ATTACK_RULES: Record<string, AttackRule> = {
-  // Supremo
   piece1: { range: [1, 2], mandatoryMove: 1 },
   piece2: { range: [1, 2], mandatoryMove: 1 },
-  // Archer (Range 3)
   piece3: { range: [3], mandatoryMove: 1 },   
   piece4: { range: [3], mandatoryMove: 1 },
   piece15: { range: [3], mandatoryMove: 1 },
   piece16: { range: [3], mandatoryMove: 1 },
-  // Deacon (Range 2)
   piece5: { range: [2], mandatoryMove: 1 },  
   piece6: { range: [2], mandatoryMove: 1 },
   piece17: { range: [2], mandatoryMove: 1 },
   piece18: { range: [2], mandatoryMove: 1 },
-  // Vice Roy
   piece7: { range: [2], mandatoryMove: 2 },  
   piece8: { range: [2], mandatoryMove: 2 },
-  // Chancellor
   piece9: { range: [3], mandatoryMove: 2 },   
   piece10: { range: [3], mandatoryMove: 2 },
-  // Minister
   piece13: { range: [1], mandatoryMove: 2 }, 
   piece14: { range: [1], mandatoryMove: 2 },
   piece19: { range: [1], mandatoryMove: 2 },
   piece20: { range: [1], mandatoryMove: 2 },
-  // Stewards
   piece21: { range: [1], mandatoryMove: 1 }, 
   piece22: { range: [1], mandatoryMove: 1 },
   piece23: { range: [1], mandatoryMove: 1 },
@@ -104,11 +97,13 @@ export const getValidAttacks = (
 export const getMandatoryMoves = (
   pieceId: PieceKey,
   currentPosition: string,
-  gameState: Record<string, string>
+  gameState: Record<string, string>,
+  hasCapturedFirst: boolean = false // Added argument
 ): string[] => {
   const rule = ATTACK_RULES[pieceId];
   const requiredDist = rule ? rule.mandatoryMove : 1;
-  const allMoves = getValidMoves(pieceId, currentPosition, false, gameState);
+  // Pass through the new argument
+  const allMoves = getValidMoves(pieceId, currentPosition, false, gameState, hasCapturedFirst);
   const { rowNum: startRow } = parseCoord(currentPosition);
 
   return allMoves.filter(target => {
@@ -130,7 +125,6 @@ export const executeAttack = (
 
   if (!targetPieceId) return null;
 
-  // Create new state with enemy removed
   const newGameState = { ...currentGameState };
   delete newGameState[targetPieceId];
 
@@ -147,16 +141,14 @@ export const getMultiCaptureOptions = (
   pieceId: PieceKey,
   currentPosition: string,
   gameState: Record<string, string>,
-  hasAlreadyMoved: boolean 
+  hasAlreadyMoved: boolean,
+  hasCapturedFirst: boolean = false // Added argument
 ) => {
-  // 1. Check for additional attacks (Chain Capture)
   const attacks = getValidAttacks(pieceId, currentPosition, gameState, 'pre-move', false);
   
-  // 2. Check for Mandatory Move
-  // You can only move if you haven't moved yet in this turn.
   let moves: string[] = [];
   if (!hasAlreadyMoved) {
-     moves = getMandatoryMoves(pieceId, currentPosition, gameState);
+     moves = getMandatoryMoves(pieceId, currentPosition, gameState, hasCapturedFirst);
   }
 
   return { attacks, moves };

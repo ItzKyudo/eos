@@ -5,10 +5,12 @@ import { getValidAttacks, executeAttack, getMultiCaptureOptions, Winner } from '
 import { GameSyncData, MoveLog, PlayerRole, TurnPhase } from '../types/gameTypes';
 import { parseCoord } from '../pages/game/utils/gameUtils'
 
+
 export const useGameLogic = (
   initialTime: number,
   myRole: PlayerRole,
-  onStateChange: (newState: GameSyncData) => void
+  onStateChange: (newState: GameSyncData) => void,
+  isLocal: boolean = false
 ) => {
   // State
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -19,6 +21,7 @@ export const useGameLogic = (
   const [winner, setWinner] = useState<Winner>(null);
   const [turnPhase, setTurnPhase] = useState<TurnPhase>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [startWithCapture, setStartWithCapture] = useState<Record<string, boolean>>({}); 
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
   const [gameEndReason, setGameEndReason] = useState<string | null>(null);
 
@@ -26,7 +29,6 @@ export const useGameLogic = (
   const [p1Time, setP1Time] = useState(initialTime);
   const [p2Time, setP2Time] = useState(initialTime);
 
-  // Helper to broadcast state
   const broadcast = (overrides: Partial<GameSyncData> = {}) => {
     const data: GameSyncData = {
       gameState,
@@ -37,13 +39,13 @@ export const useGameLogic = (
       winner,
       turnPhase: overrides.turnPhase || turnPhase,
       hasMoved,
+      startWithCapture, 
       mandatoryMoveUsed: overrides.mandatoryMoveUsed ?? mandatoryMoveUsed,
       ...overrides
     };
     onStateChange(data);
   };
 
-  // Timer Countdown
   useEffect(() => {
     if (winner) return;
     const timer = setInterval(() => {
@@ -53,7 +55,6 @@ export const useGameLogic = (
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
 
-  // Sync Handling
   const applyRemoteMove = (data: GameSyncData) => {
     setGameState(data.gameState);
     setCurrentTurn(data.currentTurn);
@@ -62,6 +63,7 @@ export const useGameLogic = (
     setCapturedByP2(data.capturedByP2);
     setWinner(data.winner);
     setHasMoved(data.hasMoved || {});
+    setStartWithCapture(data.startWithCapture || {}); 
     setMandatoryMoveUsed(data.mandatoryMoveUsed || false);
     
     if (data.p1Time !== undefined) setP1Time(data.p1Time);
@@ -76,20 +78,22 @@ export const useGameLogic = (
     }
   };
 
-  // --- Actions ---
-
   const executeMove = (pieceId: PieceKey, targetCoord: string) => {
     const startCoord = gameState[pieceId]!;
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
+    
+    const wasFirstMove = !hasMoved[pieceId];
+    const newStartWithCapture = { ...startWithCapture };
+    if (wasFirstMove) {
+        newStartWithCapture[pieceId] = false;
+    }
 
-    // --- NEW LOGIC: Calculate Distance for Advance Move Rule ---
     const startPos = parseCoord(startCoord);
     const endPos = parseCoord(targetCoord);
-    // In this grid system, moving diagonally changes row by 1 per step.
-    // Therefore, row difference equals distance.
     const moveDistance = Math.abs(endPos.rowNum - startPos.rowNum);
-    const isAdvanceMove = moveDistance === 3; 
+    
+    const isAdvanceMove = !wasFirstMove && moveDistance === 3; 
 
     const newMove: MoveLog = {
       player: currentTurn,
@@ -102,12 +106,9 @@ export const useGameLogic = (
     };
     const newHistory = [...moveHistory, newMove];
 
-    const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
     let nextPhase: TurnPhase = 'locked';
 
-    // Rule: If Advance Move (3 tiles), player cannot capture afterward.
-    // Otherwise, check for potential attacks.
     if (!isAdvanceMove && (turnPhase === 'action' || turnPhase === 'mandatory_move')) {
       attacks = getValidAttacks(
         pieceId, 
@@ -122,17 +123,17 @@ export const useGameLogic = (
       nextPhase = 'mandatory_move';
     }
     
-    // Update Local
     setGameState(newGameState);
     setHasMoved(newHasMoved);
+    setStartWithCapture(newStartWithCapture);
     setMoveHistory(newHistory);
     setMandatoryMoveUsed(true);
     setTurnPhase(nextPhase);
 
-    // Broadcast
     broadcast({ 
         gameState: newGameState, 
-        hasMoved: newHasMoved, 
+        hasMoved: newHasMoved,
+        startWithCapture: newStartWithCapture,
         moveHistory: newHistory, 
         turnPhase: nextPhase,
         mandatoryMoveUsed: true 
@@ -152,10 +153,16 @@ export const useGameLogic = (
      if (currentTurn === 'player1') newCapturedP1.push(capturedPieceId);
      else newCapturedP2.push(capturedPieceId);
 
+     const newHasMoved = { ...hasMoved, [activePiece]: true };
+     const newStartWithCapture = { ...startWithCapture };
+     if (!hasMoved[activePiece]) {
+         newStartWithCapture[activePiece] = true; 
+     }
+
      if (newWinner) {
         setGameState(newGameState);
         setCapturedByP1(newCapturedP1);
-        setCapturedByP2(newCapturedP2);
+        setCapturedByP2(newCapturedP2); // Fixed: was newCapturedByP2
         setWinner(newWinner);
         setTurnPhase('locked');
         broadcast({ 
@@ -179,17 +186,19 @@ export const useGameLogic = (
      };
      const newHistory = [...moveHistory, newMove];
 
-     // Check for chain attacks
      const { attacks, moves } = getMultiCaptureOptions(
         activePiece, 
         newGameState[activePiece]!, 
         newGameState as Record<string, string>, 
-        mandatoryMoveUsed
+        mandatoryMoveUsed,
+        newStartWithCapture[activePiece] || false 
      );
 
      const nextPhase = (attacks.length > 0 || moves.length > 0) ? 'mandatory_move' : 'locked';
 
      setGameState(newGameState);
+     setHasMoved(newHasMoved);
+     setStartWithCapture(newStartWithCapture);
      setCapturedByP1(newCapturedP1);
      setCapturedByP2(newCapturedP2);
      setMoveHistory(newHistory);
@@ -197,6 +206,8 @@ export const useGameLogic = (
 
      broadcast({
         gameState: newGameState,
+        hasMoved: newHasMoved,
+        startWithCapture: newStartWithCapture,
         capturedByP1: newCapturedP1,
         capturedByP2: newCapturedP2,
         moveHistory: newHistory,
@@ -209,7 +220,7 @@ export const useGameLogic = (
   const switchTurn = () => {
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
     setCurrentTurn(nextTurn);
-    setTurnPhase('locked'); 
+    setTurnPhase(isLocal ? 'select' : 'locked'); 
     setMandatoryMoveUsed(false);
 
     broadcast({
@@ -223,7 +234,8 @@ export const useGameLogic = (
     gameState, moveHistory, currentTurn, capturedByP1, capturedByP2,
     winner, setWinner, gameEndReason, setGameEndReason,
     turnPhase, setTurnPhase,
-    hasMoved, mandatoryMoveUsed,
+    hasMoved, startWithCapture, 
+    mandatoryMoveUsed,
     p1Time, setP1Time, p2Time, setP2Time,
     applyRemoteMove, executeMove, executeAttackAction, switchTurn
   };

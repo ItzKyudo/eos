@@ -55,45 +55,49 @@ export const getPieceOwner = (pieceId: string): 'player1' | 'player2' | undefine
 };
 
 const PIECE_RULES: Record<string, number[]> = {
-  // Supremo: [1, 2]
+  // Supremo
   piece1: [1, 2, 3], piece2: [1, 2, 3],
-  
-  // Archer: [1]
+  // Archer
   piece3: [1, 3], piece4: [1, 3], piece15: [1, 3], piece16: [1, 3],
-  
-  // Deacon: [1]
+  // Deacon
   piece5: [1, 3], piece6: [1, 3], piece17: [1, 3], piece18: [1, 3],
-  
-  // Vice Roy: [2]
+  // Vice Roy
   piece7: [2, 3], piece8: [2, 3],
-  
-  // Chancellor: [2]
+  // Chancellor
   piece9: [2, 3], piece10: [2, 3],
-  
-  // Minister: [2]
+  // Minister
   piece13: [2, 3], piece14: [2, 3], piece19: [2, 3], piece20: [2, 3],
-
-  // Stewards: [1]
+  // Stewards
   piece21: [1, 3], piece22: [1, 3], piece23: [1, 3], piece24: [1, 3],
   piece25: [1, 3], piece26: [1, 3], piece27: [1, 3], piece28: [1, 3],
   piece29: [1, 3], piece30: [1, 3], piece31: [1, 3], piece32: [1, 3],
   piece33: [1, 3], piece34: [1, 3], piece35: [1, 3], piece36: [1, 3],
-  
   // Fallbacks
   piece11: [1, 3], piece12: [1, 3],
 };
-
-// --- 4. MAIN MOVEMENT LOGIC (BFS) ---
 
 export const getValidMoves = (
   pieceId: PieceKey,
   currentPosition: string,
   isFirstMove: boolean,
-  currentGameState: Record<string, string>
+  currentGameState: Record<string, string>,
+  hasCapturedFirst: boolean = false // Added argument
 ): string[] => {
-  const allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
-  const maxSearchDistance = Math.max(...allowedSteps);
+  
+  let allowedSteps: number[];
 
+  if (isFirstMove) {
+    allowedSteps = [1, 2, 3, 4];
+  } else {
+    const baseSteps = PIECE_RULES[pieceId] || [1];
+    if (hasCapturedFirst) {
+      allowedSteps = baseSteps.filter(step => step !== 3);
+    } else {
+      allowedSteps = baseSteps;
+    }
+  }
+
+  const maxSearchDistance = Math.max(...allowedSteps);
   const { colIndex: startCol, rowNum: startRow } = parseCoord(currentPosition);
   if (startCol === -1 || isNaN(startRow)) return [];
 
@@ -103,13 +107,11 @@ export const getValidMoves = (
   
   const validEndPoints = new Set<string>();
   const directions = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
-
   const isBackRankPiece = parseInt(pieceId.replace('piece', ''), 10) <= 20;
 
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current) break;
-
     if (current.dist >= maxSearchDistance) continue;
 
     for (const [dCol, dRow] of directions) {
@@ -118,7 +120,6 @@ export const getValidMoves = (
       const nextCoord = toCoord(nextCol, nextRow);
       if (!nextCoord) continue; 
       if ((nextCol + nextRow) % 2 === 0) continue;
-      
       if (visited.has(nextCoord)) continue;
 
       const isOccupied = Object.values(currentGameState).includes(nextCoord);
@@ -127,8 +128,7 @@ export const getValidMoves = (
         const canJump = isFirstMove && isBackRankPiece;
         if (canJump) {
           visited.add(nextCoord);
-          const nextDist = current.dist + 1;
-          queue.push({ col: nextCol, row: nextRow, dist: nextDist });
+          queue.push({ col: nextCol, row: nextRow, dist: current.dist + 1 });
           continue;
         } else {
           continue; 
@@ -144,7 +144,6 @@ export const getValidMoves = (
       }
     }
   }
-
   return Array.from(validEndPoints);
 };
 
@@ -159,13 +158,10 @@ export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {
   piece15: { name: 'Archer 1a' }, piece16: { name: 'Archer 2a' },
   piece17: { name: 'Deacon 1a' }, piece18: { name: 'Deacon 2a' },
   piece19: { name: 'Minister 1a' }, piece20: { name: 'Minister 2a' },
-
-  // Stewards Naming
   piece21: { name: 'Steward 1' }, piece22: { name: 'Steward 1' },
   piece23: { name: 'Steward 1' }, piece24: { name: 'Steward 1' },
   piece25: { name: 'Steward 1' }, piece26: { name: 'Steward 1' },
   piece27: { name: 'Steward 1' }, piece28: { name: 'Steward 1' },
-
   piece29: { name: 'Steward 2' }, piece30: { name: 'Steward 2' },
   piece31: { name: 'Steward 2' }, piece32: { name: 'Steward 2' },
   piece33: { name: 'Steward 2' }, piece34: { name: 'Steward 2' },
