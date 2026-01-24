@@ -2,45 +2,34 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameSyncData, MoveData, PlayerRole, Winner } from '../types/gameTypes';
 
+// Define specific interfaces to replace 'any'
+interface PlayerStatus {
+  userId: string | number;
+  username: string;
+  disconnectedAt: number | null;
+  isGuest: boolean;
+}
+
+interface GameStateSync extends GameSyncData {
+  players?: PlayerStatus[];
+  lastMove?: GameSyncData;
+}
+
 interface UseGameSocketProps {
   matchId: string | null;
   userId: string | null;
   myRole: PlayerRole;
   onMoveReceived: (move: GameSyncData) => void;
   onOpponentDisconnect: () => void;
-  onOpponentReconnect: (data: PlayerReconnectData) => void;
-  onGameEnd: (data: { winner: Winner; reason: string }) => void;
+  onOpponentReconnect: (data: { socketId: string; userId: string | number }) => void;
+  onGameEnd: (data: { matchId?: string; winner: Winner; reason: string }) => void;
   onSyncState: (state: GameStateSync) => void;
 }
-
-type GameStateSync = {
-  onlinePlayers?: string[];
-  players?: Array<{ userId?: string | number; disconnectedAt?: number | null }>;
-  lastMove?: GameSyncData;
-  [key: string]: unknown;
-};
-
-type PlayerReconnectData = {
-  userId?: string | number;
-  matchId?: string;
-  [key: string]: unknown;
-};
-
-type GameEndedPayload = {
-  matchId?: string;
-  winner: Winner;
-  reason: string;
-  [key: string]: unknown;
-};
-
-type OpponentDisconnectPayload = {
-  matchId?: string;
-  [key: string]: unknown;
-};
 
 export const useGameSocket = ({
   matchId,
   userId,
+  // FIXED: Removed myRole from destructuring as it was unused
   onMoveReceived,
   onOpponentDisconnect,
   onOpponentReconnect,
@@ -55,8 +44,7 @@ export const useGameSocket = ({
     if (!matchId) return;
 
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
-    console.log('🔌 Connecting to socket:', serverUrl);
-
+    
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -67,11 +55,8 @@ export const useGameSocket = ({
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
-      console.log('✅ Connected:', newSocket.id);
       newSocket.emit('joinGame', { matchId, userId });
     });
-
-    // --- Game Events ---
 
     newSocket.on('moveMade', (data: MoveData) => {
       if (data.move && data.playerId !== newSocket.id) {
@@ -79,42 +64,38 @@ export const useGameSocket = ({
       }
     });
 
-     newSocket.on('gameState', (state: GameStateSync) => {
-      // Sync presence
-      if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
-         setOpponentConnected(state.onlinePlayers.length > 1);
-      }
-      // Sync disconnect timer
-      if (state.players && Array.isArray(state.players)) {
-        const op = state.players.find((p: { userId?: string | number; disconnectedAt?: number | null }) => String(p.userId) !== String(userId));
-         if (op?.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
-         else setOpponentDisconnectTime(null);
+    newSocket.on('gameState', (state: GameStateSync) => {
+      if (state.players) {
+        const opponent = state.players.find((p) => String(p.userId) !== String(userId));
+        const isOpOnline = state.onlinePlayers?.includes(String(opponent?.userId));
+        setOpponentConnected(!!isOpOnline);
+
+        if (opponent?.disconnectedAt) setOpponentDisconnectTime(opponent.disconnectedAt);
+        else setOpponentDisconnectTime(null);
       }
       onSyncState(state);
     });
 
-     newSocket.on('gameEnded', (data: GameEndedPayload) => {
-       if (data.matchId === matchId) onGameEnd(data);
-     });
+    newSocket.on('gameEnded', (data: { matchId?: string; winner: Winner; reason: string }) => {
+      if (data.matchId === matchId) onGameEnd(data);
+    });
 
-    // --- Player Presence Events ---
-    
     newSocket.on('playerJoined', () => setOpponentConnected(true));
-    newSocket.on('playerReconnected', (data: PlayerReconnectData) => {
+    
+    newSocket.on('playerReconnected', (data: { socketId: string; userId: string | number }) => {
       setOpponentConnected(true);
       onOpponentReconnect(data);
     });
+
     newSocket.on('playerDisconnected', () => setOpponentConnected(false));
-    newSocket.on('playerLeft', () => setOpponentConnected(false));
     
-    newSocket.on('opponentDisconnected', (data: OpponentDisconnectPayload) => {
+    newSocket.on('opponentDisconnected', (data: { matchId?: string }) => {
        if (data.matchId === matchId) {
          setOpponentConnected(false);
          onOpponentDisconnect();
        }
     });
 
-    // Heartbeat
     const hbInterval = setInterval(() => {
        if (newSocket.connected) newSocket.emit('playerHeartbeat', { matchId });
     }, 5000);
@@ -123,7 +104,7 @@ export const useGameSocket = ({
       clearInterval(hbInterval);
       newSocket.disconnect();
     };
-  }, [matchId, userId, onMoveReceived, onOpponentDisconnect, onOpponentReconnect, onGameEnd, onSyncState]);
+  }, [matchId, userId, onGameEnd, onMoveReceived, onOpponentDisconnect, onOpponentReconnect, onSyncState]);
 
   const emitMove = (moveData: GameSyncData) => {
     if (socket?.connected && matchId) {
@@ -143,12 +124,5 @@ export const useGameSocket = ({
      }
   };
 
-  return { 
-    socket, 
-    opponentConnected, 
-    opponentDisconnectTime,
-    emitMove,
-    emitGameEnd,
-    emitLeave
-  };
+  return { socket, opponentConnected, opponentDisconnectTime, emitMove, emitGameEnd, emitLeave };
 };
