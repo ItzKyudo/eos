@@ -15,6 +15,13 @@ export interface UserProfile {
   rating_turbo?: number;
   theme_preference?: string;
   show_ads?: boolean;
+
+  // New Detailed Stats
+  wins_supremo_captured?: number;
+  wins_solitude?: number;
+  pieces_captured?: number;
+  double_captured?: number;
+  triple_captured?: number;
 }
 
 export interface GameHistoryEntry {

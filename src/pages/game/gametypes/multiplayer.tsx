@@ -689,6 +689,13 @@ const Multiplayer: React.FC = () => {
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
 
+    // Allow switching turn if in 'action' (normal move made, waiting confirm) 
+    // OR 'mandatory_move' (stopping a chain capture)
+    // OR 'select'/locked? No.
+    // Actually, 'action' usually auto-confirms in this code unless we add a confirm step. 
+    // In this codebase, executeMove sets phase to 'locked' or 'mandatory_move'.
+    // So we only need to allow it for 'mandatory_move'.
+
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
 
     setCurrentTurn(nextTurn);
@@ -933,7 +940,7 @@ const Multiplayer: React.FC = () => {
             setShowResignModal(true);
           }
         }}
-        canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
+        canSwitchTurn={(turnPhase === 'mandatory_move') && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from '../components/sidebar';
 import { Users, Check, X, UserX, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useFriendsStatus } from '../hooks/useFriendsStatus';
 
 interface Friend {
     friendship_id: number;
@@ -10,13 +11,19 @@ interface Friend {
     avatar_url?: string;
     status_message?: string;
     friendship_created_at: string;
+    isOnline?: boolean;
 }
 
 const SocialPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'friends' | 'members'>('friends');
-    const [friends, setFriends] = useState<Friend[]>([]);
+
+    // Use hook for Friends list and Online Status
+    // Note: The hook returns mapped friends which might have slightly different interface but we cast/adapt if needed.
+    // The hook's Friend interface has { user_id, username, isOnline ... }
+    const { friends, loading: friendsLoading, refreshFriends } = useFriendsStatus();
+
     const [requests, setRequests] = useState<Friend[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingRequests, setLoadingRequests] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const [inviteCopied, setInviteCopied] = useState(false);
@@ -25,12 +32,12 @@ const SocialPage: React.FC = () => {
     const [actionStatus, setActionStatus] = useState<{ type: 'success' | 'error' | 'loading', message: string } | null>(null);
 
     useEffect(() => {
-        fetchFriends();
+        fetchRequests();
         handleUrlActions();
     }, []);
 
-    const fetchFriends = async () => {
-        setLoading(true);
+    const fetchRequests = async () => {
+        setLoadingRequests(true);
         try {
             const token = localStorage.getItem('token');
             if (!token) return;
@@ -43,14 +50,12 @@ const SocialPage: React.FC = () => {
             if (!response.ok) throw new Error("Failed to fetch friends");
             const data = await response.json();
 
-            setFriends(data.friends || []);
             setRequests(data.incomingRequests || []);
-            // sentRequests is available in data.sentRequests if needed later
         } catch (err: any) {
             console.error(err);
             setError(err.message);
         } finally {
-            setLoading(false);
+            setLoadingRequests(false);
         }
     };
 
@@ -86,7 +91,7 @@ const SocialPage: React.FC = () => {
             if (!response.ok) throw new Error(data.message || 'Failed to send request');
 
             setActionStatus({ type: 'success', message: 'Friend request sent successfully!' });
-            fetchFriends(); // Refresh lists
+            fetchRequests(); // Refresh requests list
         } catch (err: any) {
             setActionStatus({ type: 'error', message: err.message });
         }
@@ -109,7 +114,9 @@ const SocialPage: React.FC = () => {
             });
 
             if (!response.ok) throw new Error('Failed to accept');
-            fetchFriends();
+
+            fetchRequests();
+            if (refreshFriends) refreshFriends();
         } catch (err) {
             console.error(err);
         }
@@ -126,19 +133,14 @@ const SocialPage: React.FC = () => {
             });
 
             if (!response.ok) throw new Error('Failed to remove');
-            fetchFriends();
+
+            if (refreshFriends) refreshFriends();
         } catch (err) {
             console.error(err);
         }
     };
 
     const copyInviteLink = () => {
-        // Assuming we have the current user's ID stored or can decode from token. 
-        // For now, let's assume the user knows their profile link, 
-        // OR better, we need the user's ID to construct the link. 
-        // Since we don't have user ID in state easily here, let's fetch it or decode token.
-        // Ideally this should be in a global context.
-        // HACK: decode token here for simplicity or fetch profile.
         const token = localStorage.getItem('token');
         if (token) {
             try {
@@ -159,6 +161,8 @@ const SocialPage: React.FC = () => {
             }
         }
     };
+
+
 
     return (
         <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans overflow-x-hidden">
@@ -232,7 +236,9 @@ const SocialPage: React.FC = () => {
                                 </div>
 
                                 {/* Friend Requests */}
-                                {requests.length > 0 && (
+                                {loadingRequests ? (
+                                    <div className="text-center py-4 text-gray-500 text-xs">Checking for requests...</div>
+                                ) : requests.length > 0 && (
                                     <div>
                                         <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Friend Requests</h3>
                                         <div className="grid gap-4 md:grid-cols-2">
@@ -270,7 +276,7 @@ const SocialPage: React.FC = () => {
                                 {/* Friends List */}
                                 <div>
                                     <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">My Friends ({friends.length})</h3>
-                                    {loading ? (
+                                    {friendsLoading ? (
                                         <div className="text-center py-12 text-gray-500">Loading friends...</div>
                                     ) : friends.length === 0 ? (
                                         <div className="text-center py-12 bg-[#302e2b] rounded-xl border border-white/5 border-dashed">
@@ -279,7 +285,7 @@ const SocialPage: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                            {friends.map(friend => (
+                                            {friends.map((friend: any) => (
                                                 <div key={friend.friendship_id} className="bg-[#302e2b] p-4 rounded-xl border border-white/10 flex items-center justify-between group hover:border-white/20 transition-all">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden relative">
@@ -292,9 +298,9 @@ const SocialPage: React.FC = () => {
                                                         </div>
                                                         <div>
                                                             <p className="text-white font-medium">{friend.username}</p>
-                                                            <p className="text-xs text-green-500 flex items-center gap-1">
-                                                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                                                Online
+                                                            <p className={`text-xs flex items-center gap-1 ${friend.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
+                                                                <span className={`w-2 h-2 rounded-full ${friend.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                                                                {friend.isOnline ? 'Online' : 'Offline'}
                                                             </p>
                                                         </div>
                                                     </div>
