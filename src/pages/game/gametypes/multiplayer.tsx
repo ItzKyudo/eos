@@ -847,6 +847,10 @@ const Multiplayer: React.FC = () => {
                         const isAttackTarget = validAttacks.includes(coordinate);
                         const canInteract = !winner && (isMyPiece || isAttackTarget);
 
+                        const lastMove = moveHistory[moveHistory.length - 1];
+                        const isLastMoveFrom = lastMove?.from === coordinate;
+                        const isLastMoveTo = lastMove?.to === coordinate;
+
                         return (
                           <div
                             key={`${row}-${i}`}
@@ -855,11 +859,11 @@ const Multiplayer: React.FC = () => {
                             onTouchStart={(e) => isAttackTarget ? handleAttackClick(coordinate) : handleMouseDown(coordinate, e)}
                             className={`
                               group relative ${circleSize} 
-                              bg-linear-to-br from-white to-gray-200 
+                              ${(isLastMoveFrom || isLastMoveTo) ? 'bg-amber-300/50' : 'bg-linear-to-br from-white to-gray-200'}
                               rounded-full 
                               shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
                               ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
-                              border border-gray-300 
+                              ${(isLastMoveFrom || isLastMoveTo) ? 'border-amber-400 border-2' : 'border border-gray-300'}
                               shrink-0 flex items-center justify-center
                               ${pieceId ? 'z-30' : ''}
                             `}
