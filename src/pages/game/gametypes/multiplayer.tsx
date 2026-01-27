@@ -859,11 +859,11 @@ const Multiplayer: React.FC = () => {
                             onTouchStart={(e) => isAttackTarget ? handleAttackClick(coordinate) : handleMouseDown(coordinate, e)}
                             className={`
                               group relative ${circleSize} 
-                              ${(isLastMoveFrom || isLastMoveTo) ? 'bg-amber-300/50' : 'bg-linear-to-br from-white to-gray-200'}
+                              ${(isLastMoveFrom || isLastMoveTo) ? 'bg-gray-500/40' : 'bg-linear-to-br from-white to-gray-200'}
                               rounded-full 
                               shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
                               ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
-                              ${(isLastMoveFrom || isLastMoveTo) ? 'border-amber-400 border-2' : 'border border-gray-300'}
+                              ${(isLastMoveFrom || isLastMoveTo) ? 'border-gray-500 border-2' : 'border border-gray-300'}
                               shrink-0 flex items-center justify-center
                               ${pieceId ? 'z-30' : ''}
                             `}
