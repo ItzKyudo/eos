@@ -882,7 +882,7 @@ const Multiplayer: React.FC = () => {
                               </motion.div>
                             )}
                             {isMoveTarget && !pieceId && (
-                              <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                              <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
                             )}
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
