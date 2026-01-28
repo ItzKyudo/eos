@@ -11,6 +11,7 @@ const Board: React.FC = () => {
   const timeLimit = parseInt(searchParams.get('time') || '600', 10);
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
@@ -62,7 +63,7 @@ const Board: React.FC = () => {
 
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>);
+      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
 
       setValidMoves(moves);
@@ -70,7 +71,7 @@ const Board: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
       setValidMoves(allowedMoves);
       setValidAttacks([]);
     }
@@ -109,7 +110,8 @@ const Board: React.FC = () => {
       activePiece,
       currentPos,
       result.newGameState as Record<string, string>,
-      mandatoryMoveUsed
+      mandatoryMoveUsed,
+      pieceMoveCount
     );
 
     setValidAttacks(attacks);
@@ -145,6 +147,7 @@ const Board: React.FC = () => {
       if (targetCoord && validMoves.includes(targetCoord)) {
         setGameState(prev => ({ ...prev, [activePiece]: targetCoord }));
         setHasMoved(prev => ({ ...prev, [activePiece]: true }));
+        setPieceMoveCount(prev => ({ ...prev, [activePiece]: (prev[activePiece] || 0) + 1 }));
         setMandatoryMoveUsed(true);
 
         addMove({
@@ -187,7 +190,7 @@ const Board: React.FC = () => {
         }
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, moveHistory, addMove]);
+  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove];
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');

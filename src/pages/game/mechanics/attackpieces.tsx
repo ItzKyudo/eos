@@ -103,13 +103,14 @@ export const getValidAttacks = (
 export const getMandatoryMoves = (
   pieceId: PieceKey,
   currentPosition: string,
-  gameState: Record<string, string>
+  gameState: Record<string, string>,
+  pieceMoveCount?: Record<string, number>
 ): string[] => {
   const rule = ATTACK_RULES[pieceId];
   const ruleVal = rule ? rule.mandatoryMove : 1;
   const allowedDistances = Array.isArray(ruleVal) ? ruleVal : [ruleVal];
 
-  const allMoves = getValidMoves(pieceId, currentPosition, false, gameState);
+  const allMoves = getValidMoves(pieceId, currentPosition, false, gameState, pieceMoveCount);
   const { rowNum: startRow } = parseCoord(currentPosition);
 
   return allMoves.filter(target => {
@@ -148,7 +149,8 @@ export const getMultiCaptureOptions = (
   pieceId: PieceKey,
   currentPosition: string,
   gameState: Record<string, string>,
-  hasAlreadyMoved: boolean
+  hasAlreadyMoved: boolean,
+  pieceMoveCount?: Record<string, number>
 ) => {
   // 1. Check for additional attacks (Chain Capture)
   const attacks = getValidAttacks(pieceId, currentPosition, gameState, 'pre-move', false);
@@ -157,7 +159,7 @@ export const getMultiCaptureOptions = (
   // You can only move if you haven't moved yet in this turn.
   let moves: string[] = [];
   if (!hasAlreadyMoved) {
-    moves = getMandatoryMoves(pieceId, currentPosition, gameState);
+    moves = getMandatoryMoves(pieceId, currentPosition, gameState, pieceMoveCount);
   }
 
   return { attacks, moves };

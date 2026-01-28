@@ -51,6 +51,7 @@ const Multiplayer: React.FC = () => {
   const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
@@ -452,6 +453,7 @@ const Multiplayer: React.FC = () => {
   const executeMove = (pieceId: PieceKey, targetCoord: string) => {
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
+    const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
 
     const newMove: MoveLog = {
       player: currentTurn,
@@ -484,6 +486,7 @@ const Multiplayer: React.FC = () => {
 
     setGameState(newGameState);
     setHasMoved(newHasMoved);
+    setPieceMoveCount(newMoveCount);
     setMandatoryMoveUsed(true);
     setMoveHistory(newHistory);
     setValidMoves([]);
@@ -535,7 +538,7 @@ const Multiplayer: React.FC = () => {
         // Current logic just stops dragging. Selection might persist (handled elsewhere).
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, currentTurn, hasMoved, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
+  }, [isDragging, activePiece, gameState, validMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
@@ -574,7 +577,7 @@ const Multiplayer: React.FC = () => {
 
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>);
+      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
 
       setValidMoves(moves);
@@ -582,7 +585,7 @@ const Multiplayer: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>);
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
       let allowedAttacks: string[] = [];
 
       // Check for attacks (Move-Then-Attack or Chain-Attack)
@@ -591,7 +594,7 @@ const Multiplayer: React.FC = () => {
         allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false);
       } else {
         // If we haven't moved yet (e.g. just captured), check for Chain Attacks
-        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false);
+        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount);
         allowedAttacks = attacks;
       }
 
@@ -655,7 +658,8 @@ const Multiplayer: React.FC = () => {
       activePiece,
       newGameState[activePiece]!,
       newGameState as Record<string, string>,
-      mandatoryMoveUsed
+      mandatoryMoveUsed,
+      pieceMoveCount
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
