@@ -89,9 +89,15 @@ export const getValidMoves = (
   pieceId: PieceKey,
   currentPosition: string,
   isFirstMove: boolean,
-  currentGameState: Record<string, string>
+  currentGameState: Record<string, string>,
+  pieceMoveCount?: Record<string, number>
 ): string[] => {
-  const allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
+  let allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
+  
+  // If piece has made 4+ moves, add 3-tile advance move option
+  if (pieceMoveCount && pieceMoveCount[pieceId] !== undefined && pieceMoveCount[pieceId] >= 4) {
+    allowedSteps = [...allowedSteps, 3];
+  }
   const maxSearchDistance = Math.max(...allowedSteps);
 
   const { colIndex: startCol, rowNum: startRow } = parseCoord(currentPosition);

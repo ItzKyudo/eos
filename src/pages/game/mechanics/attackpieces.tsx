@@ -23,7 +23,6 @@ export const ATTACK_RULES: Record<string, AttackRule> = {
   // Vice Roy (Range 2 -> 1..2, Mandatory 2 -> 1..2)
   piece7: { range: [1, 2], mandatoryMove: [1, 2] },
   piece8: { range: [1, 2], mandatoryMove: [1, 2] },
-  // Chancellor (Range 3 -> 1..3, Mandatory 2 -> 1..2) (Wait, Chancellor Mandatory was 2. Maybe it should be 1..2? or 1..3? I'll stick to 1..2 if travel was limited, but if Move Range is 1..2 (as updated in piecemovements), then 1..2 is safe).
   piece9: { range: [1, 2, 3], mandatoryMove: [1, 2] },
   piece10: { range: [1, 2, 3], mandatoryMove: [1, 2] },
   // Minister (Range 1, Mandatory 2 -> 1..2)
