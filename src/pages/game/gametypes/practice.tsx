@@ -190,7 +190,7 @@ const Board: React.FC = () => {
         }
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove];
+  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove]);
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
