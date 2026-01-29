@@ -85,29 +85,40 @@ const PIECE_RULES: Record<string, number[]> = {
 
 // --- 4. MAIN MOVEMENT LOGIC (BFS) ---
 
+export interface ValidMovesResult {
+  moves: string[];
+  advanceMoves: string[];
+}
+
+/**
+ * Normal moves (green): piece rules / first-move rules.
+ * Advance moves (yellow): after first move only; original + N = 3, i.e. up to 3 tiles.
+ * Advance move cannot capture; endpoints are empty only.
+ */
 export const getValidMoves = (
   pieceId: PieceKey,
   currentPosition: string,
   isFirstMove: boolean,
   currentGameState: Record<string, string>,
-  pieceMoveCount?: Record<string, number>
-): string[] => {
-  let allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
-  
-  // If piece has made 4+ moves, add 3-tile advance move option
-  if (pieceMoveCount && pieceMoveCount[pieceId] !== undefined && pieceMoveCount[pieceId] >= 4) {
-    allowedSteps = [...allowedSteps, 3];
+  _pieceMoveCount?: Record<string, number>
+): ValidMovesResult => {
+  const allowedSteps = isFirstMove ? [1, 2, 3, 4] : (PIECE_RULES[pieceId] || [1]);
+  const maxNormal = Math.max(...allowedSteps);
+  const advanceSteps: number[] = [];
+  if (!isFirstMove && maxNormal < 3) {
+    for (let d = maxNormal + 1; d <= 3; d++) advanceSteps.push(d);
   }
-  const maxSearchDistance = Math.max(...allowedSteps);
+  const maxSearchDistance = Math.max(maxNormal, advanceSteps.length ? 3 : 0);
 
   const { colIndex: startCol, rowNum: startRow } = parseCoord(currentPosition);
-  if (startCol === -1 || isNaN(startRow)) return [];
+  if (startCol === -1 || isNaN(startRow)) return { moves: [], advanceMoves: [] };
 
   const queue = [{ col: startCol, row: startRow, dist: 0 }];
   const visited = new Set<string>();
   visited.add(currentPosition);
 
-  const validEndPoints = new Set<string>();
+  const normalEndPoints = new Set<string>();
+  const advanceEndPoints = new Set<string>();
   const directions = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
 
   const isBackRankPiece = parseInt(pieceId.replace('piece', ''), 10) <= 20;
@@ -135,6 +146,7 @@ export const getValidMoves = (
           visited.add(nextCoord);
           const nextDist = current.dist + 1;
           queue.push({ col: nextCol, row: nextRow, dist: nextDist });
+          if (allowedSteps.includes(nextDist)) normalEndPoints.add(nextCoord);
           continue;
         } else {
           continue;
@@ -146,12 +158,17 @@ export const getValidMoves = (
       queue.push({ col: nextCol, row: nextRow, dist: nextDist });
 
       if (allowedSteps.includes(nextDist)) {
-        validEndPoints.add(nextCoord);
+        normalEndPoints.add(nextCoord);
+      } else if (advanceSteps.includes(nextDist)) {
+        advanceEndPoints.add(nextCoord);
       }
     }
   }
 
-  return Array.from(validEndPoints);
+  return {
+    moves: Array.from(normalEndPoints),
+    advanceMoves: Array.from(advanceEndPoints),
+  };
 };
 
 export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {

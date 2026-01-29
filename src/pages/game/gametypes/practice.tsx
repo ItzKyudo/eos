@@ -21,6 +21,7 @@ const Board: React.FC = () => {
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [validAdvanceMoves, setValidAdvanceMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const ghostRef = useRef<HTMLDivElement>(null);
@@ -63,16 +64,18 @@ const Board: React.FC = () => {
 
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
 
       setValidMoves(moves);
+      setValidAdvanceMoves(advanceMoves);
       setValidAttacks(attacks);
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
       const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
       setValidMoves(allowedMoves);
+      setValidAdvanceMoves([]);
       setValidAttacks([]);
     }
   };
@@ -143,8 +146,10 @@ const Board: React.FC = () => {
     if (tile) {
       const targetCoord = tile.getAttribute('data-tile');
       const currentCoord = gameState[activePiece];
+      const allMoves = [...validMoves, ...validAdvanceMoves];
+      const isAdvance = !!targetCoord && validAdvanceMoves.includes(targetCoord);
 
-      if (targetCoord && validMoves.includes(targetCoord)) {
+      if (targetCoord && allMoves.includes(targetCoord)) {
         setGameState(prev => ({ ...prev, [activePiece]: targetCoord }));
         setHasMoved(prev => ({ ...prev, [activePiece]: true }));
         setPieceMoveCount(prev => ({ ...prev, [activePiece]: (prev[activePiece] || 0) + 1 }));
@@ -163,40 +168,45 @@ const Board: React.FC = () => {
         const wasFirstMove = !hasMoved[activePiece];
 
         let attacks: string[] = [];
-        if (turnPhase === 'action') {
-          attacks = getValidAttacks(
-            activePiece, targetCoord,
-            { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
-            'post-move',
-            wasFirstMove
-          );
-        } else if (turnPhase === 'mandatory_move') {
-          attacks = getValidAttacks(
-            activePiece, targetCoord,
-            { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
-            'post-move',
-            false
-          );
+        if (!isAdvance) {
+          if (turnPhase === 'action') {
+            attacks = getValidAttacks(
+              activePiece, targetCoord,
+              { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
+              'post-move',
+              wasFirstMove
+            );
+          } else if (turnPhase === 'mandatory_move') {
+            attacks = getValidAttacks(
+              activePiece, targetCoord,
+              { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
+              'post-move',
+              false
+            );
+          }
         }
 
         if (attacks.length > 0) {
           setValidMoves([]);
+          setValidAdvanceMoves([]);
           setValidAttacks(attacks);
           setTurnPhase('mandatory_move');
         } else {
           setValidMoves([]);
+          setValidAdvanceMoves([]);
           setValidAttacks([]);
           setTurnPhase('locked');
         }
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove]);
+  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove]);
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
     setTurnPhase('select');
     setActivePiece(null);
     setValidMoves([]);
+    setValidAdvanceMoves([]);
     setValidAttacks([]);
     setMandatoryMoveUsed(false);
   };
@@ -366,8 +376,9 @@ const Board: React.FC = () => {
                         const pieceId = getPieceAtTile(coordinate);
                         const isMyPiece = pieceId && getPieceOwner(pieceId) === currentTurn;
                         const isMoveTarget = validMoves.includes(coordinate);
+                        const isAdvanceTarget = validAdvanceMoves.includes(coordinate);
                         const isAttackTarget = validAttacks.includes(coordinate);
-                        const canInteract = !winner && (isMyPiece || isAttackTarget);
+                        const canInteract = !winner && (isMyPiece || isAttackTarget || isMoveTarget || isAdvanceTarget);
 
                         return (
                           <div
@@ -399,6 +410,9 @@ const Board: React.FC = () => {
                             )}
                             {isMoveTarget && !pieceId && (
                               <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                            )}
+                            {isAdvanceTarget && !pieceId && (
+                              <div className="absolute w-6 h-6 bg-yellow-400 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(250,204,21,1)]" />
                             )}
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">

@@ -110,10 +110,10 @@ export const getMandatoryMoves = (
   const ruleVal = rule ? rule.mandatoryMove : 1;
   const allowedDistances = Array.isArray(ruleVal) ? ruleVal : [ruleVal];
 
-  const allMoves = getValidMoves(pieceId, currentPosition, false, gameState, pieceMoveCount);
+  const { moves } = getValidMoves(pieceId, currentPosition, false, gameState, pieceMoveCount);
   const { rowNum: startRow } = parseCoord(currentPosition);
 
-  return allMoves.filter(target => {
+  return moves.filter(target => {
     const { rowNum: endRow } = parseCoord(target);
     const d = Math.abs(endRow - startRow);
     return allowedDistances.includes(d);

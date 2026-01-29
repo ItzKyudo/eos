@@ -29,7 +29,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 {/* Under Testing */ }
 import UnderTesting from './UnderTesting';
 
-const IS_MAINTENANCE_MODE = false;
+const IS_MAINTENANCE_MODE = true;
 
 function App() {
   const isAdmin = localStorage.getItem('site_bypass') === 'true';

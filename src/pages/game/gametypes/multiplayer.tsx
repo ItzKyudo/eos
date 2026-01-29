@@ -55,6 +55,7 @@ const Multiplayer: React.FC = () => {
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [validAdvanceMoves, setValidAdvanceMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
@@ -450,7 +451,7 @@ const Multiplayer: React.FC = () => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
-  const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+  const executeMove = (pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
     const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
@@ -469,10 +470,12 @@ const Multiplayer: React.FC = () => {
     const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
 
-    if (turnPhase === 'action') {
-      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
-    } else if (turnPhase === 'mandatory_move') {
-      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false);
+    if (!isAdvanceMove) {
+      if (turnPhase === 'action') {
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
+      } else if (turnPhase === 'mandatory_move') {
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false);
+      }
     }
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
@@ -490,6 +493,7 @@ const Multiplayer: React.FC = () => {
     setMandatoryMoveUsed(true);
     setMoveHistory(newHistory);
     setValidMoves([]);
+    setValidAdvanceMoves([]);
     setValidAttacks(attacks);
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
@@ -529,25 +533,27 @@ const Multiplayer: React.FC = () => {
 
     if (tile) {
       const targetCoord = tile.getAttribute('data-tile');
+      const allMoves = [...validMoves, ...validAdvanceMoves];
 
-      if (targetCoord && validMoves.includes(targetCoord)) {
-        // Execute Move via shared function
-        executeMove(activePiece, targetCoord);
+      if (targetCoord && allMoves.includes(targetCoord)) {
+        const isAdvance = validAdvanceMoves.includes(targetCoord);
+        executeMove(activePiece, targetCoord, isAdvance);
       } else {
         // Invalid Drop: Reset if needed, or just let Drag end
         // Current logic just stops dragging. Selection might persist (handled elsewhere).
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
+  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
     if (currentTurn !== myRole) return;
 
-    // Tap-to-Move: Key difference from Practice, but kept for Multiplayer usability
-    if (activePiece && validMoves.includes(coordinate)) {
+    const allMoves = [...validMoves, ...validAdvanceMoves];
+    if (activePiece && allMoves.includes(coordinate)) {
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-      executeMove(activePiece, coordinate);
+      const isAdvance = validAdvanceMoves.includes(coordinate);
+      executeMove(activePiece, coordinate, isAdvance);
       return;
     }
 
@@ -577,10 +583,11 @@ const Multiplayer: React.FC = () => {
 
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const moves = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
 
       setValidMoves(moves);
+      setValidAdvanceMoves(advanceMoves);
       setValidAttacks(attacks);
       setTurnPhase('action');
     }
@@ -588,17 +595,15 @@ const Multiplayer: React.FC = () => {
       const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
       let allowedAttacks: string[] = [];
 
-      // Check for attacks (Move-Then-Attack or Chain-Attack)
-      // If we already used our mandatory move (or are in a sequence), we might have post-move attacks.
       if (mandatoryMoveUsed) {
         allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false);
       } else {
-        // If we haven't moved yet (e.g. just captured), check for Chain Attacks
         const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount);
         allowedAttacks = attacks;
       }
 
       setValidMoves(allowedMoves);
+      setValidAdvanceMoves([]);
       setValidAttacks(allowedAttacks);
     }
   };
@@ -706,6 +711,7 @@ const Multiplayer: React.FC = () => {
     setTurnPhase('locked');
     setActivePiece(null);
     setValidMoves([]);
+    setValidAdvanceMoves([]);
     setValidAttacks([]);
     setMandatoryMoveUsed(false);
 
@@ -848,8 +854,9 @@ const Multiplayer: React.FC = () => {
                         const pieceId = getPieceAtTile(coordinate);
                         const isMyPiece = pieceId && getPieceOwner(pieceId) === currentTurn;
                         const isMoveTarget = validMoves.includes(coordinate);
+                        const isAdvanceTarget = validAdvanceMoves.includes(coordinate);
                         const isAttackTarget = validAttacks.includes(coordinate);
-                        const canInteract = !winner && (isMyPiece || isAttackTarget);
+                        const canInteract = !winner && (isMyPiece || isAttackTarget || isMoveTarget || isAdvanceTarget);
 
                         const lastMove = moveHistory[moveHistory.length - 1];
                         const isLastMoveFrom = lastMove?.from === coordinate;
@@ -894,6 +901,9 @@ const Multiplayer: React.FC = () => {
                             )}
                             {isMoveTarget && !pieceId && (
                               <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                            )}
+                            {isAdvanceTarget && !pieceId && (
+                              <div className="absolute w-3 h-3 bg-yellow-400 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(250,204,21,1)]" />
                             )}
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
