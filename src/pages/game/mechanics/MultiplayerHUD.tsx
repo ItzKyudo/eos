@@ -100,7 +100,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
         </div>
         <div className="flex items-end justify-between">
           <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
-            {opponentData.captures.map((p, i) => <img key={i} src={PIECES[p]} className="w-3 h-3 opacity-70" alt="" />)}
+            {opponentData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3 opacity-70" alt="" /> : null))}
           </div>
           <div className="px-3 py-1 bg-neutral-800 rounded text-neutral-400 font-mono text-lg font-bold border border-neutral-700">
             {formatTime(opponentData.time)}
@@ -177,7 +177,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
 
         <div className="flex items-end justify-between">
           <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
-            {myData.captures.map((p, i) => <img key={i} src={PIECES[p]} className="w-3 h-3" alt="" />)}
+            {myData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3" alt="" /> : null))}
           </div>
           <button
             onClick={onSwitchTurn}

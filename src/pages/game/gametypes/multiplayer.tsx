@@ -611,7 +611,7 @@ const Multiplayer: React.FC = () => {
   const handleAttackClick = (targetCoord: string) => {
     if (!activePiece || turnPhase === 'locked' || currentTurn !== myRole) return;
 
-    const result = executeAttack(targetCoord, gameState);
+    const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
     const newGameState = result.newGameState;
@@ -814,15 +814,15 @@ const Multiplayer: React.FC = () => {
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
 
 
-        {winner && (
+       {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
-            GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
-            {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
-            {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
-          </div>
-        )}
+          GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
+          {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
+          {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
+        </div>
+       )}
 
-        {isDragging && activePiece && (
+        {isDragging && activePiece && activePiece in PIECES && (
           <div ref={ghostRef} className="fixed pointer-events-none z-100" style={{ left: initialDragPos.x, top: initialDragPos.y, transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' }}>
             <div className="w-17 h-17 rounded-full shadow-2xl">
               <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full rounded-full object-cover" />
@@ -883,14 +883,14 @@ const Multiplayer: React.FC = () => {
                             {(isLastMoveFrom || isLastMoveTo) && (
                               <div className="absolute inset-0 bg-gray-500/40 rounded-full z-10" />
                             )}
-                            {pieceId && (
+                            {pieceId && pieceId in PIECES && (
                               <motion.div
                                 layoutId={pieceId}
                                 transition={{ type: "spring", stiffness: 280, damping: 25, mass: 0.8 }}
                                 className="w-full h-full p-[2px] pointer-events-none z-50 relative"
                               >
                                 <img
-                                  src={PIECES[pieceId]}
+                                  src={PIECES[pieceId as PieceKey]}
                                   alt="piece"
                                   className={`
                                     w-full h-full rounded-full object-cover 

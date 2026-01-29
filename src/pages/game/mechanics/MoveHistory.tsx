@@ -144,7 +144,7 @@ const MoveHistory: React.FC<MoveHistoryProps> = ({
               {currentTurn === 'player1' && canSwitchTurn && <span className="text-[8px] text-green-200 animate-pulse font-bold">END</span>}
             </button>
             <div className="min-h-[16px] bg-neutral-900/50 rounded p-0.5 flex flex-wrap gap-0.5 justify-center">
-              {capturedByP1.map((p, i) => <img key={i} src={PIECES[p]} alt="captured" className="w-3 h-3 opacity-70" />)}
+              {capturedByP1.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} alt="captured" className="w-3 h-3 opacity-70" /> : null))}
             </div>
           </div>
 
@@ -162,7 +162,7 @@ const MoveHistory: React.FC<MoveHistoryProps> = ({
               {currentTurn === 'player2' && canSwitchTurn && <span className="text-[8px] text-blue-200 animate-pulse font-bold">END</span>}
             </button>
             <div className="min-h-[16px] bg-neutral-900/50 rounded p-0.5 flex flex-wrap gap-0.5 justify-center">
-              {capturedByP2.map((p, i) => <img key={i} src={PIECES[p]} alt="captured" className="w-3 h-3 opacity-70" />)}
+              {capturedByP2.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} alt="captured" className="w-3 h-3 opacity-70" /> : null))}
             </div>
           </div>
 
@@ -183,7 +183,7 @@ const MoveHistory: React.FC<MoveHistoryProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                  <div className={`w-6 h-6 rounded flex items-center justify-center shadow-inner overflow-hidden ${move.player === 'player1' ? 'bg-green-900/30' : 'bg-blue-900/30'}`}>
-                    {move.pieceId ? <img src={PIECES[move.pieceId]} alt="piece" className="w-full h-full object-cover transform scale-110" /> : <span className="text-[9px] font-bold text-neutral-500">?</span>}
+                    {move.pieceId && move.pieceId in PIECES ? <img src={PIECES[move.pieceId]} alt="piece" className="w-full h-full object-cover transform scale-110" /> : <span className="text-[9px] font-bold text-neutral-500">?</span>}
                  </div>
                  <div className="flex flex-col">
                     <span className={`text-[9px] font-bold uppercase ${move.player === 'player1' ? 'text-green-400' : 'text-blue-400'}`}>{move.pieceName}</span>

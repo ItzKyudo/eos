@@ -83,7 +83,7 @@ const Board: React.FC = () => {
   const handleAttackClick = (targetCoord: string) => {
     if (!activePiece || turnPhase === 'locked') return;
 
-    const result = executeAttack(targetCoord, gameState);
+    const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
     setGameState(result.newGameState);
@@ -332,7 +332,7 @@ const Board: React.FC = () => {
           </div>
         )}
 
-        {isDragging && activePiece && (
+        {isDragging && activePiece && activePiece in PIECES && (
           <div
             ref={ghostRef}
             className="fixed pointer-events-none z-100"
@@ -398,9 +398,9 @@ const Board: React.FC = () => {
                               z-10
                             `}
                           >
-                            {pieceId && (
+                            {pieceId && pieceId in PIECES && (
                               <img
-                                src={PIECES[pieceId]}
+                                src={PIECES[pieceId as PieceKey]}
                                 alt="piece"
                                 className={`
                                   w-full h-full rounded-full object-cover 
