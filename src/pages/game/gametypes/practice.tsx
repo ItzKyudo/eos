@@ -119,6 +119,7 @@ const Board: React.FC = () => {
 
     setValidAttacks(attacks);
     setValidMoves(moves);
+    setValidAdvanceMoves([]);
 
     if (attacks.length > 0 || moves.length > 0) {
       setTurnPhase('mandatory_move');

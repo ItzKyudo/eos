@@ -678,6 +678,7 @@ const Multiplayer: React.FC = () => {
     setMoveHistory(newHistory);
     setValidAttacks(attacks);
     setValidMoves(moves);
+    setValidAdvanceMoves([]);
     setTurnPhase(nextPhase);
 
     broadcastUpdate({
