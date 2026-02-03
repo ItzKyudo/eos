@@ -6,7 +6,8 @@ import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import { motion } from 'framer-motion';
-import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
+import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
+import supabase from '../../../config/supabase';
 
 interface GameSyncData {
   gameState: Partial<Record<PieceKey, string>>;
@@ -70,94 +71,70 @@ const Multiplayer: React.FC = () => {
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
   const [showResignModal, setShowResignModal] = useState(false);
 
+  // --- NEW STATE FOR DB RULES ---
+  const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
+  const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
+  const [loadingRules, setLoadingRules] = useState(true);
+
   const perspective = myRole;
 
-  // Socket connection for all multiplayer matches (guest and authenticated)
+  // --- 1. FETCH RULES FROM DATABASE ---
   useEffect(() => {
-    console.log('🔄 Game Page Mounted. Params:', { matchId, isGuest, userId, initialTime });
+    const fetchGameRules = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pieces')
+          .select('name, movement_stats');
 
-    if (!matchId) {
-      console.warn('⚠️ No matchId provided, skipping socket connection');
-      return;
-    }
+        if (error) throw error;
 
-    // Use the same server URL configuration as guest matchmaking
+        if (data) {
+          const loadedMoveRules: Record<string, number[]> = {};
+          const loadedAttackRules: Record<string, DbAttackRule> = {};
+
+          data.forEach((piece: any) => {
+            // Map "Supremo" -> move_steps
+            loadedMoveRules[piece.name] = piece.movement_stats.move_steps;
+            // Map "Supremo" -> attack_rules
+            loadedAttackRules[piece.name] = piece.movement_stats.attack_rules;
+          });
+
+          setMoveRules(loadedMoveRules);
+          setAttackRules(loadedAttackRules);
+        }
+      } catch (err) {
+        console.error("Error loading game rules:", err);
+      } finally {
+        setLoadingRules(false);
+      }
+    };
+
+    fetchGameRules();
+  }, []);
+
+  // Socket connection
+  useEffect(() => {
+    if (!matchId) return;
+
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
-    console.log('🔌 Attempting to connect to game socket at:', serverUrl);
-
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      forceNew: true, // Force a new connection to avoid reusing the disconnected matchmaking socket
-      auth: {
-        token: localStorage.getItem('token')
-      }
+      forceNew: true,
+      auth: { token: localStorage.getItem('token') }
     });
 
     setSocket(newSocket);
-    // Helper to visualize connection state
     (window as any).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
-      console.log('✅ Connected to game server:', newSocket.id);
-      (window as any).gameStateDebug.status = 'Connected';
-      console.log('📍 Device info:', {
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        socketId: newSocket.id,
-        matchId: matchId,
-        myRole: myRole,
-        userId: userId,
-      });
-      // Join the game room
-      console.log('🚪 Emitting joinGame:', { matchId, userId });
       newSocket.emit('joinGame', { matchId, userId });
-      // Don't assume opponent is connected - wait for playerJoined event
-      // This will be set to true when we receive playerJoined event from server
       setOpponentConnected(false);
     });
 
-    newSocket.on('connect_error', (err) => {
-      console.error('❌ Connection error:', err.message);
-      (window as any).gameStateDebug.status = 'Error: ' + err.message;
-    });
-
-    newSocket.on('error', (err: any) => {
-      console.error('❌ Server Application Error:', err);
-      (window as any).gameStateDebug.status = 'Server Error: ' + (err.message || 'Unknown');
-      alert('Game Server Error: ' + (err.message || 'Unknown error'));
-    });
-
-    newSocket.on('reconnect', (attemptNumber) => {
-      console.log(`🔄 Reconnected to game server after ${attemptNumber} attempts`);
-      newSocket.emit('joinGame', { matchId, userId });
-    });
-
-    newSocket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`🔄 Reconnection attempt ${attemptNumber}`);
-    });
-
-    newSocket.on('reconnect_error', (error) => {
-      console.error('❌ Reconnection error:', error);
-    });
-
-    newSocket.on('reconnect_failed', () => {
-      console.error('❌ Reconnection failed after all attempts');
-    });
-
     newSocket.on('moveMade', (data: MoveData) => {
-      // Receive move from opponent
-      console.log('📥 Move received from opponent:', {
-        playerId: data.playerId,
-        mySocketId: newSocket.id,
-        isFromOpponent: data.playerId !== newSocket.id,
-      });
-
       if (data.move && data.playerId !== newSocket.id) {
         const move = data.move;
-        console.log('✅ Applying opponent move to local state');
         setGameState(move.gameState);
         setCurrentTurn(move.currentTurn);
         setMoveHistory(move.moveHistory);
@@ -168,109 +145,47 @@ const Multiplayer: React.FC = () => {
         setMandatoryMoveUsed(move.mandatoryMoveUsed || false);
 
         if (move.currentTurn === myRole) {
-          if (move.turnPhase === 'locked') {
-            setTurnPhase('locked');
-          } else if (move.turnPhase === 'mandatory_move') {
-            setTurnPhase('mandatory_move');
-          } else {
-            setTurnPhase('select');
-          }
+          if (move.turnPhase === 'locked') setTurnPhase('locked');
+          else if (move.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+          else setTurnPhase('select');
         } else {
           setTurnPhase('locked');
         }
-      } else {
-        console.log('⚠️ Ignoring move - from self or invalid data');
       }
     });
 
-    newSocket.on('moveConfirmed', (data: MoveData) => {
-      // Move was confirmed by server (for guest matches, this is just confirmation)
-      console.log('Move confirmed:', data);
-    });
-
-    newSocket.on('error', (data) => {
-      console.error('Socket error:', data);
-    });
-
-    newSocket.on('playerJoined', (data: { socketId: string }) => {
-      console.log('✅ Opponent joined the game:', data.socketId);
-      setOpponentConnected(true);
-    });
-
-    newSocket.on('playerReconnected', (data: { socketId: string; userId: string }) => {
-      console.log('🔄 Opponent reconnected:', data);
-      setOpponentConnected(true);
-    });
-
-    newSocket.on('playerDisconnected', (data: { socketId: string; userId: string }) => {
-      console.log('⚠️ Opponent disconnected (waiting for reconnect):', data);
+    newSocket.on('playerJoined', () => setOpponentConnected(true));
+    newSocket.on('playerReconnected', () => setOpponentConnected(true));
+    newSocket.on('playerDisconnected', () => setOpponentConnected(false));
+    newSocket.on('playerLeft', () => setOpponentConnected(false));
+    
+    newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
+      if (data.matchId !== matchId) return;
       setOpponentConnected(false);
-    });
-
-    newSocket.on('playerLeft', (data: { socketId: string }) => {
-      console.log('⚠️ Opponent left the game:', data.socketId);
-      setOpponentConnected(false);
-    });
-
-    newSocket.on('opponentDisconnected', (data: { matchId: string; reason: string; message: string }) => {
-      console.log('⚠️ Opponent disconnected event received:', data);
-      console.log('📍 Current matchId:', matchId, 'Event matchId:', data.matchId);
-
-      // Only process if this event is for our current match
-      if (data.matchId !== matchId) {
-        console.log('⚠️ Ignoring opponentDisconnected event - matchId mismatch');
-        return;
-      }
-
-      console.log('📍 Current state before update:', { myRole, winner, opponentConnected });
-
-      setOpponentConnected(false);
-      // Set the current player as the winner since opponent disconnected
       setWinner(myRole);
       setTurnPhase('locked');
-
-      console.log(`🏆 Game over! ${myRole === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} wins by opponent disconnect`);
-      console.log('📍 Winner state set to:', myRole);
     });
 
     newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
-      console.log('🏁 Game Ended event:', data);
       if (matchId && data.matchId !== matchId) return;
-
       setWinner(data.winner);
       setGameEndReason(data.reason);
       setTurnPhase('locked');
-      if (data.reason === 'opponent_disconnect') {
-        setOpponentConnected(false);
-      }
+      if (data.reason === 'opponent_disconnect') setOpponentConnected(false);
     });
 
-    /* 📥 SYNC HANDLER */
     newSocket.on('gameState', (state: any) => {
-      console.log('📥 Received game state sync:', state);
-
-      // Sync Presence
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
-        // If more than 1 player is online, opponent must be online (in 1v1)
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
-
-      // Sync Disconnect Timer
       if (state.players && Array.isArray(state.players)) {
-        // Identify opponent (anyone who is not me)
-        // Since 'userId' is available from searchParams (Step 557 line 44)
         const op = state.players.find((p: any) => String(p.userId) !== String(userId));
-        if (op && op.disconnectedAt) {
-          setOpponentDisconnectTime(op.disconnectedAt);
-        } else {
-          setOpponentDisconnectTime(null);
-        }
+        if (op && op.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
+        else setOpponentDisconnectTime(null);
       }
-
-      // If we have full state from memory (state.lastMove has the board)
       if (state.lastMove) {
         const m = state.lastMove;
-        if (m.gameState) setGameState(m.gameState); // Board
+        if (m.gameState) setGameState(m.gameState);
         if (m.hasMoved) setHasMoved(m.hasMoved);
         if (m.mandatoryMoveUsed !== undefined) setMandatoryMoveUsed(m.mandatoryMoveUsed);
         if (m.winner) setWinner(m.winner);
@@ -282,34 +197,15 @@ const Multiplayer: React.FC = () => {
         if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
         if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
 
-        // Restore Phase if it's my turn
         if (state.currentTurn === myRole) {
-          if (m.turnPhase === 'mandatory_move') {
-            setTurnPhase('mandatory_move');
-          } else {
-            setTurnPhase('select');
-          }
+          if (m.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+          else setTurnPhase('select');
         } else {
           setTurnPhase('locked');
         }
       }
-      // Fallback for DB rehydration (raw moves only)
-      else if (state.rehydratedFromDB) {
-        // Warning: Board state is missing! 
-        // We can set move history list, but board is empty.
-        // Client will need logic to "Forward Play" moves to get board.
-        // Currently not implemented. Best effort.
-        if (state.moves) setMoveHistory(state.moves);
-        console.warn('⚠️ Synced from DB History only - Board state may be desynced until next move');
-      }
     });
 
-    newSocket.on('playerHeartbeatPong', () => {
-      // Server confirmed our heartbeat
-      // Connection is alive
-    });
-
-    // Set up periodic heartbeat ping (every 5 seconds)
     const heartbeatInterval = setInterval(() => {
       if (newSocket.connected && matchId) {
         newSocket.emit('playerHeartbeat', { matchId });
@@ -318,34 +214,17 @@ const Multiplayer: React.FC = () => {
 
     return () => {
       clearInterval(heartbeatInterval);
-      if (newSocket) {
-        console.log('🧹 Cleaning up socket connection');
-        newSocket.disconnect();
-      }
+      newSocket.disconnect();
     };
   }, [isGuest, matchId, myRole]);
 
-  // BroadcastChannel for local multiplayer (non-guest)
+  // BroadcastChannel logic
   const broadcastUpdate = (data: GameSyncData) => {
-    // If we have a matchId and a connected socket, use the socket (Online Mode)
     if (matchId && socket) {
-      // Send move via socket for matches
       if (socket.connected) {
-        console.log('📤 Sending move to server:', {
-          matchId,
-          currentTurn: data.currentTurn,
-          moveHistoryLength: data.moveHistory.length,
-          socketId: socket.id,
-        });
-        socket.emit('makeMove', {
-          matchId,
-          move: data,
-        });
-      } else {
-        console.error('❌ Cannot send move - socket not connected');
+        socket.emit('makeMove', { matchId, move: data });
       }
     } else {
-      // Use BroadcastChannel for local matches
       const channel = new BroadcastChannel('eos_game_sync');
       channel.postMessage(data);
       channel.close();
@@ -353,10 +232,8 @@ const Multiplayer: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isGuest) return; // Skip BroadcastChannel for guest matches
-
+    if (isGuest) return;
     const channel = new BroadcastChannel('eos_game_sync');
-
     channel.onmessage = (event) => {
       const data = event.data as GameSyncData;
       setGameState(data.gameState);
@@ -366,20 +243,16 @@ const Multiplayer: React.FC = () => {
       setCapturedByP2(data.capturedByP2);
       setWinner(data.winner);
       if (data.currentTurn === myRole) {
-        if (data.turnPhase === 'locked') {
-          setTurnPhase('locked');
-        } else if (data.turnPhase === 'mandatory_move') {
-          setTurnPhase('mandatory_move');
-        } else {
-          setTurnPhase('select');
-        }
+        if (data.turnPhase === 'locked') setTurnPhase('locked');
+        else if (data.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+        else setTurnPhase('select');
       } else {
         setTurnPhase('locked');
       }
     };
-
     return () => channel.close();
   }, [myRole, isGuest]);
+
   useEffect(() => {
     if (winner) return;
     const timer = setInterval(() => {
@@ -389,60 +262,36 @@ const Multiplayer: React.FC = () => {
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
 
-  // Timeout Enforcement
   useEffect(() => {
     if (winner) return;
-
     const handleTimeout = (gameWinner: Winner) => {
       if (!gameWinner) return;
-
-      // Optimistic update
       setWinner(gameWinner);
       setGameEndReason('timeout');
       setTurnPhase('locked');
-
       if (socket && matchId) {
-        console.log('⏰ Timeout! Declaring winner:', gameWinner);
-        socket.emit('gameEnd', {
-          matchId,
-          winner: gameWinner,
-          reason: 'timeout'
-        });
+        socket.emit('gameEnd', { matchId, winner: gameWinner, reason: 'timeout' });
       }
     };
-
-    // Only the player who ran out of time should report it to avoid race conditions/double reporting,
-    // OR we can strictly say: If I am P1 and my time is 0, I lose.
-    // If I am P2 and my time is 0, I lose.
-
-    if (p1Time <= 0) {
-      if (myRole === 'player1') {
-        handleTimeout('player2');
-      }
-    } else if (p2Time <= 0) {
-      if (myRole === 'player2') {
-        handleTimeout('player1');
-      }
-    }
+    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2');
+    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
   }, [p1Time, p2Time, winner, myRole, matchId, socket]);
 
-  // Disconnect Timer Effect
   useEffect(() => {
     if (!opponentDisconnectTime) {
       setDisconnectTimerStr('');
       return;
     }
     const updateTimer = () => {
-      const diff = 300000 - (Date.now() - opponentDisconnectTime); // 5 mins
-      if (diff <= 0) {
-        setDisconnectTimerStr('00:00');
-      } else {
+      const diff = 300000 - (Date.now() - opponentDisconnectTime);
+      if (diff <= 0) setDisconnectTimerStr('00:00');
+      else {
         const m = Math.floor(diff / 60000);
         const s = Math.floor((diff % 60000) / 1000);
         setDisconnectTimerStr(`${m}:${s.toString().padStart(2, '0')}`);
       }
     };
-    updateTimer(); // Initial call
+    updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [opponentDisconnectTime]);
@@ -466,26 +315,23 @@ const Multiplayer: React.FC = () => {
       timestamp: Date.now()
     };
     const newHistory = [...moveHistory, newMove];
-
     const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
 
+    // --- PASS RULES TO getValidAttacks ---
     if (!isAdvanceMove) {
       if (turnPhase === 'action') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove);
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove, attackRules);
       } else if (turnPhase === 'mandatory_move') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false);
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
       }
     }
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
     const nextTurn = currentTurn;
 
-    if (attacks.length > 0) {
-      nextPhase = 'mandatory_move';
-    } else {
-      nextPhase = 'locked';
-    }
+    if (attacks.length > 0) nextPhase = 'mandatory_move';
+    else nextPhase = 'locked';
 
     setGameState(newGameState);
     setHasMoved(newHasMoved);
@@ -497,10 +343,7 @@ const Multiplayer: React.FC = () => {
     setValidAttacks(attacks);
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
-    // Clear active piece locally ONLY if turn is over
-    if (nextPhase === 'locked') {
-      setActivePiece(null);
-    }
+    if (nextPhase === 'locked') setActivePiece(null);
 
     broadcastUpdate({
       gameState: newGameState,
@@ -518,7 +361,6 @@ const Multiplayer: React.FC = () => {
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !activePiece) return;
     setIsDragging(false);
-
     let clientX, clientY;
     if ('changedTouches' in e) {
       clientX = e.changedTouches[0].clientX;
@@ -527,23 +369,18 @@ const Multiplayer: React.FC = () => {
       clientX = (e as MouseEvent).clientX;
       clientY = (e as MouseEvent).clientY;
     }
-
     const elementUnderMouse = document.elementFromPoint(clientX, clientY);
     const tile = elementUnderMouse?.closest('[data-tile]');
 
     if (tile) {
       const targetCoord = tile.getAttribute('data-tile');
       const allMoves = [...validMoves, ...validAdvanceMoves];
-
       if (targetCoord && allMoves.includes(targetCoord)) {
         const isAdvance = validAdvanceMoves.includes(targetCoord);
         executeMove(activePiece, targetCoord, isAdvance);
-      } else {
-        // Invalid Drop: Reset if needed, or just let Drag end
-        // Current logic just stops dragging. Selection might persist (handled elsewhere).
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase]);
+  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase, moveRules, attackRules]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
@@ -560,9 +397,8 @@ const Multiplayer: React.FC = () => {
     if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
 
     const pieceId = getPieceAtTile(coordinate);
-    if (!pieceId) return; // Align with Practice: Clicking empty (non-move) tile does nothing
+    if (!pieceId) return;
 
-    // Check owner
     const owner = getPieceOwner(pieceId);
     if (owner !== myRole) return;
 
@@ -570,7 +406,6 @@ const Multiplayer: React.FC = () => {
 
     setActivePiece(pieceId);
     setIsDragging(true);
-
     let clientX, clientY;
     if ('touches' in e) {
       clientX = e.touches[0].clientX;
@@ -581,10 +416,11 @@ const Multiplayer: React.FC = () => {
     }
     setInitialDragPos({ x: clientX, y: clientY });
 
+    // --- PASS RULES TO HELPER FUNCTIONS ---
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
-      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove, attackRules);
 
       setValidMoves(moves);
       setValidAdvanceMoves(advanceMoves);
@@ -592,13 +428,13 @@ const Multiplayer: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, moveRules);
       let allowedAttacks: string[] = [];
 
       if (mandatoryMoveUsed) {
-        allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false);
+        allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
       } else {
-        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount);
+        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, attackRules, moveRules);
         allowedAttacks = attacks;
       }
 
@@ -621,7 +457,6 @@ const Multiplayer: React.FC = () => {
     if (currentTurn === 'player1') newCapturedP1.push(result.capturedPieceId);
     else newCapturedP2.push(result.capturedPieceId);
 
-    // Initial State Update (UI)
     setGameState(newGameState);
     setCapturedByP1(newCapturedP1);
     setCapturedByP2(newCapturedP2);
@@ -629,13 +464,10 @@ const Multiplayer: React.FC = () => {
     if (result.winner) {
       setWinner(result.winner);
       setTurnPhase('locked');
-
-      // Note: Practice mode DOES NOT log the winning capture move.
-      // We align with that behavior here, though it means the final move isn't shown in history.
       broadcastUpdate({
         gameState: newGameState,
         currentTurn: currentTurn,
-        moveHistory: moveHistory, // No new move added
+        moveHistory: moveHistory,
         capturedByP1: newCapturedP1,
         capturedByP2: newCapturedP2,
         winner: result.winner,
@@ -659,21 +491,20 @@ const Multiplayer: React.FC = () => {
     };
     const newHistory = [...moveHistory, newMove];
 
+    // --- PASS RULES TO getMultiCaptureOptions ---
     const { attacks, moves } = getMultiCaptureOptions(
       activePiece,
       newGameState[activePiece]!,
       newGameState as Record<string, string>,
       mandatoryMoveUsed,
-      pieceMoveCount
+      pieceMoveCount,
+      attackRules,
+      moveRules
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-
-    if (attacks.length > 0 || moves.length > 0) {
-      nextPhase = 'mandatory_move';
-    } else {
-      nextPhase = 'locked';
-    }
+    if (attacks.length > 0 || moves.length > 0) nextPhase = 'mandatory_move';
+    else nextPhase = 'locked';
 
     setMoveHistory(newHistory);
     setValidAttacks(attacks);
@@ -694,20 +525,9 @@ const Multiplayer: React.FC = () => {
     });
   };
 
-
-
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
-
-    // Allow switching turn if in 'action' (normal move made, waiting confirm) 
-    // OR 'mandatory_move' (stopping a chain capture)
-    // OR 'select'/locked? No.
-    // Actually, 'action' usually auto-confirms in this code unless we add a confirm step. 
-    // In this codebase, executeMove sets phase to 'locked' or 'mandatory_move'.
-    // So we only need to allow it for 'mandatory_move'.
-
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
-
     setCurrentTurn(nextTurn);
     setTurnPhase('locked');
     setActivePiece(null);
@@ -729,13 +549,9 @@ const Multiplayer: React.FC = () => {
     });
   };
 
-  const getRenderRows = () => {
-    const defaultRows = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-    return perspective === 'player1' ? defaultRows : [...defaultRows].reverse();
-  };
-  const getRenderCols = () => {
-    return perspective === 'player1' ? BOARD_COLUMNS : [...BOARD_COLUMNS].reverse();
-  };
+  // --- RENDERING HELPERS ---
+  const getRenderRows = () => perspective === 'player1' ? [13,12,11,10,9,8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8,9,10,11,12,13];
+  const getRenderCols = () => perspective === 'player1' ? BOARD_COLUMNS : [...BOARD_COLUMNS].reverse();
   const getRowTiles = (rowNum: number) => {
     let tiles: string[] = [];
     switch (rowNum) {
@@ -790,37 +606,37 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      // Aggressive scaling: 
-      // If width < 1024 (LG breakpoint), scale down based on width.
-      // Else, use MAX scale of 0.95.
       if (width < 1024) {
         const calculatedScale = Math.min((width - 10) / 980, 0.85);
-        setBoardScale(Math.max(0.3, calculatedScale)); // Prevent it from becoming too small
+        setBoardScale(Math.max(0.3, calculatedScale));
       } else {
         setBoardScale(0.85);
       }
     };
-
-    // Call immediately and add listener
     handleResize();
     window.addEventListener('resize', handleResize);
-
-    // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  if (loadingRules) {
+    return (
+      <div className="flex w-full h-screen items-center justify-center bg-neutral-900 text-white flex-col gap-4">
+        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+        <p>Loading Game Rules...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-
-
-       {winner && (
+        {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
-          GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
-          {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
-          {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
-        </div>
-       )}
+            GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
+            {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
+            {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
+          </div>
+        )}
 
         {isDragging && activePiece && activePiece in PIECES && (
           <div ref={ghostRef} className="fixed pointer-events-none z-100" style={{ left: initialDragPos.x, top: initialDragPos.y, transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' }}>
@@ -832,7 +648,6 @@ const Multiplayer: React.FC = () => {
 
         <div className="origin-center transition-transform duration-500 ease-in-out" style={{ transform: `scale(${boardScale})` }}>
           <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#145c2b] flex flex-col items-center">
-
             <div className="flex items-center mb-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
@@ -849,7 +664,6 @@ const Multiplayer: React.FC = () => {
                 return (
                   <div key={row} className="flex items-center">
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-1`}>{row}</div>
-
                     <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
                       {currentTiles.map((coordinate, i) => {
                         const pieceId = getPieceAtTile(coordinate);
@@ -858,7 +672,6 @@ const Multiplayer: React.FC = () => {
                         const isAdvanceTarget = validAdvanceMoves.includes(coordinate);
                         const isAttackTarget = validAttacks.includes(coordinate);
                         const canInteract = !winner && (isMyPiece || isAttackTarget || isMoveTarget || isAdvanceTarget);
-
                         const lastMove = moveHistory[moveHistory.length - 1];
                         const isLastMoveFrom = lastMove?.from === coordinate;
                         const isLastMoveTo = lastMove?.to === coordinate;
@@ -889,15 +702,7 @@ const Multiplayer: React.FC = () => {
                                 transition={{ type: "spring", stiffness: 280, damping: 25, mass: 0.8 }}
                                 className="w-full h-full p-[2px] pointer-events-none z-50 relative"
                               >
-                                <img
-                                  src={PIECES[pieceId as PieceKey]}
-                                  alt="piece"
-                                  className={`
-                                    w-full h-full rounded-full object-cover 
-                                    ${(isDragging && pieceId === activePiece) ? 'opacity-0' : ''} 
-                                    select-none shadow-md
-                                  `}
-                                />
+                                <img src={PIECES[pieceId as PieceKey]} alt="piece" className={`w-full h-full rounded-full object-cover ${(isDragging && pieceId === activePiece) ? 'opacity-0' : ''} select-none shadow-md`} />
                               </motion.div>
                             )}
                             {isMoveTarget && !pieceId && (
@@ -931,77 +736,28 @@ const Multiplayer: React.FC = () => {
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
-
           </div>
         </div>
       </div>
 
       <MultiplayerHUD
         myRole={myRole}
-        gameState={{
-          currentTurn,
-          moves: moveHistory,
-          p1Time,
-          p2Time,
-          capturedByP1,
-          capturedByP2
-        }}
-        playerDetails={{
-          myUsername,
-          myRating,
-          opponentUsername,
-          opponentRating,
-          opponentConnected,
-          disconnectTimer: disconnectTimerStr
-        }}
+        gameState={{ currentTurn, moves: moveHistory, p1Time, p2Time, capturedByP1, capturedByP2 }}
+        playerDetails={{ myUsername, myRating, opponentUsername, opponentRating, opponentConnected, disconnectTimer: disconnectTimerStr }}
         onSwitchTurn={handleSwitchTurn}
-        onResign={() => {
-          if (winner) {
-            navigate('/');
-          } else {
-            setShowResignModal(true);
-          }
-        }}
+        onResign={() => winner ? navigate('/') : setShowResignModal(true)}
         canSwitchTurn={(turnPhase === 'locked' || turnPhase === 'mandatory_move') && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />
 
-      {/* Debug Connection Status (Hidden for Production feel, but can be toggled if needed) */}
-      {/* 
-      {matchId && (
-        <div className="fixed bottom-4 left-4 bg-black/80 text-white p-2 rounded text-xs z-50 pointer-events-none opacity-50 hover:opacity-100 transition-opacity">
-          Status: {socket?.connected ? '✅' : '⏳'} | ID: {socket ? socket.id.substring(0,4) : '-'}
-        </div>
-      )} 
-      */}
-      {/* Resignation Modal */}
       {showResignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-neutral-800 border border-neutral-700 p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-200">
             <h3 className="text-xl font-bold text-white mb-2">Resign Game?</h3>
-            <p className="text-neutral-400 mb-6 text-sm">
-              Are you sure you want to resign? You will forfeit the match and this cannot be undone.
-            </p>
+            <p className="text-neutral-400 mb-6 text-sm">Are you sure you want to resign? You will forfeit the match and this cannot be undone.</p>
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowResignModal(false)}
-                className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700/50 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (socket && matchId) {
-                    console.log('🏳️ Resigning game via modal...');
-                    socket.emit('leaveGame', { matchId });
-                  }
-                  setShowResignModal(false);
-                  navigate('/');
-                }}
-                className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105"
-              >
-                Confirm Resignation
-              </button>
+              <button onClick={() => setShowResignModal(false)} className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700/50 rounded-lg transition-colors">Cancel</button>
+              <button onClick={() => { if (socket && matchId) socket.emit('leaveGame', { matchId }); setShowResignModal(false); navigate('/'); }} className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105">Confirm Resignation</button>
             </div>
           </div>
         </div>
