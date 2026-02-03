@@ -37,14 +37,12 @@ interface DbPiece {
   };
 }
 
-// FIX 1: specific interface for OnlinePlayer instead of any
 interface OnlinePlayer {
   userId: string;
   socketId?: string;
-  [key: string]: unknown; // Allow other properties safely
+  [key: string]: unknown;
 }
 
-// FIX 1: Updated ServerGameState
 interface ServerGameState {
   onlinePlayers?: OnlinePlayer[]; 
   players?: { userId: string; disconnectedAt: number | null }[];
@@ -71,6 +69,10 @@ const Multiplayer: React.FC = () => {
   const opponentRating = searchParams.get('opponentRating') || '1200';
 
   const [socket, setSocket] = useState<Socket | null>(null);
+  
+  // FIX: Use a Ref to hold the socket so we can access it in callbacks without dependencies
+  const socketRef = useRef<Socket | null>(null);
+  
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
   const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
@@ -107,6 +109,11 @@ const Multiplayer: React.FC = () => {
 
   const perspective = myRole;
 
+  // FIX: Keep socketRef in sync with socket state
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
   useEffect(() => {
     const fetchGameRules = async () => {
       try {
@@ -126,7 +133,6 @@ const Multiplayer: React.FC = () => {
               try {
                 stats = JSON.parse(stats);
               } catch (e) {
-                // FIX 2: Log the error 'e' so it is used
                 console.error("Failed to parse JSON for piece:", piece.name, e);
                 return;
               }
@@ -166,7 +172,6 @@ const Multiplayer: React.FC = () => {
 
     setSocket(newSocket);
     
-    // FIX 3: Define specific type for the window debug object
     (window as unknown as { gameStateDebug: { status: string } }).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
@@ -260,17 +265,20 @@ const Multiplayer: React.FC = () => {
     };
   }, [isGuest, matchId, myRole, userId]);
 
-  const broadcastUpdate = (data: GameSyncData) => {
-    if (matchId && socket) {
-      if (socket.connected) {
-        socket.emit('makeMove', { matchId, move: data });
+  // FIX: Use socketRef.current to access the socket without adding it to dependencies.
+  // matchId is kept in dependencies as it is a primitive string, which is fine.
+  const broadcastUpdate = useCallback((data: GameSyncData) => {
+    const s = socketRef.current;
+    if (matchId && s) {
+      if (s.connected) {
+        s.emit('makeMove', { matchId, move: data });
       }
     } else {
       const channel = new BroadcastChannel('eos_game_sync');
       channel.postMessage(data);
       channel.close();
     }
-  };
+  }, [matchId]);
 
   useEffect(() => {
     if (isGuest) return;
@@ -396,8 +404,7 @@ const Multiplayer: React.FC = () => {
       hasMoved: newHasMoved,
       mandatoryMoveUsed: true
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, matchId, socket]);
+  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate]);
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !activePiece) return;
