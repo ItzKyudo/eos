@@ -121,7 +121,7 @@ export function getMultiCaptureOptions(
   gameState: Record<string, string>,
   _mandatoryMoveUsed: boolean,
   pieceMoveCount: Record<string, number>,
-  attackRules: Record<string, DbAttackRule>, 
+  // attackRules: Record<string, DbAttackRule>, 
   moveRules: Record<string, number[]>
 ): { attacks: string[]; moves: string[] } {
   
