@@ -29,7 +29,6 @@ interface MoveData {
   playerId?: string;
 }
 
-// Type for Supabase response row
 interface DbPiece {
   name: string;
   movement_stats: string | { 
@@ -38,9 +37,16 @@ interface DbPiece {
   };
 }
 
-// Type for Server State (loose typing to match your backend)
+// FIX 1: specific interface for OnlinePlayer instead of any
+interface OnlinePlayer {
+  userId: string;
+  socketId?: string;
+  [key: string]: unknown; // Allow other properties safely
+}
+
+// FIX 1: Updated ServerGameState
 interface ServerGameState {
-  onlinePlayers?: any[];
+  onlinePlayers?: OnlinePlayer[]; 
   players?: { userId: string; disconnectedAt: number | null }[];
   lastMove?: Partial<GameSyncData>;
   moves?: MoveLog[];
@@ -95,14 +101,12 @@ const Multiplayer: React.FC = () => {
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
   const [showResignModal, setShowResignModal] = useState(false);
 
-  // --- NEW STATE FOR DB RULES ---
   const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
   const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
   const [loadingRules, setLoadingRules] = useState(true);
 
   const perspective = myRole;
 
-  // --- 1. FETCH RULES FROM DATABASE ---
   useEffect(() => {
     const fetchGameRules = async () => {
       try {
@@ -117,18 +121,17 @@ const Multiplayer: React.FC = () => {
           const loadedAttackRules: Record<string, DbAttackRule> = {};
 
           (data as DbPiece[]).forEach((piece) => {
-            // SAFEGUARD: Ensure stats is an object, parse if it's a string
             let stats = piece.movement_stats;
             if (typeof stats === 'string') {
               try {
                 stats = JSON.parse(stats);
               } catch (e) {
-                console.error("Failed to parse JSON for piece:", piece.name);
+                // FIX 2: Log the error 'e' so it is used
+                console.error("Failed to parse JSON for piece:", piece.name, e);
                 return;
               }
             }
 
-            // After parsing/checking, force type to the object structure
             const typedStats = stats as { move_steps: number[]; attack_rules: DbAttackRule };
 
             if (typedStats) {
@@ -150,7 +153,6 @@ const Multiplayer: React.FC = () => {
     fetchGameRules();
   }, []);
 
-  // Socket connection
   useEffect(() => {
     if (!matchId) return;
 
@@ -163,8 +165,9 @@ const Multiplayer: React.FC = () => {
     });
 
     setSocket(newSocket);
-    // Use type assertion for custom window property
-    (window as unknown as { gameStateDebug: any }).gameStateDebug = { status: 'Connecting...' };
+    
+    // FIX 3: Define specific type for the window debug object
+    (window as unknown as { gameStateDebug: { status: string } }).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
       newSocket.emit('joinGame', { matchId, userId });
@@ -255,9 +258,8 @@ const Multiplayer: React.FC = () => {
       clearInterval(heartbeatInterval);
       newSocket.disconnect();
     };
-  }, [isGuest, matchId, myRole, userId]); // Added userId
+  }, [isGuest, matchId, myRole, userId]);
 
-  // BroadcastChannel logic
   const broadcastUpdate = (data: GameSyncData) => {
     if (matchId && socket) {
       if (socket.connected) {
@@ -339,7 +341,6 @@ const Multiplayer: React.FC = () => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
-  // Wrap executeMove in useCallback to fix lint warning
   const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
@@ -358,7 +359,6 @@ const Multiplayer: React.FC = () => {
     const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
 
-    // --- PASS RULES TO getValidAttacks ---
     if (!isAdvanceMove) {
       if (turnPhase === 'action') {
         attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove, attackRules);
@@ -421,7 +421,7 @@ const Multiplayer: React.FC = () => {
         executeMove(activePiece, targetCoord, isAdvance);
       }
     }
-  }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]); // Added executeMove
+  }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
@@ -457,7 +457,6 @@ const Multiplayer: React.FC = () => {
     }
     setInitialDragPos({ x: clientX, y: clientY });
 
-    // --- PASS RULES TO HELPER FUNCTIONS ---
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
       const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
@@ -475,7 +474,6 @@ const Multiplayer: React.FC = () => {
       if (mandatoryMoveUsed) {
         allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
       } else {
-        // --- FIXED: REMOVED attackRules ARGUMENT ---
         const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, moveRules);
         allowedAttacks = attacks;
       }
@@ -533,14 +531,13 @@ const Multiplayer: React.FC = () => {
     };
     const newHistory = [...moveHistory, newMove];
 
-    // --- FIXED: REMOVED attackRules ARGUMENT ---
     const { attacks, moves } = getMultiCaptureOptions(
       activePiece,
       newGameState[activePiece]!,
       newGameState as Record<string, string>,
       mandatoryMoveUsed,
       pieceMoveCount,
-      moveRules // Only 6 arguments now
+      moveRules
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
@@ -590,7 +587,6 @@ const Multiplayer: React.FC = () => {
     });
   };
 
-  // --- RENDERING HELPERS ---
   const getRenderRows = () => perspective === 'player1' ? [13,12,11,10,9,8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8,9,10,11,12,13];
   const getRenderCols = () => perspective === 'player1' ? BOARD_COLUMNS : [...BOARD_COLUMNS].reverse();
   const getRowTiles = (rowNum: number) => {
