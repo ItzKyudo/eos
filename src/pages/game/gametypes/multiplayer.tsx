@@ -70,7 +70,6 @@ const Multiplayer: React.FC = () => {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   
-  // FIX: Use a Ref to hold the socket so we can access it in callbacks without dependencies
   const socketRef = useRef<Socket | null>(null);
   
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -109,7 +108,6 @@ const Multiplayer: React.FC = () => {
 
   const perspective = myRole;
 
-  // FIX: Keep socketRef in sync with socket state
   useEffect(() => {
     socketRef.current = socket;
   }, [socket]);
@@ -265,8 +263,6 @@ const Multiplayer: React.FC = () => {
     };
   }, [isGuest, matchId, myRole, userId]);
 
-  // FIX: Use socketRef.current to access the socket without adding it to dependencies.
-  // matchId is kept in dependencies as it is a primitive string, which is fine.
   const broadcastUpdate = useCallback((data: GameSyncData) => {
     const s = socketRef.current;
     if (matchId && s) {
@@ -364,12 +360,13 @@ const Multiplayer: React.FC = () => {
       timestamp: Date.now()
     };
     const newHistory = [...moveHistory, newMove];
-    const wasFirstMove = !hasMoved[pieceId];
     let attacks: string[] = [];
 
+    // --- EXECUTE MOVE: Post-Move Check ---
+    // Pass 'false' for isFirstMove because we have *just* moved this turn.
     if (!isAdvanceMove) {
       if (turnPhase === 'action') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', wasFirstMove, attackRules);
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
       } else if (turnPhase === 'mandatory_move') {
         attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
       }
@@ -465,9 +462,9 @@ const Multiplayer: React.FC = () => {
     setInitialDragPos({ x: clientX, y: clientY });
 
     if (turnPhase === 'select' || turnPhase === 'action') {
-      const isFirstMove = !hasMoved[pieceId];
-      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
-      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove, attackRules);
+      const isLifetimeFirstMove = !hasMoved[pieceId];
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
 
       setValidMoves(moves);
       setValidAdvanceMoves(advanceMoves);

@@ -6,7 +6,6 @@ import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MoveHistory, { useGameHistory } from '../mechanics/MoveHistory';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
 
-// --- FIXED: Define default rules for practice mode to satisfy updated helpers ---
 const PRACTICE_MOVE_RULES: Record<string, number[]> = {
   "Supremo": [1, 2],
   "Chancellor": [1, 2],
@@ -85,10 +84,9 @@ const Board: React.FC = () => {
     setInitialDragPos({ x: clientX, y: clientY });
 
     if (turnPhase === 'select' || turnPhase === 'action') {
-      const isFirstMove = !hasMoved[pieceId];
-      // FIX 1 & 2: Pass PRACTICE_MOVE_RULES and PRACTICE_ATTACK_RULES
-      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
-      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove, PRACTICE_ATTACK_RULES);
+      const isLifetimeFirstMove = !hasMoved[pieceId];
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, PRACTICE_ATTACK_RULES);
 
       setValidMoves(moves);
       setValidAdvanceMoves(advanceMoves);
@@ -96,7 +94,6 @@ const Board: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      // FIX 3: Pass PRACTICE_MOVE_RULES
       const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
       setValidMoves(allowedMoves);
       setValidAdvanceMoves([]);
@@ -133,7 +130,6 @@ const Board: React.FC = () => {
 
     const currentPos = gameState[activePiece]!;
 
-    // FIX 4: Pass PRACTICE_MOVE_RULES
     const { attacks, moves } = getMultiCaptureOptions(
       activePiece,
       currentPos,
@@ -192,21 +188,20 @@ const Board: React.FC = () => {
           timestamp: Date.now()
         });
 
-        const wasFirstMove = !hasMoved[activePiece];
+        // Turn-based logic: Post-move is never first move of the turn.
+        const turnBasedFirstMove = false;
 
         let attacks: string[] = [];
         if (!isAdvance) {
           if (turnPhase === 'action') {
-            // FIX 5: Pass PRACTICE_ATTACK_RULES
             attacks = getValidAttacks(
               activePiece, targetCoord,
               { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
               'post-move',
-              wasFirstMove,
+              turnBasedFirstMove,
               PRACTICE_ATTACK_RULES
             );
           } else if (turnPhase === 'mandatory_move') {
-            // FIX 6: Pass PRACTICE_ATTACK_RULES
             attacks = getValidAttacks(
               activePiece, targetCoord,
               { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
@@ -230,8 +225,7 @@ const Board: React.FC = () => {
         }
       }
     }
-    // FIX 7: Removed pieceMoveCount from dependencies
-  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, hasMoved, moveHistory, addMove]);
+  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, moveHistory, addMove]);
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');

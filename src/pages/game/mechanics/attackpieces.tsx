@@ -30,13 +30,15 @@ export function getValidAttacks(
 
   const fullName = PIECE_MOVEMENTS[pieceId].name;
   const dbName = getBaseName(fullName);
-  const rule = attackRules[dbName];
-
-  if (!rule) return [];
+  
+  // FIX: Default to a basic rule if DB is missing data, ensuring Steward logic still runs
+  const rule = attackRules[dbName] || { range: [1], mandatory_move: [1] };
 
   const { colIndex: col, rowNum: row } = parseCoord(position);
   if (col < 0) return [];
 
+  // --- SPECIAL LOGIC: STEWARD ---
+  // If Steward hasn't moved (isFirstMove) and is attacking before moving (pre-move), range is [1, 2]
   let effectiveRange = rule.range;
   if (dbName === 'Steward') {
     if (isFirstMove && phase === 'pre-move') {
@@ -56,7 +58,7 @@ export function getValidAttacks(
       const targetCoord = toCoord(targetCol, targetRow);
       if (!targetCoord) continue;
       
-      // Line of Sight Block Check
+      // Line of Sight: Cannot shoot through pieces
       let blocked = false;
       for (let k = 1; k < dist; k++) {
         const midCol = col + (k * dCol);
@@ -101,16 +103,13 @@ export function executeAttack(
   attackerId: PieceKey
 ): { newGameState: Partial<Record<PieceKey, string>>; capturedPieceId: PieceKey; winner: Winner } | null {
   
-  // 1. Identify the victim
   const capturedPieceId = (Object.keys(gameState) as PieceKey[]).find(k => gameState[k] === targetCoord);
   
   if (!capturedPieceId || capturedPieceId === attackerId) return null;
 
-  // 2. Remove victim, Attacker stays put (Ranged Attack!)
   const newGameState = { ...gameState };
   delete newGameState[capturedPieceId];
   
-  // 3. Check Win Condition
   const winner = checkWinCondition(newGameState as Partial<Record<string, string>>);
   
   return { newGameState, capturedPieceId, winner };
