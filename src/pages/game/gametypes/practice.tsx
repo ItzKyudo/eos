@@ -6,6 +6,27 @@ import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MoveHistory, { useGameHistory } from '../mechanics/MoveHistory';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
 
+// --- FIXED: Define default rules for practice mode to satisfy updated helpers ---
+const PRACTICE_MOVE_RULES: Record<string, number[]> = {
+  "Supremo": [1, 2],
+  "Chancellor": [1, 2],
+  "Vice Roy": [1, 2],
+  "Archer": [1],
+  "Deacon": [1],
+  "Minister": [1, 2],
+  "Steward": [1]
+};
+
+const PRACTICE_ATTACK_RULES: Record<string, { range: number[]; mandatory_move: number[] }> = {
+  "Supremo": { range: [1, 2], mandatory_move: [1] },
+  "Chancellor": { range: [1, 2, 3], mandatory_move: [1, 2] },
+  "Vice Roy": { range: [1, 2], mandatory_move: [1, 2] },
+  "Archer": { range: [1, 2, 3], mandatory_move: [1] },
+  "Deacon": { range: [1, 2], mandatory_move: [1] },
+  "Minister": { range: [1], mandatory_move: [1, 2] },
+  "Steward": { range: [1], mandatory_move: [1] }
+};
+
 const Board: React.FC = () => {
   const [searchParams] = useSearchParams();
   const timeLimit = parseInt(searchParams.get('time') || '600', 10);
@@ -31,6 +52,7 @@ const Board: React.FC = () => {
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
   const sideWidth = 'w-16';
+
   const handleTimeout = (winner: 'player1' | 'player2') => {
     setWinner(winner);
     setTurnPhase('locked');
@@ -64,8 +86,9 @@ const Board: React.FC = () => {
 
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isFirstMove = !hasMoved[pieceId];
-      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount);
-      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove);
+      // FIX 1 & 2: Pass PRACTICE_MOVE_RULES and PRACTICE_ATTACK_RULES
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isFirstMove, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', isFirstMove, PRACTICE_ATTACK_RULES);
 
       setValidMoves(moves);
       setValidAdvanceMoves(advanceMoves);
@@ -73,7 +96,8 @@ const Board: React.FC = () => {
       setTurnPhase('action');
     }
     else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount);
+      // FIX 3: Pass PRACTICE_MOVE_RULES
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
       setValidMoves(allowedMoves);
       setValidAdvanceMoves([]);
       setValidAttacks([]);
@@ -109,12 +133,14 @@ const Board: React.FC = () => {
 
     const currentPos = gameState[activePiece]!;
 
+    // FIX 4: Pass PRACTICE_MOVE_RULES
     const { attacks, moves } = getMultiCaptureOptions(
       activePiece,
       currentPos,
       result.newGameState as Record<string, string>,
       mandatoryMoveUsed,
-      pieceMoveCount
+      pieceMoveCount,
+      PRACTICE_MOVE_RULES
     );
 
     setValidAttacks(attacks);
@@ -171,18 +197,22 @@ const Board: React.FC = () => {
         let attacks: string[] = [];
         if (!isAdvance) {
           if (turnPhase === 'action') {
+            // FIX 5: Pass PRACTICE_ATTACK_RULES
             attacks = getValidAttacks(
               activePiece, targetCoord,
               { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
               'post-move',
-              wasFirstMove
+              wasFirstMove,
+              PRACTICE_ATTACK_RULES
             );
           } else if (turnPhase === 'mandatory_move') {
+            // FIX 6: Pass PRACTICE_ATTACK_RULES
             attacks = getValidAttacks(
               activePiece, targetCoord,
               { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
               'post-move',
-              false
+              false,
+              PRACTICE_ATTACK_RULES
             );
           }
         }
@@ -200,7 +230,8 @@ const Board: React.FC = () => {
         }
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, hasMoved, pieceMoveCount, moveHistory, addMove]);
+    // FIX 7: Removed pieceMoveCount from dependencies
+  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, hasMoved, moveHistory, addMove]);
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
