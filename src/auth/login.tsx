@@ -18,7 +18,7 @@ const Login: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('https://eos-server.onrender.com/api/login', {
+      const response = await fetch('https://eos-server-jxy0.onrender.com/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

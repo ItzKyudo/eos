@@ -69,9 +69,11 @@ const Multiplayer: React.FC = () => {
   const opponentRating = searchParams.get('opponentRating') || '1200';
 
   const [socket, setSocket] = useState<Socket | null>(null);
-  
   const socketRef = useRef<Socket | null>(null);
   
+  // FIX: Replaced 'any[]' with 'OnlinePlayer[]'
+  const [players, setPlayers] = useState<OnlinePlayer[]>([]);
+
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
   const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
@@ -112,6 +114,7 @@ const Multiplayer: React.FC = () => {
     socketRef.current = socket;
   }, [socket]);
 
+  // --- DB RULES FETCHING ---
   useEffect(() => {
     const fetchGameRules = async () => {
       try {
@@ -157,10 +160,11 @@ const Multiplayer: React.FC = () => {
     fetchGameRules();
   }, []);
 
+  // --- SOCKET LISTENERS ---
   useEffect(() => {
     if (!matchId) return;
 
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -175,6 +179,16 @@ const Multiplayer: React.FC = () => {
     newSocket.on('connect', () => {
       newSocket.emit('joinGame', { matchId, userId });
       setOpponentConnected(false);
+    });
+
+    // LISTENER: Rating Updates (Victory/Defeat Screen Info)
+    newSocket.on('ratingUpdate', (data) => {
+      // data: { winnerId, loserId, winnerNew, loserNew, change, breakdown }
+      if (data.winnerId === userId) {
+        alert(`VICTORY! +${data.change} Points\nNew Rating: ${data.winnerNew}\n\nReason: ${data.breakdown?.reason || 'Win'}`);
+      } else if (data.loserId === userId) {
+        alert(`DEFEAT. -${data.change} Points\nNew Rating: ${data.loserNew}`);
+      }
     });
 
     newSocket.on('moveMade', (data: MoveData) => {
@@ -202,13 +216,11 @@ const Multiplayer: React.FC = () => {
     newSocket.on('playerJoined', () => setOpponentConnected(true));
     newSocket.on('playerReconnected', () => setOpponentConnected(true));
     newSocket.on('playerDisconnected', () => setOpponentConnected(false));
-    newSocket.on('playerLeft', () => setOpponentConnected(false));
     
     newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
       if (data.matchId !== matchId) return;
       setOpponentConnected(false);
-      setWinner(myRole);
-      setTurnPhase('locked');
+      // Wait for server decision to end game via gameEnded, don't auto-win here immediately
     });
 
     newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
@@ -223,11 +235,15 @@ const Multiplayer: React.FC = () => {
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
+      
+      // STORE PLAYER IDs
       if (state.players && Array.isArray(state.players)) {
+        setPlayers(state.players);
         const op = state.players.find((p) => String(p.userId) !== String(userId));
         if (op && op.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
         else setOpponentDisconnectTime(null);
       }
+
       if (state.lastMove) {
         const m = state.lastMove;
         if (m.gameState) setGameState(m.gameState);
@@ -259,6 +275,7 @@ const Multiplayer: React.FC = () => {
 
     return () => {
       clearInterval(heartbeatInterval);
+      newSocket.off('ratingUpdate'); // Clean up listener
       newSocket.disconnect();
     };
   }, [isGuest, matchId, myRole, userId]);
@@ -307,20 +324,44 @@ const Multiplayer: React.FC = () => {
     return () => clearInterval(timer);
   }, [currentTurn, winner]);
 
+  // Timeout Handling
   useEffect(() => {
     if (winner) return;
     const handleTimeout = (gameWinner: Winner) => {
       if (!gameWinner) return;
+      
+      // If I am the winner by timeout, I send the report
+      // Only one client needs to trigger this to avoid double counting
+      const isMyWin = gameWinner === myRole;
+      
+      if (isMyWin && socket && matchId) {
+        // Need to fetch IDs same as attack logic
+        const opponent = players.find(p => p.userId !== userId);
+        const opponentId = opponent ? opponent.userId : null;
+        
+        socket.emit('gameEnd', { 
+          matchId, 
+          winner: gameWinner, 
+          winnerId: userId,
+          loserId: opponentId,
+          player1Id: myRole === 'player1' ? userId : opponentId,
+          reason: 'timeout',
+          winCondition: 'timeout',
+          gameHistory: moveHistory
+        });
+      }
+
       setWinner(gameWinner);
       setGameEndReason('timeout');
       setTurnPhase('locked');
-      if (socket && matchId) {
-        socket.emit('gameEnd', { matchId, winner: gameWinner, reason: 'timeout' });
-      }
     };
-    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2');
-    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
-  }, [p1Time, p2Time, winner, myRole, matchId, socket]);
+
+    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2'); // I lost
+    else if (p1Time <= 0 && myRole === 'player2') handleTimeout('player2'); // I won
+    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1'); // I lost
+    else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1'); // I won
+
+  }, [p1Time, p2Time, winner, myRole, matchId, socket, players, moveHistory, userId]);
 
   useEffect(() => {
     if (!opponentDisconnectTime) {
@@ -363,7 +404,6 @@ const Multiplayer: React.FC = () => {
     let attacks: string[] = [];
 
     // --- EXECUTE MOVE: Post-Move Check ---
-    // Pass 'false' for isFirstMove because we have *just* moved this turn.
     if (!isAdvanceMove) {
       if (turnPhase === 'action') {
         attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
@@ -462,8 +502,11 @@ const Multiplayer: React.FC = () => {
     setInitialDragPos({ x: clientX, y: clientY });
 
     if (turnPhase === 'select' || turnPhase === 'action') {
+      // FIX 1: Lifetime Check for Movement
       const isLifetimeFirstMove = !hasMoved[pieceId];
       const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      
+      // FIX 2: Turn-Based Check for Attacks (Always True in Pre-Move phase)
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
 
       setValidMoves(moves);
@@ -505,9 +548,54 @@ const Multiplayer: React.FC = () => {
     setCapturedByP1(newCapturedP1);
     setCapturedByP2(newCapturedP2);
 
+    // --- GAME END LOGIC ---
     if (result.winner) {
       setWinner(result.winner);
       setTurnPhase('locked');
+
+      if (socket && matchId) {
+        // 1. Determine Win Condition
+        const capturedName = PIECE_MOVEMENTS[result.capturedPieceId].name;
+        const winCondition = capturedName.includes('Supremo') ? 'supremo_capture' : 'solitude';
+
+        // 2. Identify Player IDs correctly
+        const opponent = players.find(p => p.userId !== userId);
+        const opponentId = opponent ? opponent.userId : null;
+
+        let winnerId, loserId;
+        if (result.winner === myRole) {
+          winnerId = userId;
+          loserId = opponentId;
+        } else {
+          winnerId = opponentId;
+          loserId = userId;
+        }
+
+        // 3. Create Final History Log
+        const finalMove: MoveLog = {
+          player: currentTurn,
+          pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures ${capturedName}`,
+          pieceId: activePiece,
+          from: gameState[activePiece]!,
+          to: targetCoord,
+          turnNumber: moveHistory.length + 1,
+          timestamp: Date.now()
+        };
+        const finalHistory = [...moveHistory, finalMove];
+
+        // 4. Send to Server for Ranking
+        socket.emit('gameEnd', {
+          matchId,
+          winner: result.winner, // Role (player1/player2)
+          reason: 'checkmate',
+          winnerId,              // User UUID
+          loserId,               // User UUID
+          player1Id: myRole === 'player1' ? userId : opponentId, // ID of who is P1
+          winCondition,
+          gameHistory: finalHistory
+        });
+      }
+
       broadcastUpdate({
         gameState: newGameState,
         currentTurn: currentTurn,

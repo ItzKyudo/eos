@@ -51,7 +51,7 @@ const ManageMarket = () => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const API_URL = 'https://eos-server.onrender.com'; // Make sure this matches your environment
+    const API_URL = 'https://eos-server-jxy0.onrender.com'; // Make sure this matches your environment
 
     const fetchItems = useCallback(async () => {
         setLoading(true);

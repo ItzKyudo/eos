@@ -10,7 +10,7 @@ const ManageOrders = () => {
   const [activeTab, setActiveTab] = useState('pending'); // pending, claimed, cancelled
 
   // Use localhost for local development since the new route is not deployed yet
-  const API_URL = 'https://eos-server.onrender.com';
+  const API_URL = 'https://eos-server-jxy0.onrender.com';
   // const API_URL = 'https://eos-server.onrender.com';
 
   const fetchOrders = () => {

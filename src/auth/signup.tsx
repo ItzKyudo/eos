@@ -17,7 +17,7 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('https://eos-server.onrender.com/api/create-account', {
+      const response = await fetch('https://eos-server-jxy0.onrender.com/api/create-account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

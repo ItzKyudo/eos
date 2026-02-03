@@ -36,7 +36,7 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({ username: '', email: '', role: '' });
-  const API_URL = 'https://eos-server.onrender.com';
+  const API_URL = 'https://eos-server-jxy0.onrender.com';
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);

@@ -42,7 +42,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
-  const API_URL = 'https://eos-server.onrender.com';
+  const API_URL = 'https://eos-server-jxy0.onrender.com';
 
   useEffect(() => {
     fetchDashboardData(page);
