@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 
+// --- INTERFACES ---
+
 interface GameSyncData {
   gameState: Partial<Record<PieceKey, string>>;
   currentTurn: 'player1' | 'player2';
@@ -25,6 +27,28 @@ interface MoveData {
   matchId: string;
   move: GameSyncData;
   playerId?: string;
+}
+
+// Type for Supabase response row
+interface DbPiece {
+  name: string;
+  movement_stats: string | { 
+    move_steps: number[]; 
+    attack_rules: DbAttackRule 
+  };
+}
+
+// Type for Server State (loose typing to match your backend)
+interface ServerGameState {
+  onlinePlayers?: any[];
+  players?: { userId: string; disconnectedAt: number | null }[];
+  lastMove?: Partial<GameSyncData>;
+  moves?: MoveLog[];
+  currentTurn?: 'player1' | 'player2';
+  p1Time?: number;
+  p2Time?: number;
+  capturedByP1?: PieceKey[];
+  capturedByP2?: PieceKey[];
 }
 
 const Multiplayer: React.FC = () => {
@@ -92,11 +116,25 @@ const Multiplayer: React.FC = () => {
           const loadedMoveRules: Record<string, number[]> = {};
           const loadedAttackRules: Record<string, DbAttackRule> = {};
 
-          data.forEach((piece: any) => {
-            // Map "Supremo" -> move_steps
-            loadedMoveRules[piece.name] = piece.movement_stats.move_steps;
-            // Map "Supremo" -> attack_rules
-            loadedAttackRules[piece.name] = piece.movement_stats.attack_rules;
+          (data as DbPiece[]).forEach((piece) => {
+            // SAFEGUARD: Ensure stats is an object, parse if it's a string
+            let stats = piece.movement_stats;
+            if (typeof stats === 'string') {
+              try {
+                stats = JSON.parse(stats);
+              } catch (e) {
+                console.error("Failed to parse JSON for piece:", piece.name);
+                return;
+              }
+            }
+
+            // After parsing/checking, force type to the object structure
+            const typedStats = stats as { move_steps: number[]; attack_rules: DbAttackRule };
+
+            if (typedStats) {
+              loadedMoveRules[piece.name] = typedStats.move_steps;
+              loadedAttackRules[piece.name] = typedStats.attack_rules;
+            }
           });
 
           setMoveRules(loadedMoveRules);
@@ -125,7 +163,8 @@ const Multiplayer: React.FC = () => {
     });
 
     setSocket(newSocket);
-    (window as any).gameStateDebug = { status: 'Connecting...' };
+    // Use type assertion for custom window property
+    (window as unknown as { gameStateDebug: any }).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
       newSocket.emit('joinGame', { matchId, userId });
@@ -174,12 +213,12 @@ const Multiplayer: React.FC = () => {
       if (data.reason === 'opponent_disconnect') setOpponentConnected(false);
     });
 
-    newSocket.on('gameState', (state: any) => {
+    newSocket.on('gameState', (state: ServerGameState) => {
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
       if (state.players && Array.isArray(state.players)) {
-        const op = state.players.find((p: any) => String(p.userId) !== String(userId));
+        const op = state.players.find((p) => String(p.userId) !== String(userId));
         if (op && op.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
         else setOpponentDisconnectTime(null);
       }
@@ -216,7 +255,7 @@ const Multiplayer: React.FC = () => {
       clearInterval(heartbeatInterval);
       newSocket.disconnect();
     };
-  }, [isGuest, matchId, myRole]);
+  }, [isGuest, matchId, myRole, userId]); // Added userId
 
   // BroadcastChannel logic
   const broadcastUpdate = (data: GameSyncData) => {
@@ -300,7 +339,8 @@ const Multiplayer: React.FC = () => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
-  const executeMove = (pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
+  // Wrap executeMove in useCallback to fix lint warning
+  const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
     const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
@@ -356,7 +396,8 @@ const Multiplayer: React.FC = () => {
       hasMoved: newHasMoved,
       mandatoryMoveUsed: true
     });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, matchId, socket]);
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !activePiece) return;
@@ -380,7 +421,7 @@ const Multiplayer: React.FC = () => {
         executeMove(activePiece, targetCoord, isAdvance);
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, currentTurn, hasMoved, pieceMoveCount, moveHistory, capturedByP1, capturedByP2, winner, turnPhase, moveRules, attackRules]);
+  }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]); // Added executeMove
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked') return;
@@ -434,7 +475,8 @@ const Multiplayer: React.FC = () => {
       if (mandatoryMoveUsed) {
         allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
       } else {
-        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, attackRules, moveRules);
+        // --- FIXED: REMOVED attackRules ARGUMENT ---
+        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, moveRules);
         allowedAttacks = attacks;
       }
 
@@ -491,15 +533,14 @@ const Multiplayer: React.FC = () => {
     };
     const newHistory = [...moveHistory, newMove];
 
-    // --- PASS RULES TO getMultiCaptureOptions ---
+    // --- FIXED: REMOVED attackRules ARGUMENT ---
     const { attacks, moves } = getMultiCaptureOptions(
       activePiece,
       newGameState[activePiece]!,
       newGameState as Record<string, string>,
       mandatoryMoveUsed,
       pieceMoveCount,
-      attackRules,
-      moveRules
+      moveRules // Only 6 arguments now
     );
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
@@ -700,7 +741,7 @@ const Multiplayer: React.FC = () => {
                               <motion.div
                                 layoutId={pieceId}
                                 transition={{ type: "spring", stiffness: 280, damping: 25, mass: 0.8 }}
-                                className="w-full h-full p-[2px] pointer-events-none z-50 relative"
+                                className="w-full h-full p-[0.5] pointer-events-none z-50 relative"
                               >
                                 <img src={PIECES[pieceId as PieceKey]} alt="piece" className={`w-full h-full rounded-full object-cover ${(isDragging && pieceId === activePiece) ? 'opacity-0' : ''} select-none shadow-md`} />
                               </motion.div>

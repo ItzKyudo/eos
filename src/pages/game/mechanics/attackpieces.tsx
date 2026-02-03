@@ -55,6 +55,8 @@ export function getValidAttacks(
       
       const targetCoord = toCoord(targetCol, targetRow);
       if (!targetCoord) continue;
+      
+      // Line of Sight Block Check
       let blocked = false;
       for (let k = 1; k < dist; k++) {
         const midCol = col + (k * dCol);
@@ -66,14 +68,13 @@ export function getValidAttacks(
         }
       }
       if (blocked) continue; 
+
       const targetPieceId = getPieceAtCoord(gameState, targetCoord);
       
       if (targetPieceId) {
         if (getPieceOwner(targetPieceId) !== owner) {
           validTargets.push(targetCoord);
         }
-        // If we hit ANY piece (friend or foe), the range stops here (can't shoot through)
-        // break; // Uncomment this 'break' if attacks should stop at the first piece hit
       }
     }
   }
@@ -121,11 +122,9 @@ export function getMultiCaptureOptions(
   gameState: Record<string, string>,
   _mandatoryMoveUsed: boolean,
   pieceMoveCount: Record<string, number>,
-  // attackRules: Record<string, DbAttackRule>, 
+  // REMOVED: attackRules (unused)
   moveRules: Record<string, number[]>
 ): { attacks: string[]; moves: string[] } {
-  
-
   const moves = getMandatoryMoves(pieceId, position, gameState, pieceMoveCount, moveRules);
   return { attacks: [], moves };
 }
