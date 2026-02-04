@@ -71,7 +71,6 @@ const Multiplayer: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
   
-  // FIX: Replaced 'any[]' with 'OnlinePlayer[]'
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
 
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -107,6 +106,9 @@ const Multiplayer: React.FC = () => {
   const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
   const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
   const [loadingRules, setLoadingRules] = useState(true);
+  
+  // FIX: Add Syncing State to block moves until server data arrives
+  const [isSyncing, setIsSyncing] = useState(true);
 
   const perspective = myRole;
 
@@ -252,19 +254,27 @@ const Multiplayer: React.FC = () => {
         if (m.winner) setWinner(m.winner);
 
         if (state.moves) setMoveHistory(state.moves);
-        if (state.currentTurn) setCurrentTurn(state.currentTurn);
+        
+        // FIX: Ensure Turn is set from Server
+        if (state.currentTurn) {
+          setCurrentTurn(state.currentTurn);
+          // Set phase based on server state
+          if (state.currentTurn === myRole) {
+            if (m.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+            else setTurnPhase('select');
+          } else {
+            setTurnPhase('locked');
+          }
+        }
+
         if (state.p1Time) setP1Time(state.p1Time);
         if (state.p2Time) setP2Time(state.p2Time);
         if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
         if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
-
-        if (state.currentTurn === myRole) {
-          if (m.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
-          else setTurnPhase('select');
-        } else {
-          setTurnPhase('locked');
-        }
       }
+      
+      // FIX: Unlock the game after syncing
+      setIsSyncing(false);
     });
 
     const heartbeatInterval = setInterval(() => {
@@ -330,12 +340,9 @@ const Multiplayer: React.FC = () => {
     const handleTimeout = (gameWinner: Winner) => {
       if (!gameWinner) return;
       
-      // If I am the winner by timeout, I send the report
-      // Only one client needs to trigger this to avoid double counting
       const isMyWin = gameWinner === myRole;
       
       if (isMyWin && socket && matchId) {
-        // Need to fetch IDs same as attack logic
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
         
@@ -468,7 +475,8 @@ const Multiplayer: React.FC = () => {
   }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
-    if (winner || turnPhase === 'locked') return;
+    // FIX: Block interaction if still syncing from server
+    if (winner || turnPhase === 'locked' || isSyncing) return;
     if (currentTurn !== myRole) return;
 
     const allMoves = [...validMoves, ...validAdvanceMoves];
@@ -502,11 +510,9 @@ const Multiplayer: React.FC = () => {
     setInitialDragPos({ x: clientX, y: clientY });
 
     if (turnPhase === 'select' || turnPhase === 'action') {
-      // FIX 1: Lifetime Check for Movement
       const isLifetimeFirstMove = !hasMoved[pieceId];
       const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
       
-      // FIX 2: Turn-Based Check for Attacks (Always True in Pre-Move phase)
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
 
       setValidMoves(moves);
@@ -532,7 +538,8 @@ const Multiplayer: React.FC = () => {
   };
 
   const handleAttackClick = (targetCoord: string) => {
-    if (!activePiece || turnPhase === 'locked' || currentTurn !== myRole) return;
+    // FIX: Block attack if still syncing
+    if (!activePiece || turnPhase === 'locked' || currentTurn !== myRole || isSyncing) return;
 
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
@@ -554,11 +561,9 @@ const Multiplayer: React.FC = () => {
       setTurnPhase('locked');
 
       if (socket && matchId) {
-        // 1. Determine Win Condition
         const capturedName = PIECE_MOVEMENTS[result.capturedPieceId].name;
         const winCondition = capturedName.includes('Supremo') ? 'supremo_capture' : 'solitude';
 
-        // 2. Identify Player IDs correctly
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
 
@@ -571,7 +576,6 @@ const Multiplayer: React.FC = () => {
           loserId = userId;
         }
 
-        // 3. Create Final History Log
         const finalMove: MoveLog = {
           player: currentTurn,
           pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures ${capturedName}`,
@@ -583,14 +587,13 @@ const Multiplayer: React.FC = () => {
         };
         const finalHistory = [...moveHistory, finalMove];
 
-        // 4. Send to Server for Ranking
         socket.emit('gameEnd', {
           matchId,
-          winner: result.winner, // Role (player1/player2)
+          winner: result.winner, 
           reason: 'checkmate',
-          winnerId,              // User UUID
-          loserId,               // User UUID
-          player1Id: myRole === 'player1' ? userId : opponentId, // ID of who is P1
+          winnerId,              
+          loserId,               
+          player1Id: myRole === 'player1' ? userId : opponentId, 
           winCondition,
           gameHistory: finalHistory
         });
@@ -747,11 +750,12 @@ const Multiplayer: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loadingRules) {
+  // FIX: Update Loading UI to show sync status
+  if (loadingRules || isSyncing) {
     return (
       <div className="flex w-full h-screen items-center justify-center bg-neutral-900 text-white flex-col gap-4">
         <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-        <p>Loading Game Rules...</p>
+        <p>{isSyncing ? "Syncing Game State..." : "Loading Game Rules..."}</p>
       </div>
     );
   }
