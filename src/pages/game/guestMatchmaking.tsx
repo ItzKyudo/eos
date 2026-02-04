@@ -63,7 +63,7 @@ const GuestMatchmaking: React.FC = () => {
     }, SOCKET_CREATION_LOCK_DURATION);
 
     // Connect to socket server
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
     const newSocket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,

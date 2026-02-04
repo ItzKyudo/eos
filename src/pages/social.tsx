@@ -42,7 +42,7 @@ const SocialPage: React.FC = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender';
             const response = await fetch(`${serverUrl}/api/friends`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -77,7 +77,7 @@ const SocialPage: React.FC = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
             const response = await fetch(`${serverUrl}/api/friends/request`, {
                 method: 'POST',
                 headers: {
@@ -103,7 +103,7 @@ const SocialPage: React.FC = () => {
     const acceptRequest = async (friendshipId: number) => {
         try {
             const token = localStorage.getItem('token');
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
             const response = await fetch(`${serverUrl}/api/friends/accept`, {
                 method: 'PUT',
                 headers: {
@@ -126,7 +126,7 @@ const SocialPage: React.FC = () => {
         if (!confirm("Are you sure?")) return;
         try {
             const token = localStorage.getItem('token');
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
             const response = await fetch(`${serverUrl}/api/friends/${friendshipId}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` }

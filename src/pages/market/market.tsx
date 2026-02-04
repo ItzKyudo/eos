@@ -86,7 +86,7 @@ const MarketPage: React.FC = () => {
     const [isOrdersOpen, setIsOrdersOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null);
 
-    const API_BASE = "https://eos-server.onrender.com/api/market";
+    const API_BASE = "https://eos-server-jxy0.onrender.com/api/market";
     const USER_TOKEN = localStorage.getItem('token');
 
     useEffect(() => {

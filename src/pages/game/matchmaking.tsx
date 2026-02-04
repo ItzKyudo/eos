@@ -30,7 +30,7 @@ const Matchmaking: React.FC = () => {
         // Fetch game modes
         const fetchGameModes = async () => {
             try {
-                const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+                const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
                 const response = await fetch(`${serverUrl}/api/gamemodes`);
                 if (response.ok) {
                     const data = await response.json();
@@ -53,7 +53,7 @@ const Matchmaking: React.FC = () => {
 
 
         // Connect to socket server
-        const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server.onrender.com';
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
         const newSocket = io(serverUrl, {
             transports: ['websocket', 'polling'],
             autoConnect: true,

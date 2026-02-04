@@ -34,7 +34,7 @@ const Profile: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
 
-        const response = await fetch('https://eos-server.onrender.com/api/profile', {
+        const response = await fetch('https://eos-server-jxy0.onrender/api/profile', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -65,7 +65,7 @@ const Profile: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await fetch('https://eos-server.onrender.com/api/profile', {
+      await fetch('https://eos-server-jxy0.onrender/api/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -84,7 +84,7 @@ const Profile: React.FC = () => {
       const body: { username: string; email: string; avatar_url?: string } = { username, email };
       if (avatar_url) body.avatar_url = avatar_url;
 
-      const response = await fetch('https://eos-server.onrender.com/api/profile', {
+      const response = await fetch('https://eos-server-jxy0.onrender/api/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
