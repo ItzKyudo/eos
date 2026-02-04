@@ -42,7 +42,7 @@ const SocialPage: React.FC = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender';
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
             const response = await fetch(`${serverUrl}/api/friends`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
