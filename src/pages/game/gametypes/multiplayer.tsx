@@ -31,9 +31,9 @@ interface MoveData {
 
 interface DbPiece {
   name: string;
-  movement_stats: string | { 
-    move_steps: number[]; 
-    attack_rules: DbAttackRule 
+  movement_stats: string | {
+    move_steps: number[];
+    attack_rules: DbAttackRule
   };
 }
 
@@ -44,7 +44,7 @@ interface OnlinePlayer {
 }
 
 interface ServerGameState {
-  onlinePlayers?: OnlinePlayer[]; 
+  onlinePlayers?: OnlinePlayer[];
   players?: { userId: string; disconnectedAt: number | null }[];
   lastMove?: Partial<GameSyncData>;
   moves?: MoveLog[];
@@ -70,7 +70,7 @@ const Multiplayer: React.FC = () => {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  
+
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
 
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
@@ -175,7 +175,7 @@ const Multiplayer: React.FC = () => {
     });
 
     setSocket(newSocket);
-    
+
     (window as unknown as { gameStateDebug: { status: string } }).gameStateDebug = { status: 'Connecting...' };
 
     newSocket.on('connect', () => {
@@ -216,7 +216,7 @@ const Multiplayer: React.FC = () => {
     newSocket.on('playerJoined', () => setOpponentConnected(true));
     newSocket.on('playerReconnected', () => setOpponentConnected(true));
     newSocket.on('playerDisconnected', () => setOpponentConnected(false));
-    
+
     newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
       if (data.matchId !== matchId) return;
       setOpponentConnected(false);
@@ -234,7 +234,7 @@ const Multiplayer: React.FC = () => {
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
-      
+
       if (state.players && Array.isArray(state.players)) {
         setPlayers(state.players);
         const op = state.players.find((p) => String(p.userId) !== String(userId));
@@ -262,11 +262,13 @@ const Multiplayer: React.FC = () => {
       if (state.currentTurn) {
         setCurrentTurn(state.currentTurn);
         if (state.currentTurn === myRole) {
-            // Restore correct phase
-            if (state.lastMove?.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
-            else setTurnPhase('select');
+          // Restore correct phase
+          const storedPhase = state.lastMove?.turnPhase;
+          if (storedPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+          else if (storedPhase === 'locked') setTurnPhase('locked');
+          else setTurnPhase('select');
         } else {
-            setTurnPhase('locked');
+          setTurnPhase('locked');
         }
       }
 
@@ -340,9 +342,9 @@ const Multiplayer: React.FC = () => {
       if (isMyWin && socket && matchId) {
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
-        socket.emit('gameEnd', { 
-          matchId, 
-          winner: gameWinner, 
+        socket.emit('gameEnd', {
+          matchId,
+          winner: gameWinner,
           winnerId: userId,
           loserId: opponentId,
           player1Id: myRole === 'player1' ? userId : opponentId,
@@ -578,11 +580,11 @@ const Multiplayer: React.FC = () => {
 
         socket.emit('gameEnd', {
           matchId,
-          winner: result.winner, 
+          winner: result.winner,
           reason: 'checkmate',
-          winnerId,              
-          loserId,               
-          player1Id: myRole === 'player1' ? userId : opponentId, 
+          winnerId,
+          loserId,
+          player1Id: myRole === 'player1' ? userId : opponentId,
           winCondition,
           gameHistory: finalHistory
         });
@@ -671,7 +673,7 @@ const Multiplayer: React.FC = () => {
     });
   };
 
-  const getRenderRows = () => perspective === 'player1' ? [13,12,11,10,9,8,7,6,5,4,3,2,1] : [1,2,3,4,5,6,7,8,9,10,11,12,13];
+  const getRenderRows = () => perspective === 'player1' ? [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
   const getRenderCols = () => perspective === 'player1' ? BOARD_COLUMNS : [...BOARD_COLUMNS].reverse();
   const getRowTiles = (rowNum: number) => {
     let tiles: string[] = [];
