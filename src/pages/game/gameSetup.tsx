@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/sidebar';
 import RightPanel from '../../components/RightPanel';
+import { io } from 'socket.io-client';
 import { PIECES } from './mechanics/piecemovements';
 import { INITIAL_POSITIONS } from './mechanics/positions';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +28,8 @@ interface MatchFoundDetail {
 
 const GameSetup: React.FC = () => {
   const navigate = useNavigate();
-  
+  const [onlineCount, setOnlineCount] = useState<number>(0);
+
   // Store DB Game Modes
   const [gameModes, setGameModes] = useState<GameMode[]>([]);
   const [loadingModes, setLoadingModes] = useState(true);
@@ -46,7 +48,7 @@ const GameSetup: React.FC = () => {
 
         if (error) throw error;
         if (data) setGameModes(data);
-        
+
       } catch (error) {
         console.error('Error fetching game modes:', error);
       } finally {
@@ -54,6 +56,27 @@ const GameSetup: React.FC = () => {
       }
     };
     fetchGameModes();
+  }, []);
+
+  // --- SOCKET: Online Player Count ---
+  useEffect(() => {
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
+    const socket = io(serverUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true
+    });
+
+    socket.on('connect', () => {
+      // Setup listener requests can be here if needed
+    });
+
+    socket.on('onlineUsers', (count: number) => {
+      setOnlineCount(count);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // 2. Handle Match Found Navigation
@@ -71,7 +94,7 @@ const GameSetup: React.FC = () => {
 
       navigate(gameUrl);
     };
-    
+
     window.addEventListener('matchFound', handleMatchFound);
     return () => window.removeEventListener('matchFound', handleMatchFound);
   }, [navigate]);
@@ -79,13 +102,13 @@ const GameSetup: React.FC = () => {
   // Helper: Find the Mode Title (e.g. "Blitz") based on time (e.g. 300s)
   const getIncomingModeDetails = () => {
     if (!incomingChallenge) return null;
-    
+
     // Convert incoming seconds to minutes to match DB
     const minutes = incomingChallenge.timeControl / 60;
-    
+
     // Find the matching mode from our DB list
     const matchedMode = gameModes.find(m => m.duration_minutes === minutes);
-    
+
     return {
       title: matchedMode ? matchedMode.title : 'Custom Game',
       desc: matchedMode ? matchedMode.description : `${minutes} min match`
@@ -95,7 +118,11 @@ const GameSetup: React.FC = () => {
   const modeDetails = getIncomingModeDetails();
 
   return (
-    <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100">
+    <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100 relative">
+      <div className="absolute top-4 right-4 z-50 bg-black/50 px-3 py-1.5 rounded-full text-xs font-mono text-green-400 border border-green-900/50 backdrop-blur-sm flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse box-shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
+        {onlineCount} Online
+      </div>
       <Sidebar />
       <main className="flex-1 flex flex-col lg:flex-row h-screen overflow-hidden relative">
         <div className="flex-1 flex items-center justify-center bg-[#0f172a] p-4 lg:p-0 overflow-hidden relative z-10">
@@ -105,7 +132,7 @@ const GameSetup: React.FC = () => {
             <BoardPreview />
           </div>
         </div>
-        
+
         <RightPanel gameModes={gameModes} isLoading={loadingModes} />
 
         {/* INCOMING CHALLENGE MODAL */}
@@ -118,7 +145,7 @@ const GameSetup: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-white text-sm">Challenge from <span className="text-blue-400">{incomingChallenge.challengerName}</span></h3>
-                  
+
                   {/* Dynamic DB Data Display */}
                   <div className="flex items-center gap-2 mt-1">
                     <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase rounded border border-blue-500/30">
