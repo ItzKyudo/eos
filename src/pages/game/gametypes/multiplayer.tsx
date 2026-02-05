@@ -106,8 +106,8 @@ const Multiplayer: React.FC = () => {
   const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
   const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
   const [loadingRules, setLoadingRules] = useState(true);
-  
-  // FIX: Add Syncing State to block moves until server data arrives
+
+  // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
 
   const perspective = myRole;
@@ -183,9 +183,7 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(false);
     });
 
-    // LISTENER: Rating Updates (Victory/Defeat Screen Info)
     newSocket.on('ratingUpdate', (data) => {
-      // data: { winnerId, loserId, winnerNew, loserNew, change, breakdown }
       if (data.winnerId === userId) {
         alert(`VICTORY! +${data.change} Points\nNew Rating: ${data.winnerNew}\n\nReason: ${data.breakdown?.reason || 'Win'}`);
       } else if (data.loserId === userId) {
@@ -222,7 +220,6 @@ const Multiplayer: React.FC = () => {
     newSocket.on('opponentDisconnected', (data: { matchId: string }) => {
       if (data.matchId !== matchId) return;
       setOpponentConnected(false);
-      // Wait for server decision to end game via gameEnded, don't auto-win here immediately
     });
 
     newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
@@ -238,7 +235,6 @@ const Multiplayer: React.FC = () => {
         setOpponentConnected(state.onlinePlayers.length > 1);
       }
       
-      // STORE PLAYER IDs
       if (state.players && Array.isArray(state.players)) {
         setPlayers(state.players);
         const op = state.players.find((p) => String(p.userId) !== String(userId));
@@ -246,34 +242,35 @@ const Multiplayer: React.FC = () => {
         else setOpponentDisconnectTime(null);
       }
 
+      // 1. Sync Moves & Time (Independent of lastMove check to be safe)
+      if (state.moves) setMoveHistory(state.moves);
+      if (state.p1Time !== undefined) setP1Time(state.p1Time);
+      if (state.p2Time !== undefined) setP2Time(state.p2Time);
+      if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
+      if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
+
+      // 2. Sync Board State (from lastMove or top-level if available)
       if (state.lastMove) {
         const m = state.lastMove;
         if (m.gameState) setGameState(m.gameState);
         if (m.hasMoved) setHasMoved(m.hasMoved);
         if (m.mandatoryMoveUsed !== undefined) setMandatoryMoveUsed(m.mandatoryMoveUsed);
         if (m.winner) setWinner(m.winner);
-
-        if (state.moves) setMoveHistory(state.moves);
-        
-        // FIX: Ensure Turn is set from Server
-        if (state.currentTurn) {
-          setCurrentTurn(state.currentTurn);
-          // Set phase based on server state
-          if (state.currentTurn === myRole) {
-            if (m.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
-            else setTurnPhase('select');
-          } else {
-            setTurnPhase('locked');
-          }
-        }
-
-        if (state.p1Time) setP1Time(state.p1Time);
-        if (state.p2Time) setP2Time(state.p2Time);
-        if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
-        if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
       }
-      
-      // FIX: Unlock the game after syncing
+
+      // 3. Sync Turn & Phase
+      if (state.currentTurn) {
+        setCurrentTurn(state.currentTurn);
+        if (state.currentTurn === myRole) {
+            // Restore correct phase
+            if (state.lastMove?.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+            else setTurnPhase('select');
+        } else {
+            setTurnPhase('locked');
+        }
+      }
+
+      // FIX: Unlock game interaction now that sync is complete
       setIsSyncing(false);
     });
 
@@ -285,7 +282,7 @@ const Multiplayer: React.FC = () => {
 
     return () => {
       clearInterval(heartbeatInterval);
-      newSocket.off('ratingUpdate'); // Clean up listener
+      newSocket.off('ratingUpdate');
       newSocket.disconnect();
     };
   }, [isGuest, matchId, myRole, userId]);
@@ -326,26 +323,23 @@ const Multiplayer: React.FC = () => {
   }, [myRole, isGuest]);
 
   useEffect(() => {
-    if (winner) return;
+    // FIX: Don't tick timer if syncing or winner exists
+    if (winner || isSyncing) return;
     const timer = setInterval(() => {
       if (currentTurn === 'player1') setP1Time(t => Math.max(0, t - 1));
       else setP2Time(t => Math.max(0, t - 1));
     }, 1000);
     return () => clearInterval(timer);
-  }, [currentTurn, winner]);
+  }, [currentTurn, winner, isSyncing]);
 
-  // Timeout Handling
   useEffect(() => {
     if (winner) return;
     const handleTimeout = (gameWinner: Winner) => {
       if (!gameWinner) return;
-      
       const isMyWin = gameWinner === myRole;
-      
       if (isMyWin && socket && matchId) {
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
-        
         socket.emit('gameEnd', { 
           matchId, 
           winner: gameWinner, 
@@ -357,16 +351,15 @@ const Multiplayer: React.FC = () => {
           gameHistory: moveHistory
         });
       }
-
       setWinner(gameWinner);
       setGameEndReason('timeout');
       setTurnPhase('locked');
     };
 
-    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2'); // I lost
-    else if (p1Time <= 0 && myRole === 'player2') handleTimeout('player2'); // I won
-    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1'); // I lost
-    else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1'); // I won
+    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2');
+    else if (p1Time <= 0 && myRole === 'player2') handleTimeout('player2');
+    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
+    else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1');
 
   }, [p1Time, p2Time, winner, myRole, matchId, socket, players, moveHistory, userId]);
 
@@ -410,7 +403,6 @@ const Multiplayer: React.FC = () => {
     const newHistory = [...moveHistory, newMove];
     let attacks: string[] = [];
 
-    // --- EXECUTE MOVE: Post-Move Check ---
     if (!isAdvanceMove) {
       if (turnPhase === 'action') {
         attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
@@ -475,7 +467,7 @@ const Multiplayer: React.FC = () => {
   }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]);
 
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
-    // FIX: Block interaction if still syncing from server
+    // FIX: Block interaction if syncing
     if (winner || turnPhase === 'locked' || isSyncing) return;
     if (currentTurn !== myRole) return;
 
@@ -512,7 +504,6 @@ const Multiplayer: React.FC = () => {
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isLifetimeFirstMove = !hasMoved[pieceId];
       const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
-      
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
 
       setValidMoves(moves);
@@ -538,7 +529,7 @@ const Multiplayer: React.FC = () => {
   };
 
   const handleAttackClick = (targetCoord: string) => {
-    // FIX: Block attack if still syncing
+    // FIX: Block interaction if syncing
     if (!activePiece || turnPhase === 'locked' || currentTurn !== myRole || isSyncing) return;
 
     const result = executeAttack(targetCoord, gameState, activePiece);
@@ -555,7 +546,6 @@ const Multiplayer: React.FC = () => {
     setCapturedByP1(newCapturedP1);
     setCapturedByP2(newCapturedP2);
 
-    // --- GAME END LOGIC ---
     if (result.winner) {
       setWinner(result.winner);
       setTurnPhase('locked');
@@ -563,7 +553,6 @@ const Multiplayer: React.FC = () => {
       if (socket && matchId) {
         const capturedName = PIECE_MOVEMENTS[result.capturedPieceId].name;
         const winCondition = capturedName.includes('Supremo') ? 'supremo_capture' : 'solitude';
-
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
 
@@ -750,7 +739,7 @@ const Multiplayer: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // FIX: Update Loading UI to show sync status
+  // FIX: Show loading state while syncing or fetching rules
   if (loadingRules || isSyncing) {
     return (
       <div className="flex w-full h-screen items-center justify-center bg-neutral-900 text-white flex-col gap-4">
