@@ -150,7 +150,13 @@ const SocialPage: React.FC = () => {
                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                 }).join(''));
                 const payload = JSON.parse(jsonPayload);
-                const userId = payload.user_id || payload.id;
+                // Standard JWT often uses 'sub', Supabase/custom might use 'user_id' or 'id'
+                const userId = payload.sub || payload.user_id || payload.id;
+
+                if (!userId) {
+                    console.error("Could not find user ID in token payload:", payload);
+                    return;
+                }
 
                 const link = `${window.location.origin}/social?action=add&id=${userId}`;
                 navigator.clipboard.writeText(link);
