@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import LoginModal from './loginmodal';
 import FriendsList from './profile/FriendsList';
-import { GameMode } from '../pages/game/gameSetup'; 
+import { GameMode } from '../pages/game/gameSetup';
 
 // --- TYPES ---
 type TimeControl = number;
@@ -17,6 +17,7 @@ type TabType = 'new' | 'history' | 'friends';
 interface RightPanelProps {
   gameModes?: GameMode[];
   isLoading?: boolean;
+  onlineCount?: number; // <--- Added prop
 }
 
 // --- MOCK DATA ---
@@ -27,7 +28,7 @@ const MOCK_HISTORY = [
   { id: 4, opponent: 'NewbieKing', result: 'win', type: 'Bullet', date: '2d ago' },
 ];
 
-const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = false }) => {
+const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = false, onlineCount = 0 }) => {
   const navigate = useNavigate();
   const [selectedTime, setSelectedTime] = useState<TimeControl>(600);
   const [activeTab, setActiveTab] = useState<TabType>('new');
@@ -84,11 +85,11 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
                 type={mode.title}
                 active={selectedTime === mode.duration_minutes * 60}
                 onClick={() => setSelectedTime((mode.duration_minutes * 60) as TimeControl)}
-                icon={<Clock size={18} />} 
+                icon={<Clock size={18} />}
               />
             ))
           )}
-          
+
           {/* Fallback if no modes found */}
           {!isLoading && gameModes.length === 0 && (
             <div className="col-span-3 text-center text-xs text-gray-500 py-4 border border-dashed border-white/10 rounded-xl">
@@ -185,7 +186,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
     </div>
   );
 
-const renderFriends = () => (
+  const renderFriends = () => (
     <div className="space-y-4">
       <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Friends Online</h2>
       <FriendsList limit={10} showInvite={true} selectedTime={selectedTime} />
@@ -240,7 +241,7 @@ const renderFriends = () => (
       <div className="bg-[#0f172a] p-4 border-t border-white/5 flex justify-between items-center text-[10px] md:text-xs text-white/30 font-bold tracking-wider">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#D63031] shadow-[0_0_8px_rgba(214,48,49,0.5)]"></span>
-          <span>12,402 ONLINE</span>
+          <span>{onlineCount.toLocaleString()} ONLINE</span>
         </div>
         <div className="flex items-center gap-1 opacity-50">
           <span>EOS CLUB</span>

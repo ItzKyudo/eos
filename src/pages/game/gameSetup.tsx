@@ -119,10 +119,6 @@ const GameSetup: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100 relative">
-      <div className="absolute top-4 right-4 z-50 bg-black/50 px-3 py-1.5 rounded-full text-xs font-mono text-green-400 border border-green-900/50 backdrop-blur-sm flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse box-shadow-[0_0_8px_rgba(74,222,128,0.5)]"></div>
-        {onlineCount} Online
-      </div>
       <Sidebar />
       <main className="flex-1 flex flex-col lg:flex-row h-screen overflow-hidden relative">
         <div className="flex-1 flex items-center justify-center bg-[#0f172a] p-4 lg:p-0 overflow-hidden relative z-10">
@@ -133,7 +129,7 @@ const GameSetup: React.FC = () => {
           </div>
         </div>
 
-        <RightPanel gameModes={gameModes} isLoading={loadingModes} />
+        <RightPanel gameModes={gameModes} isLoading={loadingModes} onlineCount={onlineCount} />
 
         {/* INCOMING CHALLENGE MODAL */}
         {incomingChallenge && modeDetails && (
