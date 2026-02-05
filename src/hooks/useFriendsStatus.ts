@@ -135,4 +135,3 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
 
     return { friends, loading, onlineCount, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection, refreshFriends: fetchFriends };
 };
-};

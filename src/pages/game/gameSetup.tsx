@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/sidebar';
 import RightPanel from '../../components/RightPanel';
-import { io } from 'socket.io-client';
+
 import { PIECES } from './mechanics/piecemovements';
 import { INITIAL_POSITIONS } from './mechanics/positions';
 import { useNavigate } from 'react-router-dom';
