@@ -28,13 +28,13 @@ interface MatchFoundDetail {
 
 const GameSetup: React.FC = () => {
   const navigate = useNavigate();
-  const [onlineCount, setOnlineCount] = useState<number>(0);
+  // onlineCount comes from useFriendsStatus now
 
   // Store DB Game Modes
   const [gameModes, setGameModes] = useState<GameMode[]>([]);
   const [loadingModes, setLoadingModes] = useState(true);
 
-  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ checkReconnectionOnConnect: true });
+  const { incomingChallenge, acceptChallenge, declineChallenge, onlineCount } = useFriendsStatus({ checkReconnectionOnConnect: true });
 
   // 1. Fetch Game Modes from DB
   useEffect(() => {
@@ -58,26 +58,8 @@ const GameSetup: React.FC = () => {
     fetchGameModes();
   }, []);
 
-  // --- SOCKET: Online Player Count ---
-  useEffect(() => {
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-    const socket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      reconnection: true
-    });
-
-    socket.on('connect', () => {
-      // Setup listener requests can be here if needed
-    });
-
-    socket.on('onlineUsers', (count: number) => {
-      setOnlineCount(count);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+  // Socket: Online Player Count (Consolidated in useFriendsStatus)
+  // No separate useEffect needed!
 
   // 2. Handle Match Found Navigation
   useEffect(() => {

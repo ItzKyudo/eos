@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 interface Friend {
     friendship_id: number;
-    user_id: number;
+    user_id: string | number; // Support UUIDs
     username: string;
     avatar_url?: string;
     status_message?: string;
@@ -13,6 +13,7 @@ interface Friend {
 export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconnectionOnConnect?: boolean } = { enableInvites: false, checkReconnectionOnConnect: false }) => {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
+    const [onlineCount, setOnlineCount] = useState(0);
     const socketRef = useRef<Socket | null>(null);
 
     const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
@@ -25,6 +26,7 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
         if (token) {
             const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
 
+            // Avoid creating multiple sockets if possible, but for now ensure clean disconnect
             const newSocket = io(serverUrl, {
                 auth: { token },
                 transports: ['websocket']
@@ -34,7 +36,7 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
 
             newSocket.on('connect', () => {
                 // Request initial online status
-                newSocket.emit('getOnlineFriends', (onlineIds: number[]) => {
+                newSocket.emit('getOnlineFriends', (onlineIds: (string | number)[]) => {
                     setFriends(prev => prev.map(f => ({
                         ...f,
                         isOnline: onlineIds.includes(f.user_id)
@@ -48,9 +50,14 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
                 }
             });
 
-            newSocket.on('friendStatusUpdate', ({ userId, isOnline }: { userId: number, isOnline: boolean }) => {
+            newSocket.on('onlineUsers', (count: number) => {
+                setOnlineCount(count);
+            });
+
+            newSocket.on('friendStatusUpdate', ({ userId, isOnline }: { userId: string | number, isOnline: boolean }) => {
                 setFriends(prev => prev.map(f =>
-                    f.user_id === userId ? { ...f, isOnline } : f
+                    // Ensure type-safe comparison (toString() just in case)
+                    String(f.user_id) === String(userId) ? { ...f, isOnline } : f
                 ));
             });
 
@@ -77,16 +84,16 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
         }
     }, [options.enableInvites]); // Re-run if option changes
 
-    const sendChallenge = (targetUserId: number, timeControl: number, challengerName: string) => {
+    const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string) => {
         socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });
     };
 
-    const acceptChallenge = (challengerId: number, timeControl: number) => {
+    const acceptChallenge = (challengerId: string | number, timeControl: number) => {
         socketRef.current?.emit('acceptChallenge', { challengerId, timeControl });
         setIncomingChallenge(null);
     };
 
-    const declineChallenge = (challengerId: number) => {
+    const declineChallenge = (challengerId: string | number) => {
         socketRef.current?.emit('declineChallenge', { challengerId });
         setIncomingChallenge(null);
     };
@@ -114,7 +121,8 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
             // Initialize with offline status
             const mappedFriends = (data.friends || []).map((f: any) => ({
                 ...f,
-                isOnline: false
+                isOnline: false,
+                user_id: f.user_id // Preserve ID type
             }));
 
             setFriends(mappedFriends);
@@ -125,6 +133,6 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
         }
     };
 
-    return { friends, loading, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection, refreshFriends: fetchFriends };
-
+    return { friends, loading, onlineCount, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection, refreshFriends: fetchFriends };
+};
 };
