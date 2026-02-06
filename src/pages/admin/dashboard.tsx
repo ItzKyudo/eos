@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { RevenueChart, UserGrowthChart, GameModeChart } from '../../components/admin/AnalyticsCharts';
 
 interface DashboardData {
   metrics: {
@@ -31,13 +32,19 @@ interface DashboardData {
     item_name: string;
     sold_count: number;
   }>;
+  analytics?: {
+    revenue_trend: Array<{ name: string; value: number }>;
+    user_growth: Array<{ name: string; value: number }>;
+    game_modes: Array<{ name: string; value: number }>;
+  };
 }
 
 const Dashboard = () => {
   const [data, setData] = useState<DashboardData>({
     metrics: { total_users: 0, total_games_played: 0, active_players: 0, total_revenue: 0 },
     recentGames: [],
-    topItems: []
+    topItems: [],
+    analytics: { revenue_trend: [], user_growth: [], game_modes: [] }
   });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -90,6 +97,8 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-500 mt-1">Overview of EOS performance</p>
         </div>
+
+        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <KPICard
             title="Total Players"
@@ -109,7 +118,6 @@ const Dashboard = () => {
             icon={<Wifi size={24} className="text-green-600" />}
             bgColor="bg-green-50"
           />
-          {/* Revenue Card: Displays Sum of total_amount */}
           <KPICard
             title="Total Revenue"
             value={`₱${Number(data.metrics.total_revenue).toLocaleString()}`}
@@ -117,6 +125,21 @@ const Dashboard = () => {
             bgColor="bg-orange-50"
           />
         </div>
+
+        {/* Analytics Charts Section */}
+        {data.analytics && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
+              <RevenueChart data={data.analytics.revenue_trend} />
+            </div>
+            <div>
+              <GameModeChart data={data.analytics.game_modes} />
+            </div>
+            <div className="lg:col-span-3">
+              <UserGrowthChart data={data.analytics.user_growth} />
+            </div>
+          </div>
+        )}
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -234,7 +257,14 @@ const Dashboard = () => {
 };
 
 // Helper Component for the Top Cards
-const KPICard = ({ title, value, icon, bgColor }: any) => (
+interface KPICardProps {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  bgColor: string;
+}
+
+const KPICard = ({ title, value, icon, bgColor }: KPICardProps) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
     <div>
       <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
