@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 
-import GameOverModal from '../components/GameOverModal';
+import MultiplayerGameResult from '../components/MultiplayerGameResult';
 
 // --- INTERFACES ---
 
@@ -824,20 +824,17 @@ const Multiplayer: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
-      <GameOverModal
-        isOpen={!!winner || !!ratingData}
+      <MultiplayerGameResult
+        isOpen={!!winner || (!!ratingData && !!ratingData.winnerId)}
         winner={winner}
-        currentUserId={userId || ''}
-        winnerId={ratingData?.winnerId || (winner === 'player1' ? (players[0]?.userId || null) : (players[1]?.userId || null))}
+        winnerId={ratingData?.winnerId || (winner === 'player1' ? (players.find(p => p.role === 'player1')?.userId || players[0]?.userId || null) : (players.find(p => p.role === 'player2')?.userId || players[1]?.userId || null))}
+        loserId={ratingData?.loserId || (winner === 'player1' ? (players.find(p => p.role === 'player2')?.userId || players[1]?.userId || null) : (players.find(p => p.role === 'player1')?.userId || players[0]?.userId || null))}
         winnerName={ratingData?.winnerId === userId ? myUsername : opponentUsername}
         loserName={ratingData?.loserId === userId ? myUsername : opponentUsername}
-        winnerRatingChange={ratingData?.change || 0}
-        loserRatingChange={-(ratingData?.change || 0)}
-        winnerNewRating={ratingData?.winnerNew || 0}
-        loserNewRating={ratingData?.loserNew || 0}
+        ratingChange={ratingData?.change || 0}
         reason={ratingData?.reason || gameEndReason || 'Game Over'}
-        score={ratingData?.score || 0}
-        onClose={() => setRatingData(null)}
+        onRestart={() => navigate('/game')}
+        onHome={() => navigate('/game')}
       />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
         {/* Removed Old Game Over Banner - now handled by Modal */}
