@@ -14,6 +14,7 @@ interface GameOverModalProps {
     winnerNewRating: number;
     loserNewRating: number;
     reason: string;
+    score: number;
     onClose: () => void;
 }
 
@@ -28,6 +29,7 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
     winnerNewRating,
     loserNewRating,
     reason,
+    score,
     onClose
 }) => {
     const navigate = useNavigate();
@@ -87,16 +89,22 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
                     </p>
 
                     {/* Stats Card */}
-                    <div className="w-full bg-white/5 rounded-2xl p-6 border border-white/10 mb-8 grid grid-cols-2 gap-4">
+                    <div className="w-full bg-white/5 rounded-2xl p-6 border border-white/10 mb-8 grid grid-cols-3 gap-4">
                         <div className="flex flex-col items-center border-r border-white/10">
                             <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">Rating Change</span>
-                            <span className={`text-3xl font-bold ${isWinner ? 'text-green-400' : 'text-red-400'}`}>
+                            <span className={`text-2xl font-bold ${isWinner ? 'text-green-400' : 'text-red-400'}`}>
                                 {ratingChange}
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center border-r border-white/10">
+                            <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">Final Score</span>
+                            <span className="text-2xl font-bold text-yellow-400">
+                                {score}
                             </span>
                         </div>
                         <div className="flex flex-col items-center">
                             <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">New Rating</span>
-                            <span className="text-3xl font-bold text-white">
+                            <span className="text-2xl font-bold text-white">
                                 {newRating}
                             </span>
                         </div>

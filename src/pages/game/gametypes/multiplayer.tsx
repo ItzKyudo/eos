@@ -130,6 +130,7 @@ const Multiplayer: React.FC = () => {
     winnerNew: number;
     loserNew: number;
     reason: string;
+    score?: number;
   } | null>(null);
 
   const perspective = myRole;
@@ -205,18 +206,27 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(false);
     });
 
-    newSocket.on('ratingUpdate', (data) => {
-      // Store rating data to show in modal instead of alert
-      setRatingData({
-        winnerId: data.winnerId,
-        loserId: data.loserId,
-        change: data.change,
-        winnerNew: data.winnerNew,
-        loserNew: data.loserNew,
-        reason: data.breakdown?.reason || 'Win'
-      });
+    newSocket.on('ratingUpdate', (data: {
+      winnerId: string;
+      loserId: string;
+      winnerNew: number;
+      loserNew: number;
+      change: number;
+      score?: number;
+      breakdown?: { reason: string; points: number };
+    }) => {
+      if (data.winnerId === userId || data.loserId === userId) {
+        setRatingData({
+          winnerId: data.winnerId,
+          loserId: data.loserId,
+          change: data.change,
+          winnerNew: data.winnerNew,
+          loserNew: data.loserNew,
+          reason: data.breakdown?.reason || 'Game Result',
+          score: data.score || data.change
+        });
+      }
     });
-
     newSocket.on('moveMade', (data: MoveData) => {
       if (data.move && data.playerId !== newSocket.id) {
         const move = data.move;
@@ -248,7 +258,7 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(false);
     });
 
-    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string }) => {
+    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string; score?: number }) => {
       if (matchId && data.matchId !== matchId) return;
       setWinner(data.winner);
       setGameEndReason(data.reason);
@@ -259,10 +269,11 @@ const Multiplayer: React.FC = () => {
         setRatingData(prev => prev ? prev : {
           winnerId: data.winnerId!,
           loserId: data.loserId!,
-          change: 0,
+          change: data.score || 0,
           winnerNew: 0,
           loserNew: 0,
-          reason: data.reason
+          reason: data.reason,
+          score: data.score
         });
       }
 
@@ -819,6 +830,7 @@ const Multiplayer: React.FC = () => {
         winnerNewRating={ratingData?.winnerNew || 0}
         loserNewRating={ratingData?.loserNew || 0}
         reason={ratingData?.reason || gameEndReason || 'Game Over'}
+        score={ratingData?.score || 0}
         onClose={() => setRatingData(null)}
       />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
