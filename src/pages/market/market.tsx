@@ -80,6 +80,9 @@ const MarketPage: React.FC = () => {
     const [isOrdersOpen, setIsOrdersOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null);
 
+    // Temp state for Receipt display after checkout (since cart is cleared)
+    const [lastOrderedItems, setLastOrderedItems] = useState<CartItem[]>([]);
+
     const API_BASE = "https://eos-server-jxy0.onrender.com/api/market";
     const USER_TOKEN = localStorage.getItem('token');
 
@@ -145,38 +148,39 @@ const MarketPage: React.FC = () => {
     const handlePlaceOrder = async () => {
         // Removed payment method validation as per request
 
-            try {
-                setIsSubmitting(true);
-                const payload = {
-                    items: cart.map(i => ({ item_id: i.item_id, quantity: i.cartQuantity })),
-                    recipient_name: recipientName,
-                    contact_no: contactNumber,
-                    payment_method: 'Manual / Facebook' // Default method
-                };
+        try {
+            setIsSubmitting(true);
+            const payload = {
+                items: cart.map(i => ({ item_id: i.item_id, quantity: i.cartQuantity })),
+                recipient_name: recipientName,
+                contact_no: contactNumber,
+                payment_method: 'Manual / Facebook' // Default method
+            };
 
-                const res = await fetch(`${API_BASE}/place-order`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${USER_TOKEN}`
-                    },
-                    body: JSON.stringify(payload)
-                });
+            const res = await fetch(`${API_BASE}/place-order`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${USER_TOKEN}`
+                },
+                body: JSON.stringify(payload)
+            });
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
 
-                setReceipt(data.receipt);
-                setCart([]);
-                localStorage.removeItem('eos_cart');
-                setCheckoutStep(4); // Success Step
+            setReceipt(data.receipt);
+            setLastOrderedItems(cart); // Save items for receipt display
+            setCart([]);
+            localStorage.removeItem('eos_cart');
+            setCheckoutStep(4); // Success Step
 
-            } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : String(err);
-                alert(`Error: ${msg}`);
-            } finally {
-                setIsSubmitting(false);
-            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            alert(`Error: ${msg}`);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const fetchOrders = async () => {
@@ -328,14 +332,15 @@ const MarketPage: React.FC = () => {
                         type="text"
                         className="w-full bg-[#262522] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#2c4dbd]"
                         value={recipientName}
-                        onChange={(e) => setRecipientName(e.target.value)}
+                        onChange={(e) => setRecipientName(e.target.value.slice(0, 11))}
                         placeholder="Full Name"
+                        maxLength={11}
                     />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact Number</label>
                     <input
-                        type="text"
+                        type="number"
                         className="w-full bg-[#262522] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#2c4dbd]"
                         value={contactNumber}
                         onChange={(e) => setContactNumber(e.target.value)}
@@ -384,18 +389,16 @@ const MarketPage: React.FC = () => {
                     </div>
                     <div className="flex items-start gap-3">
                         <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">3</span>
-                        <p className="text-xs text-gray-300">Send it to our Facebook page as proof of order.</p>
+                        <p className="text-xs text-gray-300">Send it to <a
+                            href="https://www.facebook.com/rodney.ebrole"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#2c4dbd] font-bold hover:underline"
+                        >
+                            Rodney Ebrole
+                        </a>.</p>
                     </div>
                 </div>
-
-                <a
-                    href="https://facebook.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#2c4dbd] font-bold text-sm hover:underline flex items-center gap-2"
-                >
-                    Visit our Facebook Page <ArrowRight size={14} />
-                </a>
             </div>
 
             <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
@@ -436,7 +439,7 @@ const MarketPage: React.FC = () => {
                                 <span>Price</span>
                             </div>
                             <div className="space-y-2">
-                                {cart.map((item) => {
+                                {lastOrderedItems.map((item) => {
                                     console.log('Rendering Cart Item:', item); // Debug log
                                     return (
                                         <div key={item.item_id} className="flex justify-between items-start">
