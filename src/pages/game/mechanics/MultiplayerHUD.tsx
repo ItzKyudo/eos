@@ -19,6 +19,8 @@ interface MultiplayerHUDProps {
     moves: MoveLog[];
     p1Time: number;
     p2Time: number;
+    p1Score: number;
+    p2Score: number;
     capturedByP1: PieceKey[];
     capturedByP2: PieceKey[];
   };
@@ -63,6 +65,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
   const myData = {
     role: myRole,
     time: isP1 ? gameState.p1Time : gameState.p2Time,
+    score: isP1 ? gameState.p1Score : gameState.p2Score,
     captures: isP1 ? gameState.capturedByP1 : gameState.capturedByP2,
     isMyTurn: gameState.currentTurn === myRole,
     color: isP1 ? 'text-green-400' : 'text-blue-400',
@@ -73,6 +76,7 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
   const opponentData = {
     role: opponentRole,
     time: isP1 ? gameState.p2Time : gameState.p1Time,
+    score: isP1 ? gameState.p2Score : gameState.p1Score,
     captures: isP1 ? gameState.capturedByP2 : gameState.capturedByP1,
     isTheirTurn: gameState.currentTurn !== myRole,
     color: isP1 ? 'text-blue-400' : 'text-green-400',
@@ -99,8 +103,13 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
           {opponentData.isTheirTurn && <span className="text-[9px] text-yellow-500 animate-pulse font-bold">THINKING...</span>}
         </div>
         <div className="flex items-end justify-between">
-          <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
-            {opponentData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3 opacity-70" alt="" /> : null))}
+          <div className="flex flex-col">
+            <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
+              {opponentData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3 opacity-70" alt="" /> : null))}
+            </div>
+            <div className="text-[10px] font-bold text-yellow-500 mt-1">
+              SCORE: {opponentData.score}
+            </div>
           </div>
           <div className="px-3 py-1 bg-neutral-800 rounded text-neutral-400 font-mono text-lg font-bold border border-neutral-700">
             {formatTime(opponentData.time)}
@@ -176,8 +185,13 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
         </div>
 
         <div className="flex items-end justify-between">
-          <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
-            {myData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3" alt="" /> : null))}
+          <div className="flex flex-col">
+            <div className="flex flex-wrap gap-0.5 w-24 min-h-[16px]">
+              {myData.captures.map((p, i) => (p in PIECES ? <img key={i} src={PIECES[p]} className="w-3 h-3" alt="" /> : null))}
+            </div>
+            <div className="text-[10px] font-bold text-yellow-400 mt-1">
+              SCORE: {myData.score}
+            </div>
           </div>
           <button
             onClick={onSwitchTurn}

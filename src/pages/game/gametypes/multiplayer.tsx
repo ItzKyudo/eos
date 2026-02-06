@@ -62,6 +62,8 @@ interface ServerGameState {
   currentTurn?: 'player1' | 'player2';
   p1Time?: number;
   p2Time?: number;
+  p1Score?: number;
+  p2Score?: number;
   capturedByP1?: PieceKey[];
   capturedByP2?: PieceKey[];
 }
@@ -111,6 +113,8 @@ const Multiplayer: React.FC = () => {
   const sideWidth = 'w-16';
   const [p1Time, setP1Time] = useState(initialTime);
   const [p2Time, setP2Time] = useState(initialTime);
+  const [p1Score, setP1Score] = useState(0);
+  const [p2Score, setP2Score] = useState(0);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
   const [showResignModal, setShowResignModal] = useState(false);
   const [p1Rating, setP1Rating] = useState<string>(myRole === 'player1' ? myRating : opponentRating);
@@ -303,6 +307,8 @@ const Multiplayer: React.FC = () => {
       if (state.moves) setMoveHistory(state.moves);
       if (state.p1Time !== undefined) setP1Time(state.p1Time);
       if (state.p2Time !== undefined) setP2Time(state.p2Time);
+      if (state.p1Score !== undefined) setP1Score(state.p1Score);
+      if (state.p2Score !== undefined) setP2Score(state.p2Score);
       if (state.capturedByP1) setCapturedByP1(state.capturedByP1);
       if (state.capturedByP2) setCapturedByP2(state.capturedByP2);
 
@@ -947,7 +953,16 @@ const Multiplayer: React.FC = () => {
 
       <MultiplayerHUD
         myRole={myRole}
-        gameState={{ currentTurn, moves: moveHistory, p1Time, p2Time, capturedByP1, capturedByP2 }}
+        gameState={{
+          currentTurn,
+          moves: moveHistory,
+          p1Time,
+          p2Time,
+          p1Score,
+          p2Score,
+          capturedByP1,
+          capturedByP2
+        }}
         playerDetails={{
           myUsername,
           myRating: myRole === 'player1' ? p1Rating : p2Rating,
