@@ -16,6 +16,7 @@ const Profile: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAds, setShowAds] = useState(true);
@@ -56,7 +57,32 @@ const Profile: React.FC = () => {
       }
     };
 
+    const fetchHistory = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=20', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Format relative time if needed, or do it in component
+          // The component expects 'date' string. Let's process it a bit if needed.
+          // Assuming db returns ISO string.
+          const processed = data.map((g: any) => ({
+            ...g,
+            date: new Date(g.date).toLocaleDateString() // Simple format
+          }));
+          setGameHistory(processed);
+        }
+      } catch (e) {
+        console.error("History fetch error", e);
+      }
+    };
+
     fetchProfile();
+    fetchHistory();
   }, [navigate, handleLogout]);
 
   const handleUpdateStatus = async (newStatus: string) => {
@@ -109,7 +135,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  const gameHistory: GameHistoryEntry[] = [];
+  // const gameHistory: GameHistoryEntry[] = []; // Removed mock
   // Friends list fetched via FriendsList component now
 
   if (loading) return <div className="min-h-screen bg-[#0f172a] flex items-center justify-center text-white">LOADING...</div>;

@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 
+import GameOverModal from '../components/GameOverModal';
+
 // --- INTERFACES ---
 
 interface GameSyncData {
@@ -21,6 +23,8 @@ interface GameSyncData {
   turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
   hasMoved: Record<string, boolean>;
   mandatoryMoveUsed: boolean;
+  p1Time?: number;
+  p2Time?: number;
 }
 
 interface MoveData {
@@ -45,7 +49,14 @@ interface OnlinePlayer {
 
 interface ServerGameState {
   onlinePlayers?: OnlinePlayer[];
-  players?: { userId: string; disconnectedAt: number | null }[];
+  players?: {
+    userId: string;
+    username: string;
+    rating?: number;
+    role?: 'player1' | 'player2';
+    isGuest?: boolean;
+    disconnectedAt: number | null
+  }[];
   lastMove?: Partial<GameSyncData>;
   moves?: MoveLog[];
   currentTurn?: 'player1' | 'player2';
@@ -102,6 +113,8 @@ const Multiplayer: React.FC = () => {
   const [p2Time, setP2Time] = useState(initialTime);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
   const [showResignModal, setShowResignModal] = useState(false);
+  const [p1Rating, setP1Rating] = useState<string>(myRole === 'player1' ? myRating : opponentRating);
+  const [p2Rating, setP2Rating] = useState<string>(myRole === 'player2' ? myRating : opponentRating);
 
   const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
   const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
@@ -109,6 +122,15 @@ const Multiplayer: React.FC = () => {
 
   // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
+
+  const [ratingData, setRatingData] = useState<{
+    winnerId: string;
+    loserId: string;
+    change: number;
+    winnerNew: number;
+    loserNew: number;
+    reason: string;
+  } | null>(null);
 
   const perspective = myRole;
 
@@ -184,11 +206,15 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('ratingUpdate', (data) => {
-      if (data.winnerId === userId) {
-        alert(`VICTORY! +${data.change} Points\nNew Rating: ${data.winnerNew}\n\nReason: ${data.breakdown?.reason || 'Win'}`);
-      } else if (data.loserId === userId) {
-        alert(`DEFEAT. -${data.change} Points\nNew Rating: ${data.loserNew}`);
-      }
+      // Store rating data to show in modal instead of alert
+      setRatingData({
+        winnerId: data.winnerId,
+        loserId: data.loserId,
+        change: data.change,
+        winnerNew: data.winnerNew,
+        loserNew: data.loserNew,
+        reason: data.breakdown?.reason || 'Win'
+      });
     });
 
     newSocket.on('moveMade', (data: MoveData) => {
@@ -222,11 +248,24 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(false);
     });
 
-    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string }) => {
+    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string }) => {
       if (matchId && data.matchId !== matchId) return;
       setWinner(data.winner);
       setGameEndReason(data.reason);
       setTurnPhase('locked');
+
+      // If server provides IDs in gameEnded, use them as backup if ratingUpdate hasn't arrived
+      if (data.winnerId && data.loserId) {
+        setRatingData(prev => prev ? prev : {
+          winnerId: data.winnerId!,
+          loserId: data.loserId!,
+          change: 0,
+          winnerNew: 0,
+          loserNew: 0,
+          reason: data.reason
+        });
+      }
+
       if (data.reason === 'opponent_disconnect') setOpponentConnected(false);
     });
 
@@ -240,6 +279,13 @@ const Multiplayer: React.FC = () => {
         const op = state.players.find((p) => String(p.userId) !== String(userId));
         if (op && op.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
         else setOpponentDisconnectTime(null);
+
+        // Update ratings from server
+        const player1Obj = state.players.find(p => p.role === 'player1') || state.players[0];
+        const player2Obj = state.players.find(p => p.role === 'player2') || state.players[1];
+
+        if (player1Obj?.rating) setP1Rating(String(player1Obj.rating));
+        if (player2Obj?.rating) setP2Rating(String(player2Obj.rating));
       }
 
       // 1. Sync Moves & Time (Independent of lastMove check to be safe)
@@ -440,7 +486,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: nextPhase,
       hasMoved: newHasMoved,
-      mandatoryMoveUsed: true
+      mandatoryMoveUsed: true,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate]);
 
@@ -599,7 +647,9 @@ const Multiplayer: React.FC = () => {
         winner: result.winner,
         turnPhase: 'locked',
         hasMoved: hasMoved,
-        mandatoryMoveUsed: mandatoryMoveUsed
+        mandatoryMoveUsed: mandatoryMoveUsed,
+        p1Time: p1Time,
+        p2Time: p2Time
       });
       return;
     }
@@ -645,7 +695,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: nextPhase,
       hasMoved: hasMoved,
-      mandatoryMoveUsed: mandatoryMoveUsed
+      mandatoryMoveUsed: mandatoryMoveUsed,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   };
 
@@ -669,7 +721,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: 'select',
       hasMoved: hasMoved,
-      mandatoryMoveUsed: false
+      mandatoryMoveUsed: false,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   };
 
@@ -753,14 +807,29 @@ const Multiplayer: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
+      <GameOverModal
+        isOpen={!!winner || !!ratingData}
+        winner={winner}
+        currentUserId={userId || ''}
+        winnerId={ratingData?.winnerId || (winner === 'player1' ? (players[0]?.userId || null) : (players[1]?.userId || null))}
+        winnerName={ratingData?.winnerId === userId ? myUsername : opponentUsername}
+        loserName={ratingData?.loserId === userId ? myUsername : opponentUsername}
+        winnerRatingChange={ratingData?.change || 0}
+        loserRatingChange={-(ratingData?.change || 0)}
+        winnerNewRating={ratingData?.winnerNew || 0}
+        loserNewRating={ratingData?.loserNew || 0}
+        reason={ratingData?.reason || gameEndReason || 'Game Over'}
+        onClose={() => setRatingData(null)}
+      />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-        {winner && (
+        {/* Removed Old Game Over Banner - now handled by Modal */}
+        {/* {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
             GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
             {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
             {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
           </div>
-        )}
+        )} */}
 
         {isDragging && activePiece && activePiece in PIECES && (
           <div ref={ghostRef} className="fixed pointer-events-none z-100" style={{ left: initialDragPos.x, top: initialDragPos.y, transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' }}>
@@ -867,7 +936,14 @@ const Multiplayer: React.FC = () => {
       <MultiplayerHUD
         myRole={myRole}
         gameState={{ currentTurn, moves: moveHistory, p1Time, p2Time, capturedByP1, capturedByP2 }}
-        playerDetails={{ myUsername, myRating, opponentUsername, opponentRating, opponentConnected, disconnectTimer: disconnectTimerStr }}
+        playerDetails={{
+          myUsername,
+          myRating: myRole === 'player1' ? p1Rating : p2Rating,
+          opponentUsername,
+          opponentRating: myRole === 'player1' ? p2Rating : p1Rating,
+          opponentConnected,
+          disconnectTimer: disconnectTimerStr
+        }}
         onSwitchTurn={handleSwitchTurn}
         onResign={() => winner ? navigate('/') : setShowResignModal(true)}
         canSwitchTurn={(turnPhase === 'locked' || turnPhase === 'mandatory_move') && currentTurn === myRole}
@@ -881,7 +957,11 @@ const Multiplayer: React.FC = () => {
             <p className="text-neutral-400 mb-6 text-sm">Are you sure you want to resign? You will forfeit the match and this cannot be undone.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowResignModal(false)} className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700/50 rounded-lg transition-colors">Cancel</button>
-              <button onClick={() => { if (socket && matchId) socket.emit('leaveGame', { matchId }); setShowResignModal(false); navigate('/'); }} className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105">Confirm Resignation</button>
+              <button onClick={() => {
+                if (socket && matchId) socket.emit('leaveGame', { matchId });
+                setShowResignModal(false);
+                // Removed navigate('/') to let the player see the game over modal
+              }} className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105">Confirm Resignation</button>
             </div>
           </div>
         </div>

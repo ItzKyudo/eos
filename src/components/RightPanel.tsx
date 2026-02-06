@@ -21,18 +21,44 @@ interface RightPanelProps {
 }
 
 // --- MOCK DATA ---
-const MOCK_HISTORY = [
-  { id: 1, opponent: 'GrandMaster_01', result: 'win', type: 'Rapid', date: '2h ago' },
-  { id: 2, opponent: 'PinoyChessWizard', result: 'loss', type: 'Blitz', date: '5h ago' },
-  { id: 3, opponent: 'EosPlayer_99', result: 'draw', type: 'Rapid', date: '1d ago' },
-  { id: 4, opponent: 'NewbieKing', result: 'win', type: 'Bullet', date: '2d ago' },
-];
+// REMOVED MOCK DATA
+// const MOCK_HISTORY = [...]
 
 const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = false, onlineCount = 0 }) => {
   const navigate = useNavigate();
   const [selectedTime, setSelectedTime] = useState<TimeControl>(600);
   const [activeTab, setActiveTab] = useState<TabType>('new');
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      const fetchHistory = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        try {
+          const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=5', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // Simple efficient formatter
+            const now = new Date();
+            const processed = data.map((g: any) => {
+              const d = new Date(g.date);
+              const diffHrs = Math.floor((now.getTime() - d.getTime()) / 3600000);
+              const dateStr = diffHrs < 24 ? `${diffHrs}h ago` : diffHrs < 48 ? '1d ago' : d.toLocaleDateString();
+              return { ...g, date: dateStr, type: g.gameType };
+            });
+            setHistory(processed);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchHistory();
+    }
+  }, [activeTab]);
   useEffect(() => {
     if (!isLoading && gameModes.length > 0) {
       const modeExists = gameModes.some(m => m.duration_minutes * 60 === selectedTime);
@@ -159,7 +185,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
     <div className="space-y-4">
       <h2 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Recent Matches</h2>
       <div className="flex flex-col gap-2">
-        {MOCK_HISTORY.map((game) => (
+        {history.length === 0 ? <div className="text-center text-gray-600 text-xs py-4">No recent games</div> : history.map((game) => (
           <div key={game.id} className="bg-[#0f172a] p-3 rounded-xl border border-white/5 flex items-center justify-between group hover:border-white/10 transition-colors">
             <div className="flex items-center gap-3">
               <div className={`
