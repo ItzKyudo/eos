@@ -24,7 +24,7 @@ const Profile: React.FC = () => {
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    navigate('/login');
+    navigate('/');
   }, [navigate]);
 
 
