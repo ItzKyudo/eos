@@ -21,6 +21,8 @@ interface GameSyncData {
   turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
   hasMoved: Record<string, boolean>;
   mandatoryMoveUsed: boolean;
+  p1Time?: number;
+  p2Time?: number;
 }
 
 interface MoveData {
@@ -440,7 +442,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: nextPhase,
       hasMoved: newHasMoved,
-      mandatoryMoveUsed: true
+      mandatoryMoveUsed: true,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate]);
 
@@ -599,7 +603,9 @@ const Multiplayer: React.FC = () => {
         winner: result.winner,
         turnPhase: 'locked',
         hasMoved: hasMoved,
-        mandatoryMoveUsed: mandatoryMoveUsed
+        mandatoryMoveUsed: mandatoryMoveUsed,
+        p1Time: p1Time,
+        p2Time: p2Time
       });
       return;
     }
@@ -645,7 +651,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: nextPhase,
       hasMoved: hasMoved,
-      mandatoryMoveUsed: mandatoryMoveUsed
+      mandatoryMoveUsed: mandatoryMoveUsed,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   };
 
@@ -669,7 +677,9 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: 'select',
       hasMoved: hasMoved,
-      mandatoryMoveUsed: false
+      mandatoryMoveUsed: false,
+      p1Time: p1Time,
+      p2Time: p2Time
     });
   };
 
