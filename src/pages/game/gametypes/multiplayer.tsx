@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 
+import GameOverModal from '../components/GameOverModal';
+
 // --- INTERFACES ---
 
 interface GameSyncData {
@@ -112,6 +114,15 @@ const Multiplayer: React.FC = () => {
   // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
 
+  const [ratingData, setRatingData] = useState<{
+    winnerId: string;
+    loserId: string;
+    change: number;
+    winnerNew: number;
+    loserNew: number;
+    reason: string;
+  } | null>(null);
+
   const perspective = myRole;
 
   useEffect(() => {
@@ -186,11 +197,15 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('ratingUpdate', (data) => {
-      if (data.winnerId === userId) {
-        alert(`VICTORY! +${data.change} Points\nNew Rating: ${data.winnerNew}\n\nReason: ${data.breakdown?.reason || 'Win'}`);
-      } else if (data.loserId === userId) {
-        alert(`DEFEAT. -${data.change} Points\nNew Rating: ${data.loserNew}`);
-      }
+      // Store rating data to show in modal instead of alert
+      setRatingData({
+        winnerId: data.winnerId,
+        loserId: data.loserId,
+        change: data.change,
+        winnerNew: data.winnerNew,
+        loserNew: data.loserNew,
+        reason: data.breakdown?.reason || 'Win'
+      });
     });
 
     newSocket.on('moveMade', (data: MoveData) => {
@@ -763,14 +778,29 @@ const Multiplayer: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
+      <GameOverModal
+        isOpen={!!ratingData}
+        winner={winner}
+        currentUserId={userId || ''}
+        winnerId={ratingData?.winnerId || null}
+        winnerName={ratingData?.winnerId === userId ? myUsername : opponentUsername}
+        loserName={ratingData?.loserId === userId ? myUsername : opponentUsername}
+        winnerRatingChange={ratingData?.change || 0}
+        loserRatingChange={-(ratingData?.change || 0)} // Assuming symmetric for now, or derive from backend if available
+        winnerNewRating={ratingData?.winnerNew || 0}
+        loserNewRating={ratingData?.loserNew || 0}
+        reason={ratingData?.reason || gameEndReason || 'Game Over'}
+        onClose={() => setRatingData(null)}
+      />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-        {winner && (
+        {/* Removed Old Game Over Banner - now handled by Modal */}
+        {/* {winner && (
           <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
             GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
             {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
             {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
           </div>
-        )}
+        )} */}
 
         {isDragging && activePiece && activePiece in PIECES && (
           <div ref={ghostRef} className="fixed pointer-events-none z-100" style={{ left: initialDragPos.x, top: initialDragPos.y, transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' }}>
