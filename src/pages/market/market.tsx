@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../../components/sidebar';
-import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, CreditCard, Wallet, Truck, ChevronRight, History, ScrollText, Printer, Download } from "lucide-react";
+import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, Wallet, Truck, ChevronRight, History, ScrollText, Download } from "lucide-react";
 import html2canvas from 'html2canvas';
 
 interface MarketItem {
@@ -71,12 +71,6 @@ const MarketPage: React.FC = () => {
     // Checkout Form Data
     const [recipientName, setRecipientName] = useState("");
     const [contactNumber, setContactNumber] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState<string>(""); // 'card', 'gcash', 'maya'
-
-    // Card Mock Data
-    const [cardNumber, setCardNumber] = useState("");
-    const [cardExpiry, setCardExpiry] = useState("");
-    const [cardCVC, setCardCVC] = useState("");
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -149,44 +143,40 @@ const MarketPage: React.FC = () => {
     };
 
     const handlePlaceOrder = async () => {
-        if (!paymentMethod) { alert("Please select a payment method."); return; }
+        // Removed payment method validation as per request
 
-        // Mock Validation for Card
-        if (paymentMethod === 'card' && (!cardNumber || !cardExpiry || !cardCVC)) {
-            alert("Please enter valid card details."); return;
-        }
+            try {
+                setIsSubmitting(true);
+                const payload = {
+                    items: cart.map(i => ({ item_id: i.item_id, quantity: i.cartQuantity })),
+                    recipient_name: recipientName,
+                    contact_no: contactNumber,
+                    payment_method: 'Manual / Facebook' // Default method
+                };
 
-        try {
-            setIsSubmitting(true);
-            const payload = {
-                items: cart.map(i => ({ item_id: i.item_id, quantity: i.cartQuantity })),
-                recipient_name: recipientName,
-                contact_no: contactNumber,
-                payment_method: paymentMethod
-            };
+                const res = await fetch(`${API_BASE}/place-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${USER_TOKEN}`
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-            const res = await fetch(`${API_BASE}/place-order`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${USER_TOKEN}`
-                },
-                body: JSON.stringify(payload)
-            });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message);
+                setReceipt(data.receipt);
+                setCart([]);
+                localStorage.removeItem('eos_cart');
+                setCheckoutStep(4); // Success Step
 
-            setReceipt(data.receipt);
-            setCart([]);
-            localStorage.removeItem('eos_cart');
-            setCheckoutStep(4); // Success Step (or just show receipt modal)
-
-        } catch (err: any) {
-            alert(`Error: ${err.message}`);
-        } finally {
-            setIsSubmitting(false);
-        }
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                alert(`Error: ${msg}`);
+            } finally {
+                setIsSubmitting(false);
+            }
     };
 
     const fetchOrders = async () => {
@@ -207,25 +197,72 @@ const MarketPage: React.FC = () => {
 
 
     // --- ACTIONS ---
-    const handlePrint = () => {
-        window.print();
-    };
 
     const handleDownloadImage = async () => {
         if (!receiptRef.current) return;
         try {
-            const canvas = await html2canvas(receiptRef.current, {
-                backgroundColor: '#1a1917',
-                scale: 2
-            } as any);
+            // Clone the element to avoid interference from modal animations/transforms
+            const clone = receiptRef.current.cloneNode(true) as HTMLElement;
+
+            // Style the clone to look exactly like the print version (white background, black text, etc.)
+            clone.style.position = 'fixed';
+            clone.style.top = '-9999px';
+            clone.style.left = '0';
+            clone.style.width = '400px'; // Fixed width for consistent image
+            clone.style.minHeight = 'auto'; // Reset height
+            clone.style.height = 'auto';
+            clone.style.backgroundColor = '#ffffff';
+            clone.style.color = '#000000';
+            clone.style.fontFamily = "'Courier New', Courier, monospace";
+            clone.style.padding = '20px';
+            clone.style.borderRadius = '0';
+            clone.style.zIndex = '9999';
+            clone.style.overflow = 'visible';
+            clone.style.transform = 'none';
+
+            // Sanitize colors for html2canvas (remove incompatible oklch/lab colors)
+            const allElements = clone.querySelectorAll('*');
+            allElements.forEach((el) => {
+                const htmlEl = el as HTMLElement;
+                // aggressive reset
+                htmlEl.style.color = '#000000';
+                htmlEl.style.textShadow = 'none';
+                htmlEl.style.opacity = '1';
+
+                // If it has borders, ensure they are black
+                if (getComputedStyle(htmlEl).borderColor !== 'rgba(0, 0, 0, 0)') {
+                    htmlEl.style.borderColor = '#000000';
+                }
+
+                // Force transparent/white background to avoid calculated oklch values
+                // Only if it's not the main container
+                if (htmlEl !== clone) {
+                    htmlEl.style.backgroundColor = 'transparent';
+                }
+            });
+            // Ensure main container is white
+            clone.style.backgroundColor = '#ffffff';
+
+            document.body.appendChild(clone);
+
+            const canvas = await html2canvas(clone, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            });
+
+            document.body.removeChild(clone);
+
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.href = dataUrl;
             link.download = `Receipt-${receipt?.receipt_number || selectedOrder?.receipt_no || 'EOS'}.png`;
             link.click();
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Failed to save receipt image", err);
-            alert("Failed to save image.");
+            const msg = err instanceof Error ? err.message : String(err);
+            alert(`Failed to save image: ${msg}`);
         }
     };
 
@@ -309,7 +346,7 @@ const MarketPage: React.FC = () => {
 
             <div className="mt-6 pt-6 border-t border-white/10">
                 <button onClick={handleNextStep} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
-                    Proceed to Payment <ArrowRight size={18} />
+                    Proceed to Confirmation <ArrowRight size={18} />
                 </button>
             </div>
         </div>
@@ -320,66 +357,50 @@ const MarketPage: React.FC = () => {
             <div className="flex items-center gap-2 mb-6">
                 <button onClick={() => setCheckoutStep(2)} className="text-gray-400 hover:text-white"><ChevronRight size={20} className="rotate-180" /></button>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Wallet className="text-[#e63e3e]" /> Payment
+                    <Wallet className="text-[#e63e3e]" /> Confirmation
                 </h3>
             </div>
 
-            <div className="space-y-4 flex-1 overflow-y-auto pr-2">
-                <p className="text-sm text-gray-400 mb-4">Select a payment method:</p>
+            <div className="flex-1 overflow-y-auto pr-2 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="w-20 h-20 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center">
+                    <CheckCircle size={40} />
+                </div>
 
-                {/* GCash */}
-                <label className={`block p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'gcash' ? 'bg-[#2c4dbd]/10 border-[#2c4dbd]' : 'bg-[#262522] border-white/5 hover:border-white/20'}`}>
-                    <div className="flex items-center gap-3">
-                        <input type="radio" name="payment" className="hidden" checked={paymentMethod === 'gcash'} onChange={() => setPaymentMethod('gcash')} />
-                        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">GCash</div>
-                        <div>
-                            <div className="font-bold text-white">GCash</div>
-                            <div className="text-xs text-gray-500">Scan QR or Login</div>
-                        </div>
-                        {paymentMethod === 'gcash' && <CheckCircle className="ml-auto text-[#2c4dbd]" size={20} />}
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-2">Almost There!</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">
+                        We do not process payments on the website. To complete your order:
+                    </p>
+                </div>
+
+                <div className="bg-[#262522] p-4 rounded-xl border border-white/5 w-full text-left space-y-3">
+                    <div className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">1</span>
+                        <p className="text-xs text-gray-300">Click <span className="text-white font-bold">"Place Order"</span> below to generate your receipt.</p>
                     </div>
-                </label>
-
-                {/* PayMaya */}
-                <label className={`block p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'maya' ? 'bg-[#2c4dbd]/10 border-[#2c4dbd]' : 'bg-[#262522] border-white/5 hover:border-white/20'}`}>
-                    <div className="flex items-center gap-3">
-                        <input type="radio" name="payment" className="hidden" checked={paymentMethod === 'maya'} onChange={() => setPaymentMethod('maya')} />
-                        <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center text-white font-bold text-xs">Maya</div>
-                        <div>
-                            <div className="font-bold text-white">Maya</div>
-                            <div className="text-xs text-gray-500">Wallet / Bank</div>
-                        </div>
-                        {paymentMethod === 'maya' && <CheckCircle className="ml-auto text-[#2c4dbd]" size={20} />}
+                    <div className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">2</span>
+                        <p className="text-xs text-gray-300">Save/Screenshot your receipt.</p>
                     </div>
-                </label>
-
-                {/* Credit Card */}
-                <label className={`block p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'card' ? 'bg-[#2c4dbd]/10 border-[#2c4dbd]' : 'bg-[#262522] border-white/5 hover:border-white/20'}`}>
-                    <div className="flex items-center gap-3 mb-2">
-                        <input type="radio" name="payment" className="hidden" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} />
-                        <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center text-white"><CreditCard size={20} /></div>
-                        <div>
-                            <div className="font-bold text-white">Credit / Debit Card</div>
-                            <div className="text-xs text-gray-500">Visa, Mastercard</div>
-                        </div>
-                        {paymentMethod === 'card' && <CheckCircle className="ml-auto text-[#2c4dbd]" size={20} />}
+                    <div className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">3</span>
+                        <p className="text-xs text-gray-300">Send it to our Facebook page as proof of order.</p>
                     </div>
+                </div>
 
-                    {paymentMethod === 'card' && (
-                        <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-in fade-in">
-                            <input type="text" placeholder="Card Number" className="w-full bg-[#1a1917] border border-white/10 rounded-lg p-3 text-white text-sm outline-none focus:border-[#2c4dbd]" value={cardNumber} onChange={e => setCardNumber(e.target.value)} />
-                            <div className="grid grid-cols-2 gap-3">
-                                <input type="text" placeholder="MM/YY" className="w-full bg-[#1a1917] border border-white/10 rounded-lg p-3 text-white text-sm outline-none focus:border-[#2c4dbd]" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} />
-                                <input type="text" placeholder="CVC" className="w-full bg-[#1a1917] border border-white/10 rounded-lg p-3 text-white text-sm outline-none focus:border-[#2c4dbd]" value={cardCVC} onChange={e => setCardCVC(e.target.value)} />
-                            </div>
-                        </div>
-                    )}
-                </label>
+                <a
+                    href="https://facebook.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#2c4dbd] font-bold text-sm hover:underline flex items-center gap-2"
+                >
+                    Visit our Facebook Page <ArrowRight size={14} />
+                </a>
             </div>
 
             <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-400">Total to Pay</span>
+                    <span className="text-gray-400">Total Due</span>
                     <span className="text-xl font-black text-white">₱{cartTotal.toLocaleString()}</span>
                 </div>
                 <button
@@ -387,7 +408,7 @@ const MarketPage: React.FC = () => {
                     disabled={isSubmitting}
                     className="w-full bg-gradient-to-r from-[#2c4dbd] to-[#e63e3e] hover:brightness-110 text-white py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
-                    {isSubmitting ? 'Processing...' : `Pay Now ₱${cartTotal.toLocaleString()}`}
+                    {isSubmitting ? 'Processing...' : `Place Order ₱${cartTotal.toLocaleString()}`}
                 </button>
             </div>
         </div>
@@ -397,27 +418,50 @@ const MarketPage: React.FC = () => {
         if (!receipt) return null;
         return (
             <div className="flex flex-col h-full animate-in zoom-in-95 duration-300 items-center justify-center text-center p-4">
-                <div ref={receiptRef} className="w-full bg-[#1a1917] p-4 rounded-xl">
-                    <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-green-500/20 mx-auto">
-                        <CheckCircle size={40} className="text-white" />
-                    </div>
-                    <h2 className="text-2xl font-black text-white mb-2">Order Confirmed!</h2>
-                    <p className="text-gray-400 text-sm mb-8">Thank you for your purchase.</p>
+                <div ref={receiptRef} className="w-full bg-[#1a1917] p-4 rounded-xl printable-receipt">
+                    <div className="font-mono text-sm text-left space-y-4 text-gray-300 w-full max-w-[300px] mx-auto">
+                        <div className="text-center mb-6 text-white text-base">
+                            <h2 className="text-2xl font-bold uppercase tracking-widest mb-1">EOS</h2>
+                            <p className="text-xs">{receipt.date}</p>
+                        </div>
 
-                    <div className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-3 mb-6">
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Receipt No.</span> <span className="text-white font-mono">{receipt.receipt_number}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{receipt.date}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Method</span> <span className="text-white uppercase">{receipt.payment_method || paymentMethod}</span></div>
-                        <div className="flex justify-between text-sm border-t border-white/10 pt-3 mt-3"><span className="text-gray-500 font-bold">Total Paid</span> <span className="text-[#2c4dbd] font-black">₱{receipt.total.toLocaleString()}</span></div>
+                        <div className="space-y-1 pb-4">
+                            <div className="flex gap-2"><span className="w-24 shrink-0">Order No.</span> <span>#{receipt.receipt_number}</span></div>
+                            <div className="flex gap-2"><span className="w-24 shrink-0">Name</span> <span>{receipt.recipient_name}</span></div>
+                        </div>
+
+                        <div className="pt-2 border-t border-dashed border-gray-600">
+                            <div className="flex justify-between mb-2 text-xs uppercase font-bold text-gray-500">
+                                <span>Items</span>
+                                <span>Price</span>
+                            </div>
+                            <div className="space-y-2">
+                                {cart.map((item) => {
+                                    console.log('Rendering Cart Item:', item); // Debug log
+                                    return (
+                                        <div key={item.item_id} className="flex justify-between items-start">
+                                            <div className="flex-1 pr-4">
+                                                <span>{item.item_name || "Unknown Item"}</span>
+                                            </div>
+                                            <span>{(item.price * item.cartQuantity).toLocaleString()}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="pt-4 mt-2 border-t border-dashed border-gray-600">
+                            <div className="flex justify-between text-lg font-bold text-white uppercase">
+                                <span>Total Amount:</span>
+                                <span>₱{receipt.total.toLocaleString()}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div className="flex gap-2 w-full mb-4">
-                    <button onClick={handlePrint} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
-                        <Printer size={16} /> Print
-                    </button>
                     <button onClick={handleDownloadImage} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
-                        <Download size={16} /> Save
+                        <Download size={16} /> Save Receipt
                     </button>
                 </div>
 
@@ -428,6 +472,51 @@ const MarketPage: React.FC = () => {
 
     return (
         <div className="flex min-h-screen bg-[#1a1917] text-[#e0e0e0] font-sans overflow-x-hidden">
+            <style>{`
+                @media print {
+                    /* Only hide the body itself to preserve layout context, but hide pixels */
+                    body {
+                        visibility: hidden;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    
+                    /* Reset specific containers if needed to ensure receipt is found? 
+                       Actually, if body is visibility:hidden, children are hidden too unless explicitly visible. 
+                    */
+
+                    /* The receipt MUST be visible */
+                    .printable-receipt {
+                        visibility: visible !important;
+                        position: fixed !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        margin: 0 !important;
+                        padding: 20px !important;
+                        background: white !important;
+                        color: black !important;
+                        font-family: 'Courier New', Courier, monospace !important;
+                        z-index: 999999 !important;
+                        box-shadow: none !important;
+                        overflow: visible !important;
+                    }
+
+                    /* Recursively ensure all receipt children are visible */
+                    .printable-receipt * {
+                        visibility: visible !important;
+                        color: black !important;
+                        background-color: transparent !important;
+                    }
+
+                    /* Hide non-print explicit items */
+                    .no-print {
+                        display: none !important;
+                    }
+                }
+            `}</style>
+
             <Sidebar />
 
             <main className="flex-1 flex flex-col p-6 md:p-12 relative">
@@ -515,173 +604,188 @@ const MarketPage: React.FC = () => {
             </main>
 
             {/* --- RIGHT DRAWER / MODAL FOR CHECKOUT FLOW --- */}
-            {isCartOpen && (
-                <div className="fixed inset-0 z-50 flex justify-end">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
-                    <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
-                        {/* Header */}
-                        <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
-                            <div>
-                                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">
-                                    {checkoutStep === 1 && "Shopping Cart"}
-                                    {checkoutStep === 2 && "Checkout Details"}
-                                    {checkoutStep === 3 && "Secure Payment"}
-                                    {checkoutStep === 4 && "Order Complete"}
-                                </h2>
-                                {/* Progress Dots */}
-                                {checkoutStep < 4 && (
-                                    <div className="flex gap-2 mt-2">
-                                        <div className={`h-1 rounded-full transition-all ${checkoutStep >= 1 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
-                                        <div className={`h-1 rounded-full transition-all ${checkoutStep >= 2 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
-                                        <div className={`h-1 rounded-full transition-all ${checkoutStep >= 3 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
-                                    </div>
-                                )}
+            {
+                isCartOpen && (
+                    <div className="fixed inset-0 z-50 flex justify-end">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
+                        <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
+                            {/* Header */}
+                            <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
+                                <div>
+                                    <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">
+                                        {checkoutStep === 1 && "Shopping Cart"}
+                                        {checkoutStep === 2 && "Checkout Details"}
+                                        {checkoutStep === 3 && "Secure Payment"}
+                                        {checkoutStep === 4 && "Order Complete"}
+                                    </h2>
+                                    {/* Progress Dots */}
+                                    {checkoutStep < 4 && (
+                                        <div className="flex gap-2 mt-2">
+                                            <div className={`h-1 rounded-full transition-all ${checkoutStep >= 1 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
+                                            <div className={`h-1 rounded-full transition-all ${checkoutStep >= 2 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
+                                            <div className={`h-1 rounded-full transition-all ${checkoutStep >= 3 ? 'w-8 bg-[#e63e3e]' : 'w-2 bg-gray-700'}`} />
+                                        </div>
+                                    )}
+                                </div>
+                                <button onClick={() => setIsCartOpen(false)} className="bg-[#312e2b] p-2 rounded-lg hover:bg-white hover:text-black transition-all">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <button onClick={() => setIsCartOpen(false)} className="bg-[#312e2b] p-2 rounded-lg hover:bg-white hover:text-black transition-all">
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {/* Content Area */}
-                        <div className="flex-1 overflow-hidden p-6 relative">
-                            {checkoutStep === 1 && renderCartStep()}
-                            {checkoutStep === 2 && renderCheckoutFormStep()}
-                            {checkoutStep === 3 && renderPaymentStep()}
-                            {checkoutStep === 4 && renderReceipt()}
+                            {/* Content Area */}
+                            <div className="flex-1 overflow-hidden p-6 relative">
+                                {checkoutStep === 1 && renderCartStep()}
+                                {checkoutStep === 2 && renderCheckoutFormStep()}
+                                {checkoutStep === 3 && renderPaymentStep()}
+                                {checkoutStep === 4 && renderReceipt()}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* --- ORDERS DRAWER --- */}
-            {isOrdersOpen && (
-                <div className="fixed inset-0 z-50 flex justify-end">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsOrdersOpen(false)} />
-                    <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
-                        <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
-                            <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                <ScrollText size={18} /> My Orders
-                            </h2>
-                            <button onClick={() => { setIsOrdersOpen(false); setSelectedOrder(null); }} className="bg-[#312e2b] p-2 rounded-lg hover:bg-white hover:text-black transition-all">
-                                <X size={20} />
-                            </button>
-                        </div>
+            {
+                isOrdersOpen && (
+                    <div className="fixed inset-0 z-50 flex justify-end">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsOrdersOpen(false)} />
+                        <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
+                            <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
+                                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                    <ScrollText size={18} /> My Orders
+                                </h2>
+                                <button onClick={() => { setIsOrdersOpen(false); setSelectedOrder(null); }} className="bg-[#312e2b] p-2 rounded-lg hover:bg-white hover:text-black transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-2 custom-scrollbar">
-                            {selectedOrder ? (
-                                <div className="animate-in slide-in-from-right duration-300">
-                                    <button onClick={() => setSelectedOrder(null)} className="mb-4 text-sm text-[#2c4dbd] font-bold flex items-center gap-1 hover:underline">
-                                        <ChevronRight className="rotate-180" size={16} /> Back to List
-                                    </button>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 pr-2 custom-scrollbar">
+                                {selectedOrder ? (
+                                    <div className="animate-in slide-in-from-right duration-300">
+                                        <button onClick={() => setSelectedOrder(null)} className="mb-4 text-sm text-[#2c4dbd] font-bold flex items-center gap-1 hover:underline">
+                                            <ChevronRight className="rotate-180" size={16} /> Back to List
+                                        </button>
 
-                                    <div ref={receiptRef} className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-4">
-                                        <div className="text-center mb-6">
-                                            <div className="w-16 h-16 bg-blue-500/20 text-[#2c4dbd] rounded-full flex items-center justify-center mx-auto mb-3">
-                                                <Package size={32} />
+                                        <div ref={receiptRef} className="w-full bg-[#262522] rounded-xl p-6 border border-white/5 space-y-4 printable-receipt font-mono">
+                                            <div className="text-center mb-6 text-white text-base">
+                                                <h2 className="text-2xl font-bold uppercase tracking-widest mb-1">EOS</h2>
+                                                <p className="text-xs text-gray-400">{new Date(selectedOrder.order_date).toLocaleString()}</p>
                                             </div>
-                                            <h3 className="text-xl font-black text-white">Order Details</h3>
-                                            <p className="text-gray-500 text-xs uppercase tracking-wide">#{selectedOrder.receipt_no || selectedOrder.order_id}</p>
-                                        </div>
 
-                                        <div className="space-y-3 pt-4 border-t border-white/10">
-                                            {selectedOrder.order_items.map((oi, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-sm">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded bg-gray-800 overflow-hidden">
-                                                            <img src={oi.items?.image_url} className="w-full h-full object-cover" />
-                                                        </div>
-                                                        <span className="text-gray-300">
-                                                            <span className="text-white font-bold">{oi.quantity}x</span> {oi.items?.item_name || "Item"}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-white font-mono">₱{(oi.items?.price * oi.quantity).toLocaleString()}</span>
+                                            <div className="space-y-1 pb-4 text-sm text-gray-300">
+                                                <div className="flex gap-2"><span className="w-24 shrink-0">Order No.</span> <span>#{selectedOrder.receipt_no || selectedOrder.order_id}</span></div>
+                                                <div className="flex gap-2"><span className="w-24 shrink-0">Name</span> <span>{selectedOrder.recipient_name}</span></div>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-dashed border-gray-600 text-sm text-gray-300">
+                                                <div className="flex justify-between mb-2 text-xs uppercase font-bold text-gray-500">
+                                                    <span>Items</span>
+                                                    <span>Price</span>
                                                 </div>
-                                            ))}
+                                                <div className="space-y-2">
+                                                    {selectedOrder.order_items.map((oi, idx) => {
+                                                        // Robust check for nested items (could be object or array)
+                                                        const rawItem = oi.items;
+                                                        const itemData = Array.isArray(rawItem) ? rawItem[0] : rawItem;
+                                                        const itemName = itemData?.item_name || "Unknown Item";
+                                                        console.log('Rendering Order Item:', oi, 'Resolved Name:', itemName); // Debug
+
+                                                        return (
+                                                            <div key={idx} className="flex justify-between items-start">
+                                                                <div className="flex-1 pr-4">
+                                                                    <span>{itemName}</span>
+                                                                </div>
+                                                                <span>{(itemData?.price * oi.quantity || 0).toLocaleString()}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-4 mt-2 border-t border-dashed border-gray-600">
+                                                <div className="flex justify-between text-lg font-bold text-white uppercase">
+                                                    <span>Total Amount:</span>
+                                                    <span>₱{selectedOrder.total_amount.toLocaleString()}</span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="pt-4 mt-2 border-t border-white/10 space-y-2">
-                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span> <span className="text-yellow-500 font-bold uppercase text-xs px-2 py-0.5 bg-yellow-500/10 rounded">{selectedOrder.status}</span></div>
-                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span> <span className="text-white">{new Date(selectedOrder.order_date).toLocaleDateString()}</span></div>
-                                            <div className="flex justify-between text-sm"><span className="text-gray-500">Total</span> <span className="text-[#2c4dbd] font-black text-lg">₱{selectedOrder.total_amount.toLocaleString()}</span></div>
+                                        <div className="flex gap-2 w-full mt-4">
+                                            <button onClick={handleDownloadImage} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
+                                                <Download size={16} /> Save Receipt
+                                            </button>
                                         </div>
-                                    </div>
-
-                                    <div className="flex gap-2 w-full mt-4">
-                                        <button onClick={handlePrint} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
-                                            <Printer size={16} /> Print
-                                        </button>
-                                        <button onClick={handleDownloadImage} className="flex-1 bg-[#262522] text-gray-300 py-3 rounded-xl border border-white/5 hover:border-white hover:text-white transition-all text-sm font-bold flex items-center justify-center gap-2">
-                                            <Download size={16} /> Save
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                orders.length === 0 ? (
-                                    <div className="text-center text-gray-500 py-10 opacity-50">
-                                        <History size={48} className="mx-auto mb-4" />
-                                        <p>No past orders found.</p>
                                     </div>
                                 ) : (
-                                    orders.map(order => (
-                                        <div
-                                            key={order.order_id}
-                                            onClick={() => setSelectedOrder(order)}
-                                            className="bg-[#262522] p-4 rounded-xl border border-white/5 hover:border-[#2c4dbd]/50 cursor-pointer transition-all hover:bg-[#2c2b28] group"
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <h4 className="text-white font-bold text-sm">Order #{order.receipt_no || order.order_id}</h4>
-                                                    <span className="text-xs text-gray-500">{new Date(order.order_date).toLocaleDateString()}</span>
-                                                </div>
-                                                <span className="text-[#2c4dbd] font-black text-sm">₱{order.total_amount.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center mt-3">
-                                                <div className="flex -space-x-2">
-                                                    {order.order_items.map((oi, i) => i < 3 && (
-                                                        <div key={i} className="w-6 h-6 rounded-full bg-gray-800 border border-[#262522] overflow-hidden">
-                                                            <img src={oi.items?.image_url} className="w-full h-full object-cover" />
-                                                        </div>
-                                                    ))}
-                                                    {order.order_items.length > 3 && (
-                                                        <div className="w-6 h-6 rounded-full bg-gray-700 border border-[#262522] flex items-center justify-center text-[8px] text-white">+{order.order_items.length - 3}</div>
-                                                    )}
-                                                </div>
-                                                <span className="text-[10px] uppercase font-bold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded group-hover:bg-yellow-500 group-hover:text-black transition-colors">{order.status}</span>
-                                            </div>
+                                    orders.length === 0 ? (
+                                        <div className="text-center text-gray-500 py-10 opacity-50">
+                                            <History size={48} className="mx-auto mb-4" />
+                                            <p>No past orders found.</p>
                                         </div>
-                                    ))
-                                )
-                            )}
+                                    ) : (
+                                        orders.map(order => (
+                                            <div
+                                                key={order.order_id}
+                                                onClick={() => setSelectedOrder(order)}
+                                                className="bg-[#262522] p-4 rounded-xl border border-white/5 hover:border-[#2c4dbd]/50 cursor-pointer transition-all hover:bg-[#2c2b28] group"
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h4 className="text-white font-bold text-sm">Order #{order.receipt_no || order.order_id}</h4>
+                                                        <span className="text-xs text-gray-500">{new Date(order.order_date).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <span className="text-[#2c4dbd] font-black text-sm">₱{order.total_amount.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center mt-3">
+                                                    <div className="flex -space-x-2">
+                                                        {order.order_items.map((oi, i) => i < 3 && (
+                                                            <div key={i} className="w-6 h-6 rounded-full bg-gray-800 border border-[#262522] overflow-hidden">
+                                                                <img src={oi.items?.image_url} className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ))}
+                                                        {order.order_items.length > 3 && (
+                                                            <div className="w-6 h-6 rounded-full bg-gray-700 border border-[#262522] flex items-center justify-center text-[8px] text-white">+{order.order_items.length - 3}</div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] uppercase font-bold text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded group-hover:bg-yellow-500 group-hover:text-black transition-colors">{order.status}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* --- PRODUCT DETAILS MODAL --- */}
-            {selectedItem && (
-                <div className="fixed inset-0 z-[60] flex justify-center items-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedItem(null)} />
-                    <div className="relative bg-[#21201d] w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
-                        <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 z-50 bg-black/50 p-2 rounded-full text-white hover:bg-white hover:text-black transition-colors">
-                            <X size={20} />
-                        </button>
-                        <div className="w-full md:w-1/2 bg-[#1a1917] p-8 flex items-center justify-center relative">
-                            <img src={selectedItem.image_url} className="max-w-full max-h-[50vh] object-contain drop-shadow-2xl relative z-10" alt={selectedItem.item_name} />
-                        </div>
-                        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col overflow-y-auto">
-                            <div className="mb-auto">
-                                <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-4">{selectedItem.item_name}</h2>
-                                <p className="text-3xl font-black text-[#2c4dbd] mb-6">₱{selectedItem.price.toLocaleString()}</p>
-                                <p className="text-gray-400 mb-8">{selectedItem.description}</p>
-                            </div>
-                            <button onClick={(e) => { addToCart(e, selectedItem); setSelectedItem(null); }} className="bg-[#312e2b] text-white py-4 rounded-xl font-bold text-sm hover:bg-white hover:text-black transition-all border border-white/10 uppercase tracking-wide">
-                                Add to Cart
+            {
+                selectedItem && (
+                    <div className="fixed inset-0 z-[60] flex justify-center items-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedItem(null)} />
+                        <div className="relative bg-[#21201d] w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
+                            <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 z-50 bg-black/50 p-2 rounded-full text-white hover:bg-white hover:text-black transition-colors">
+                                <X size={20} />
                             </button>
+                            <div className="w-full md:w-1/2 bg-[#1a1917] p-8 flex items-center justify-center relative">
+                                <img src={selectedItem.image_url} className="max-w-full max-h-[50vh] object-contain drop-shadow-2xl relative z-10" alt={selectedItem.item_name} />
+                            </div>
+                            <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col overflow-y-auto">
+                                <div className="mb-auto">
+                                    <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-4">{selectedItem.item_name}</h2>
+                                    <p className="text-3xl font-black text-[#2c4dbd] mb-6">₱{selectedItem.price.toLocaleString()}</p>
+                                    <p className="text-gray-400 mb-8">{selectedItem.description}</p>
+                                </div>
+                                <button onClick={(e) => { addToCart(e, selectedItem); setSelectedItem(null); }} className="bg-[#312e2b] text-white py-4 rounded-xl font-bold text-sm hover:bg-white hover:text-black transition-all border border-white/10 uppercase tracking-wide">
+                                    Add to Cart
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
