@@ -47,8 +47,10 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
     const title = isWinner ? 'VICTORY' : 'DEFEAT';
     const titleColor = isWinner ? 'text-yellow-400' : 'text-red-500';
     const Icon = isWinner ? Trophy : Frown;
-    const ratingChange = isWinner ? `+${winnerRatingChange}` : `-${Math.abs(loserRatingChange)}`;
-    const newRating = isWinner ? winnerNewRating : loserNewRating;
+    const ratingChange = isWinner
+        ? (winnerRatingChange > 0 ? `+${winnerRatingChange}` : '...')
+        : (loserRatingChange !== 0 ? `-${Math.abs(loserRatingChange)}` : '...');
+    const newRating = (isWinner ? winnerNewRating : loserNewRating) || '...';
     const reasonText = reason === 'checkmate' ? 'Checkmate' :
         reason === 'timeout' ? 'Time Out' :
             reason === 'resignation' ? 'Resignation' :
