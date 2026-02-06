@@ -56,8 +56,11 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
     const reasonText = reason === 'checkmate' ? 'Checkmate' :
         reason === 'timeout' ? 'Time Out' :
             reason === 'resignation' ? 'Resignation' :
-                reason === 'opponent_disconnect' ? 'Opponent Disconnected' :
-                    'Game Ended';
+                reason === 'opponent_quit' ? 'Opponent Resigned' :
+                    reason === 'opponent_disconnect' ? 'Opponent Disconnected' :
+                        reason === 'solitude' ? 'Solitude' :
+                            reason === 'supremo_capture' ? 'Supremo Captured' :
+                                reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
