@@ -833,6 +833,7 @@ const Multiplayer: React.FC = () => {
         loserName={ratingData?.loserId === userId ? myUsername : opponentUsername}
         ratingChange={ratingData?.change || 0}
         reason={ratingData?.reason || gameEndReason || 'Game Over'}
+        currentUserId={userId || ''}
         onRestart={() => navigate('/game')}
         onHome={() => navigate('/game')}
       />
