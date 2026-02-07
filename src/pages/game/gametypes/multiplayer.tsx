@@ -219,6 +219,7 @@ const Multiplayer: React.FC = () => {
       score?: number;
       breakdown?: { reason: string; points: number };
     }) => {
+      console.log("📈 ratingUpdate received:", data);
       if (data.winnerId === userId || data.loserId === userId) {
         setRatingData({
           winnerId: data.winnerId,
@@ -263,7 +264,11 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string; score?: number }) => {
-      if (matchId && data.matchId !== matchId) return;
+      console.log("🏁 gameEnded received:", data);
+      if (matchId && data.matchId !== matchId) {
+        console.warn("⚠️ matchId mismatch in gameEnded:", { expected: matchId, received: data.matchId });
+        return;
+      }
       setWinner(data.winner);
       setGameEndReason(data.reason);
       setTurnPhase('locked');
