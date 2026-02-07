@@ -5,8 +5,8 @@ export type Winner = 'player1' | 'player2' | 'draw' | null;
 
 export interface DbAttackRule {
   range: number[];
-  mandatory_move: number | number[]; 
-  type?: string; 
+  mandatory_move: number | number[];
+  type?: string;
 }
 
 // Diagonal directions for the hex-like grid
@@ -20,17 +20,17 @@ export function getValidAttacks(
   pieceId: PieceKey,
   position: string,
   gameState: Record<string, string>,
-  phase: 'pre-move' | 'post-move', 
-  isFirstMove: boolean, 
+  phase: 'pre-move' | 'post-move',
+  isFirstMove: boolean,
   attackRules: Record<string, DbAttackRule>
 ): string[] {
-  
+
   const owner = getPieceOwner(pieceId);
   if (!owner) return [];
 
   const fullName = PIECE_MOVEMENTS[pieceId].name;
   const dbName = getBaseName(fullName);
-  
+
   // FIX: Default to a basic rule if DB is missing data, ensuring Steward logic still runs
   const rule = attackRules[dbName] || { range: [1], mandatory_move: [1] };
 
@@ -54,10 +54,10 @@ export function getValidAttacks(
     for (const dist of effectiveRange) {
       const targetCol = col + (dist * dCol);
       const targetRow = row + (dist * dRow);
-      
+
       const targetCoord = toCoord(targetCol, targetRow);
       if (!targetCoord) continue;
-      
+
       // Line of Sight: Cannot shoot through pieces
       let blocked = false;
       for (let k = 1; k < dist; k++) {
@@ -69,10 +69,10 @@ export function getValidAttacks(
           break;
         }
       }
-      if (blocked) continue; 
+      if (blocked) continue;
 
       const targetPieceId = getPieceAtCoord(gameState, targetCoord);
-      
+
       if (targetPieceId) {
         if (getPieceOwner(targetPieceId) !== owner) {
           validTargets.push(targetCoord);
@@ -91,10 +91,13 @@ export function getMandatoryMoves(
   pieceMoveCount: Record<string, number>,
   moveRules: Record<string, number[]>
 ): string[] {
-  
-  const isFirstMove = !pieceMoveCount[pieceId];
+
+  // Mandatory moves should NEVER use the "development move" logic (4 tiles).
+  // Even if the piece hasn't "moved" in the counter yet (e.g. during a multi-capture chain), 
+  // the mandatory move must follow standard movement rules.
+  const isFirstMove = false;
   const { moves } = getValidMoves(pieceId, position, isFirstMove, gameState, pieceMoveCount, moveRules);
-  return moves; 
+  return moves;
 }
 
 export function executeAttack(
@@ -102,16 +105,16 @@ export function executeAttack(
   gameState: Partial<Record<PieceKey, string>>,
   attackerId: PieceKey
 ): { newGameState: Partial<Record<PieceKey, string>>; capturedPieceId: PieceKey; winner: Winner } | null {
-  
+
   const capturedPieceId = (Object.keys(gameState) as PieceKey[]).find(k => gameState[k] === targetCoord);
-  
+
   if (!capturedPieceId || capturedPieceId === attackerId) return null;
 
   const newGameState = { ...gameState };
   delete newGameState[capturedPieceId];
-  
+
   const winner = checkWinCondition(newGameState as Partial<Record<string, string>>);
-  
+
   return { newGameState, capturedPieceId, winner };
 }
 
@@ -129,8 +132,8 @@ export function getMultiCaptureOptions(
 
 export const checkWinCondition = (gameState: Partial<Record<string, string>>): Winner => {
   const pieces = Object.keys(gameState);
-  const p1SupremoAlive = pieces.includes('piece7_r'); 
-  const p2SupremoAlive = pieces.includes('piece7_b'); 
+  const p1SupremoAlive = pieces.includes('piece7_r');
+  const p2SupremoAlive = pieces.includes('piece7_b');
 
   if (!p1SupremoAlive && !p2SupremoAlive) return 'draw';
   if (!p1SupremoAlive) return 'player2';

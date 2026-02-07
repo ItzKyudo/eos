@@ -976,7 +976,7 @@ const Multiplayer: React.FC = () => {
         }}
         onSwitchTurn={handleSwitchTurn}
         onResign={() => winner ? navigate('/') : setShowResignModal(true)}
-        canSwitchTurn={(turnPhase === 'locked' || turnPhase === 'mandatory_move') && currentTurn === myRole}
+        canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
       />
 
