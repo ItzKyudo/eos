@@ -988,9 +988,20 @@ const Multiplayer: React.FC = () => {
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowResignModal(false)} className="px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-neutral-700/50 rounded-lg transition-colors">Cancel</button>
               <button onClick={() => {
-                if (socket && matchId) socket.emit('leaveGame', { matchId });
+                if (socket && matchId) {
+                  const opponent = players.find(p => p.userId !== userId);
+                  const opponentId = opponent ? opponent.userId : null;
+                  socket.emit('gameEnd', {
+                    matchId,
+                    winner: myRole === 'player1' ? 'player2' : 'player1',
+                    winnerId: opponentId,
+                    loserId: userId,
+                    reason: 'opponent_quit',
+                    winCondition: 'resignation',
+                    gameHistory: moveHistory
+                  });
+                }
                 setShowResignModal(false);
-                // Removed navigate('/') to let the player see the game over modal
               }} className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105">Confirm Resignation</button>
             </div>
           </div>
