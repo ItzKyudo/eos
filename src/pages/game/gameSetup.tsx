@@ -67,12 +67,7 @@ const GameSetup: React.FC = () => {
       const customEvent = e as CustomEvent<MatchFoundDetail>;
       const data = customEvent.detail;
 
-      const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
-      const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
-      const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
-      const timeParam = `&time=${data.timeControl || 600}`;
-
-      const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=false${userIdParam}${myNameParam}${opponentNameParam}${timeParam}`;
+      const gameUrl = `/multiplayer/${data.matchId}`;
 
       navigate(gameUrl);
     };

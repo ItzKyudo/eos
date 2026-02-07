@@ -107,20 +107,12 @@ const GuestMatchmaking: React.FC = () => {
 
       // Navigate to multiplayer game with role and matchId
       if (data && data.yourRole && data.matchId) {
-        // Use userId from server if available (for reconnection reliability)
-        const userIdParam = data.yourUserId ? `&userId=${data.yourUserId}` : '';
-        const myNameParam = data.yourUsername ? `&myName=${encodeURIComponent(data.yourUsername)}` : '';
-        const myRatingParam = data.yourRating ? `&myRating=${data.yourRating}` : '';
-        const opponentNameParam = data.opponent?.username ? `&opponentName=${encodeURIComponent(data.opponent.username)}` : '';
-        const opponentRatingParam = data.opponent?.rating ? `&opponentRating=${data.opponent.rating}` : '';
+        // Store guest ID for multiplayer page to pick up
+        if (data.yourUserId) {
+          sessionStorage.setItem('guestUserId', data.yourUserId);
+        }
 
-        const gameUrl = `/multiplayer?role=${data.yourRole}&matchId=${data.matchId}&guest=true${userIdParam}${myNameParam}${myRatingParam}${opponentNameParam}${opponentRatingParam}&time=${selectedTime}`;
-        console.log('🚀 Navigating to game:', gameUrl);
-        console.log('📍 Current location:', window.location.pathname);
-
-        // Disconnect the matchmaking socket - the game page will create a new one
-        // This allows the server to recognize the new socket as a reconnection
-        console.log('🔌 Disconnecting matchmaking socket to allow game socket to reconnect');
+        const gameUrl = `/multiplayer/${data.matchId}`;
         newSocket.removeAllListeners();
         newSocket.disconnect();
 

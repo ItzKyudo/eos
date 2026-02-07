@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
 import { BOARD_COLUMNS } from '../utils/gameUtils';
@@ -48,7 +48,7 @@ interface OnlinePlayer {
 }
 
 interface ServerGameState {
-  onlinePlayers?: OnlinePlayer[];
+  onlinePlayers?: string[] | OnlinePlayer[];
   players?: {
     userId: string;
     username: string;
@@ -69,17 +69,28 @@ interface ServerGameState {
 }
 
 const Multiplayer: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  /* Refactored Initialization */
+  const { matchId } = useParams();
   const navigate = useNavigate();
-  const myRole = (searchParams.get('role') as 'player1' | 'player2') || 'player1';
-  const matchId = searchParams.get('matchId');
-  const userId = searchParams.get('userId');
-  const isGuest = searchParams.get('guest') === 'true';
-  const initialTime = parseInt(searchParams.get('time') || '600');
-  const myUsername = searchParams.get('myName') || (isGuest ? 'Guest' : 'You');
-  const myRating = searchParams.get('myRating') || (isGuest ? '600' : '1200');
-  const opponentUsername = searchParams.get('opponentName') || 'Opponent';
-  const opponentRating = searchParams.get('opponentRating') || '1200';
+
+  // Get User from Storage or Generate Guest ID
+  const localUserStr = localStorage.getItem('user');
+  const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+  const userId = localUser?.id || localUser?._id || sessionStorage.getItem('guestUserId') || `guest_${Math.random().toString(36).substr(2, 9)}`;
+  const isGuest = !localUser;
+
+ 
+  const [myRole, setMyRole] = useState<'player1' | 'player2'>('player1'); // Default to P1 until sync
+  const [p1Name, setP1Name] = useState('Player 1');
+  const [p2Name, setP2Name] = useState('Player 2');
+  const [p1Rating, setP1Rating] = useState<string>('1200');
+  const [p2Rating, setP2Rating] = useState<string>('1200');
+
+  // Derived display names
+  const myUsername = myRole === 'player1' ? p1Name : p2Name;
+  const opponentUsername = myRole === 'player1' ? p2Name : p1Name;
+
+  /* End Refactored Initialization */
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -111,14 +122,12 @@ const Multiplayer: React.FC = () => {
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
   const sideWidth = 'w-16';
-  const [p1Time, setP1Time] = useState(initialTime);
-  const [p2Time, setP2Time] = useState(initialTime);
+  const [p1Time, setP1Time] = useState(600);
+  const [p2Time, setP2Time] = useState(600);
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [opponentConnected, setOpponentConnected] = useState<boolean>(false);
   const [showResignModal, setShowResignModal] = useState(false);
-  const [p1Rating, setP1Rating] = useState<string>(myRole === 'player1' ? myRating : opponentRating);
-  const [p2Rating, setP2Rating] = useState<string>(myRole === 'player2' ? myRating : opponentRating);
 
   const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
   const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
@@ -290,8 +299,17 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('gameState', (state: ServerGameState) => {
+      console.log('MQ GameState received:', state);
+      if (state.onlinePlayers) {
+        console.log('👥 Online Players:', state.onlinePlayers);
+      }
+
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
-        setOpponentConnected(state.onlinePlayers.length > 1);
+        // Check if there are at least 2 unique players connected
+        const uniquePlayers = new Set(state.onlinePlayers.map(p =>
+          typeof p === 'string' ? p : p.userId
+        ));
+        setOpponentConnected(uniquePlayers.size > 1);
       }
 
       if (state.players && Array.isArray(state.players)) {
@@ -300,12 +318,26 @@ const Multiplayer: React.FC = () => {
         if (op && op.disconnectedAt) setOpponentDisconnectTime(op.disconnectedAt);
         else setOpponentDisconnectTime(null);
 
-        // Update ratings from server
+        // Update ratings and names from server
         const player1Obj = state.players.find(p => p.role === 'player1') || state.players[0];
         const player2Obj = state.players.find(p => p.role === 'player2') || state.players[1];
 
-        if (player1Obj?.rating) setP1Rating(String(player1Obj.rating));
-        if (player2Obj?.rating) setP2Rating(String(player2Obj.rating));
+        if (player1Obj) {
+          if (player1Obj.rating) setP1Rating(String(player1Obj.rating));
+          if (player1Obj.username) setP1Name(player1Obj.username);
+        }
+        if (player2Obj) {
+          if (player2Obj.rating) setP2Rating(String(player2Obj.rating));
+          if (player2Obj.username) setP2Name(player2Obj.username);
+        }
+
+        // Determine My Role based on userId
+        if (userId) {
+          const me = state.players.find(p => String(p.userId) === String(userId));
+          if (me && me.role) {
+            setMyRole(me.role as 'player1' | 'player2');
+          }
+        }
       }
 
       // 1. Sync Moves & Time (Independent of lastMove check to be safe)
@@ -843,15 +875,6 @@ const Multiplayer: React.FC = () => {
         onHome={() => navigate('/game')}
       />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
-        {/* Removed Old Game Over Banner - now handled by Modal */}
-        {/* {winner && (
-          <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
-            GAME OVER! {winner === 'player1' ? 'PLAYER 1' : 'PLAYER 2'} WINS!
-            {gameEndReason === 'opponent_disconnect' && <div className="text-lg mt-2 font-medium">(Opponent Failed to Reconnect)</div>}
-            {gameEndReason === 'opponent_quit' && <div className="text-lg mt-2 font-medium">(Opponent Resigned)</div>}
-          </div>
-        )} */}
-
         {isDragging && activePiece && activePiece in PIECES && (
           <div ref={ghostRef} className="fixed pointer-events-none z-100" style={{ left: initialDragPos.x, top: initialDragPos.y, transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)' }}>
             <div className="w-17 h-17 rounded-full shadow-2xl">

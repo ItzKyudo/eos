@@ -15,7 +15,6 @@ import Register from './auth/signup';
 import Board from './pages/game/gametypes/practice';
 import GameSetup from './pages/game/gameSetup';
 import Multiplayer from './pages/game/gametypes/multiplayer';
-import Lobby from './pages/game/lobby';
 import GuestMatchmaking from './pages/game/guestMatchmaking';
 import Matchmaking from './pages/game/matchmaking';
 
@@ -53,8 +52,7 @@ function App() {
       {/* Game */}
       <Route path="/board" element={<Board />} />
       <Route path="/game" element={<GameSetup />} />
-      <Route path="/lobby" element={<Lobby />} />
-      <Route path="/multiplayer" element={<Multiplayer />} />
+      <Route path="/multiplayer/:matchId" element={<Multiplayer />} />
       <Route path="/guest-matchmaking" element={<GuestMatchmaking />} />
       <Route path="/matchmaking" element={<Matchmaking />} />
 
