@@ -17,8 +17,8 @@ import { parseCoord, toCoord } from '../utils/gameUtils';
 
 export const PIECES = {
   // Originals
-  piece7_b, piece7_r, piece4_b, piece4_r, piece3_b, piece3_r, 
-  piece5_b, piece5_r, piece6_b, piece6_r, piece1_b, piece1_r, 
+  piece7_b, piece7_r, piece4_b, piece4_r, piece3_b, piece3_r,
+  piece5_b, piece5_r, piece6_b, piece6_r, piece1_b, piece1_r,
   piece2_b, piece2_r,
 
   // Clones
@@ -65,18 +65,18 @@ export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {
   piece6_r: { name: 'Chancellor 1' }, piece6_b: { name: 'Chancellor 2' },
   piece1_r: { name: 'Steward 1' }, piece1_b: { name: 'Steward 2' },
   piece2_r: { name: 'Minister 1' }, piece2_b: { name: 'Minister 2' },
-  
+
   // Clones
   piece16: { name: 'Archer 1a' }, piece15: { name: 'Archer 2a' },
   piece18: { name: 'Deacon 1a' }, piece17: { name: 'Deacon 2a' },
   piece20: { name: 'Minister 1a' }, piece19: { name: 'Minister 2a' },
-  
+
   // Stewards
   piece29: { name: 'Steward 1' }, piece30: { name: 'Steward 1' },
   piece31: { name: 'Steward 1' }, piece32: { name: 'Steward 1' },
   piece33: { name: 'Steward 1' }, piece34: { name: 'Steward 1' },
   piece35: { name: 'Steward 1' }, piece36: { name: 'Steward 1' },
-  
+
   piece21: { name: 'Steward 2' }, piece22: { name: 'Steward 2' },
   piece23: { name: 'Steward 2' }, piece24: { name: 'Steward 2' },
   piece25: { name: 'Steward 2' }, piece26: { name: 'Steward 2' },
@@ -84,7 +84,7 @@ export const PIECE_MOVEMENTS: Record<PieceKey, { name: string }> = {
 };
 
 export const getBaseName = (pieceName: string) => {
-  return pieceName.replace(/ \d+[a-z]?$/, '').trim(); 
+  return pieceName.replace(/ \d+[a-z]?$/, '').trim();
 };
 
 // --- UPDATED SEARCH LOGIC ---
@@ -104,15 +104,37 @@ export const getValidMoves = (
   const fullName = PIECE_MOVEMENTS[pieceId].name;
   const dbName = getBaseName(fullName);
 
-  // If rules are missing (e.g. DB fetch failed), default to [1]
-  const allowedSteps = isFirstMove ? [1, 2, 3, 4] : (moveRules[dbName] || [1]);
-  
-  const maxNormal = Math.max(...allowedSteps);
+  // Determine normal allowed steps from DB rules
+  const allowedSteps = moveRules[dbName] || [1];
+
+  // Calculate advance steps
+  // 1. If it is the FIRST move, we allow up to 4 tiles total.
+  //    Normal steps are allowedSteps.
+  //    Advance steps are [1, 2, 3, 4] excluding allowedSteps.
+  // 2. If it is NOT the first move, we check for "advance" bonus (if maxNormal < 3).
+
   const advanceSteps: number[] = [];
-  if (!isFirstMove && maxNormal < 3) {
-    for (let d = maxNormal + 1; d <= 3; d++) advanceSteps.push(d);
+
+  if (isFirstMove) {
+    // Development Move Logic: Up to 4 tiles
+    // Advance steps are those in [1, 2, 3, 4] that are NOT in allowedSteps
+    for (let d = 1; d <= 4; d++) {
+      if (!allowedSteps.includes(d)) {
+        advanceSteps.push(d);
+      }
+    }
+  } else {
+    // Existing "Advance" Logic for small pieces
+    const maxNormal = Math.max(...allowedSteps);
+    if (maxNormal < 3) {
+      for (let d = maxNormal + 1; d <= 3; d++) advanceSteps.push(d);
+    }
   }
-  const maxSearchDistance = Math.max(maxNormal, advanceSteps.length ? 3 : 0);
+
+  // Max search distance covers both normal and advance
+  const maxNormal = Math.max(...allowedSteps);
+  const maxAdvance = advanceSteps.length > 0 ? Math.max(...advanceSteps) : 0;
+  const maxSearchDistance = Math.max(maxNormal, maxAdvance);
 
   const { colIndex: startCol, rowNum: startRow } = parseCoord(currentPosition);
   if (startCol === -1 || isNaN(startRow)) return { moves: [], advanceMoves: [] };
@@ -124,8 +146,8 @@ export const getValidMoves = (
   const normalEndPoints = new Set<string>();
   const advanceEndPoints = new Set<string>();
   const directions = [[1, 1], [-1, 1], [1, -1], [-1, -1]];
-  
-  const isBackRankPiece = !pieceId.startsWith('piece2') && !pieceId.startsWith('piece3') || 
+
+  const isBackRankPiece = !pieceId.startsWith('piece2') && !pieceId.startsWith('piece3') ||
     (parseInt(pieceId.replace('piece', ''), 10) <= 20);
 
   while (queue.length > 0) {
