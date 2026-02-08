@@ -11,15 +11,15 @@ const StatsGrid: React.FC<StatsGridProps> = ({ user }) => {
     { type: 'Classic', rating: user?.rating_classic || 1200, change: 0, icon: PIECES.piece7_b },
     { type: 'Swift', rating: user?.rating_swift || 1200, change: 0, icon: PIECES.piece3_b },
     { type: 'Turbo', rating: user?.rating_turbo || 1200, change: 0, icon: PIECES.piece5_b },
-    { type: 'Rapid', rating: user?.rating_rapid || 1200, change: 0, icon: PIECES.piece1_b  },
+    { type: 'Rapid', rating: user?.rating_rapid || 1200, change: 0, icon: PIECES.piece1_b },
   ];
 
   const combatStats = [
-    { label: 'Supremo Wins', value: user?.wins_supremo_captured || 0, icon: '👑' }, 
-    { label: 'Solitude Wins', value: user?.wins_solitude || 0, icon: '🗡️' },
+    { label: 'Supremo Wins', value: user?.supremo_wins || 0, icon: '👑' },
+    { label: 'Solitude Wins', value: user?.solitude_wins || 0, icon: '🗡️' },
     { label: 'Pieces Captured', value: user?.pieces_captured || 0, icon: '🎯' },
-    { label: 'Double Kills', value: user?.double_captured || 0, icon: '⚡' },
-    { label: 'Triple Kills', value: user?.triple_captured || 0, icon: '🔥' },
+    { label: 'Double Kills', value: user?.double_kills || 0, icon: '⚡' },
+    { label: 'Triple Kills', value: user?.triple_kills || 0, icon: '🔥' },
   ];
 
   return (

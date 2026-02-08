@@ -16,12 +16,12 @@ export interface UserProfile {
   theme_preference?: string;
   show_ads?: boolean;
 
-  // New Detailed Stats
-  wins_supremo_captured?: number;
-  wins_solitude?: number;
+  // New Detailed Stats (Aligned with DB)
+  supremo_wins?: number;
+  solitude_wins?: number;
   pieces_captured?: number;
-  double_captured?: number;
-  triple_captured?: number;
+  double_kills?: number;
+  triple_kills?: number;
 }
 
 export interface GameHistoryEntry {

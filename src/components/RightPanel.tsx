@@ -206,7 +206,10 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
           </div>
         ))}
       </div>
-      <button className="w-full py-3 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+      <button
+        onClick={() => navigate('/profile?tab=games')}
+        className="w-full py-3 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+      >
         View Full History
       </button>
     </div>

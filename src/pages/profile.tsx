@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/sidebar';
 import { UserProfile, GameHistoryEntry } from '../components/profile/types';
+import { useLocation } from 'react-router-dom';
 
 import ProfileHeader from '../components/profile/ProfileHeader';
 import StatsGrid from '../components/profile/StatsGrid';
@@ -11,13 +12,18 @@ import FriendsList from '../components/profile/FriendsList';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // --- STATE ---
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([]);
-  const [activeTab, setActiveTab] = useState('overview');
+
+  // Set initial tab based on URL param
+  const queryParams = new URLSearchParams(location.search);
+  const [activeTab, setActiveTab] = useState(queryParams.get('tab') || 'overview');
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAds, setShowAds] = useState(true);
 
@@ -200,10 +206,38 @@ const Profile: React.FC = () => {
             <aside className="w-full xl:w-80 flex-shrink-0 space-y-6">
               <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-md">
                 <h3 className="font-bold text-gray-200 mb-4">Friends Online</h3>
-
                 <FriendsList className="flex flex-col gap-1" limit={10} showInvite={false} />
               </div>
             </aside>
+          </div>
+        )}
+
+        {activeTab === 'games' && (
+          <div className="animate-fadeIn">
+            <GamesTable games={gameHistory} />
+          </div>
+        )}
+
+        {activeTab === 'friends' && (
+          <div className="animate-fadeIn max-w-4xl">
+            <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 shadow-xl">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-tight">Your Friends</h2>
+                  <p className="text-slate-400 text-sm mt-1">Manage your connections and challenges</p>
+                </div>
+                <button
+                  onClick={() => navigate('/social')}
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center gap-2"
+                >
+                  Find Friends
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FriendsList className="contents" showInvite={true} />
+              </div>
+            </div>
           </div>
         )}
       </main>
