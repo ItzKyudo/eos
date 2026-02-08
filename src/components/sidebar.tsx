@@ -23,11 +23,11 @@ const Sidebar: React.FC = () => {
     const handleMatchFound = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       console.log("Navigating to game match:", detail);
-      // Assuming match handling page is /game or similar, logic usually in GameSetup or specific route
-      // If we are mostly just redirected to 'game', let's do that.
-      // But usually MatchmakingHandler in backend emits 'matchFound'. 
-      // If frontend receives it, it should go to /game.
-      navigate('/game');
+      if (detail && detail.matchId) {
+        navigate(`/multiplayer/${detail.matchId}`);
+      } else {
+        navigate('/game');
+      }
     };
 
     window.addEventListener('matchFound', handleMatchFound);
