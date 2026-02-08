@@ -31,7 +31,9 @@ const GlobalInviteHandler: React.FC = () => {
                 navigate(`/multiplayer/${targetId}`);
             } else {
                 console.error("Match ID missing in payload:", detail);
-                navigate('/game');
+                // Do NOT navigate to /game as fallback, as it confuses users.
+                // Just log and maybe alert if in dev mode
+                // alert("Error: Match ID not found in invite payload. Please check console.");
             }
         };
 
