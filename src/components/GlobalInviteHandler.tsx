@@ -12,11 +12,25 @@ const GlobalInviteHandler: React.FC = () => {
     // Handle Match Found Navigation Globally
     useEffect(() => {
         const handleMatchFound = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
-            console.log("Global Match Found Handler:", detail);
-            if (detail && detail.matchId) {
-                navigate(`/multiplayer/${detail.matchId}`);
+            let detail = (e as CustomEvent).detail;
+            console.log("Global Match Found Handler RAW:", detail);
+
+            // Robustness: Parse if string (shouldn't happen with socket.io but safe)
+            if (typeof detail === 'string') {
+                try {
+                    detail = JSON.parse(detail);
+                } catch (err) {
+                    console.error("Failed to parse match details:", err);
+                }
+            }
+
+            // Robustness: Check for matchId, id, or gameId
+            const targetId = detail?.matchId || detail?.id || detail?.gameId;
+
+            if (targetId) {
+                navigate(`/multiplayer/${targetId}`);
             } else {
+                console.error("Match ID missing in payload:", detail);
                 navigate('/game');
             }
         };
