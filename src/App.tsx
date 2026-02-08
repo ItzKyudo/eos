@@ -28,6 +28,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 {/* Under Testing */ }
 import UnderTesting from './UnderTesting';
 
+import GlobalInviteHandler from './components/GlobalInviteHandler';
+
 const IS_MAINTENANCE_MODE = true;
 
 function App() {
@@ -36,44 +38,47 @@ function App() {
     return <UnderTesting />;
   }
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/social" element={<SocialPage />} />
-      <Route path="/learn" element={<LearnPage />} />
-      <Route path="/market" element={<MarketPage />} />
-      <Route path="/puzzle" element={<PuzzlePage />} />
-      <Route path="/settings" element={<SettingsPage />} />
-      <Route path="/profile" element={<Profile />} />
+    <>
+      <GlobalInviteHandler />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/social" element={<SocialPage />} />
+        <Route path="/learn" element={<LearnPage />} />
+        <Route path="/market" element={<MarketPage />} />
+        <Route path="/puzzle" element={<PuzzlePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<Profile />} />
 
-      {/* Auth*/}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+        {/* Auth*/}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      {/* Game */}
-      <Route path="/board" element={<Board />} />
-      <Route path="/game" element={<GameSetup />} />
-      <Route path="/multiplayer/:matchId" element={<Multiplayer />} />
-      <Route path="/guest-matchmaking" element={<GuestMatchmaking />} />
-      <Route path="/matchmaking" element={<Matchmaking />} />
+        {/* Game */}
+        <Route path="/board" element={<Board />} />
+        <Route path="/game" element={<GameSetup />} />
+        <Route path="/multiplayer/:matchId" element={<Multiplayer />} />
+        <Route path="/guest-matchmaking" element={<GuestMatchmaking />} />
+        <Route path="/matchmaking" element={<Matchmaking />} />
 
-      {/* Admin Dashboard */}
-      <Route element={<ProtectedRoute role="admin" />}>
-        <Route path="/admin/dashboard" element={<Dashboard />} />
-        <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/items" element={<ItemManagement />} />
-        <Route path="/admin/orders" element={<OrderManagement />} />
-      </Route>
+        {/* Admin Dashboard */}
+        <Route element={<ProtectedRoute role="admin" />}>
+          <Route path="/admin/dashboard" element={<Dashboard />} />
+          <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/items" element={<ItemManagement />} />
+          <Route path="/admin/orders" element={<OrderManagement />} />
+        </Route>
 
-      <Route path="*" element={
-        <div className="flex flex-col items-center justify-center min-h-screen bg-[#262522] text-white">
-          <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
-          <p className="text-gray-400 mb-8">The page you are looking for does not exist.</p>
-          <a href="/" className="px-6 py-3 bg-[#e63e3e] rounded-lg font-bold hover:bg-[#ff4f4f] transition-colors">
-            Go Home
-          </a>
-        </div>
-      } />
-    </Routes>
+        <Route path="*" element={
+          <div className="flex flex-col items-center justify-center min-h-screen bg-[#262522] text-white">
+            <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
+            <p className="text-gray-400 mb-8">The page you are looking for does not exist.</p>
+            <a href="/" className="px-6 py-3 bg-[#e63e3e] rounded-lg font-bold hover:bg-[#ff4f4f] transition-colors">
+              Go Home
+            </a>
+          </div>
+        } />
+      </Routes>
+    </>
   );
 }
 export default App
