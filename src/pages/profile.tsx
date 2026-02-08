@@ -74,18 +74,43 @@ const Profile: React.FC = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          // Format relative time if needed, or do it in component
-          // The component expects 'date' string. Let's process it a bit if needed.
-          // Assuming db returns ISO string.
           const processed = data.map((g: any) => ({
             ...g,
-            date: new Date(g.date).toLocaleDateString() // Simple format
+            date: new Date(g.date).toLocaleDateString()
           }));
           setGameHistory(processed);
+
+          // Calculate latest rating changes from history
+          const changes = getLatestRatingChanges(processed);
+          setUser(prev => prev ? {
+            ...prev,
+            rating_classic_change: changes.Classic,
+            rating_rapid_change: changes.Rapid,
+            rating_swift_change: changes.Swift,
+            rating_turbo_change: changes.Turbo,
+          } : null);
         }
       } catch (e) {
         console.error("History fetch error", e);
       }
+    };
+
+    // Helper to extract latest rating change for each mode
+    const getLatestRatingChanges = (history: any[]) => {
+      const changes: Record<string, number> = {};
+      const modes = ['Classic', 'Rapid', 'Swift', 'Turbo'];
+
+      modes.forEach(mode => {
+        // Find the most recent game for this mode
+        const latestGame = history.find(g => g.gameType === mode);
+        if (latestGame) {
+          // Check for both snake_case and camelCase
+          changes[mode] = latestGame.rating_change ?? latestGame.ratingChange ?? 0;
+        } else {
+          changes[mode] = 0;
+        }
+      });
+      return changes;
     };
 
     fetchProfile();

@@ -44,6 +44,8 @@ export interface GameHistoryEntry {
   reviewAvailable?: boolean;
   userScore?: number;
   opponentScore?: number;
+  rating_change?: number;
+  ratingChange?: number;
 }
 
 export interface Friend {
