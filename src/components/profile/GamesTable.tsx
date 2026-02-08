@@ -22,9 +22,9 @@ const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
           <button className="mt-4 text-blue-400 text-xs hover:underline">Play your first game</button>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[500px] custom-scrollbar">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-800/80 text-xs uppercase text-slate-400 font-semibold tracking-wider">
+            <thead className="sticky top-0 z-10 bg-slate-800 text-xs uppercase text-slate-400 font-semibold tracking-wider shadow-md">
               <tr>
                 <th className="p-4">Mode</th>
                 <th className="p-4">Opponent</th>

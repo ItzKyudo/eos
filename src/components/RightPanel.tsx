@@ -205,9 +205,6 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
                 <div className="text-xs text-gray-500">{game.type} • {game.date}</div>
               </div>
             </div>
-            <button className="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-colors">
-              <ArrowRight size={16} />
-            </button>
           </div>
         ))}
       </div>
