@@ -53,12 +53,6 @@ const Profile: React.FC = () => {
 
         const data = await response.json();
 
-        // MOCK DATA FOR UI VERIFICATION (Remove when backend provides this)
-        data.rating_classic_change = 12;
-        data.rating_rapid_change = -8;
-        data.rating_swift_change = -15;
-        data.rating_turbo_change = 24;
-
         setUser(data);
         if (data.show_ads !== undefined) setShowAds(data.show_ads);
 
