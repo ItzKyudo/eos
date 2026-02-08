@@ -139,6 +139,11 @@ const Multiplayer: React.FC = () => {
   // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
 
+  // --- STATS TRACKING ---
+  const [turnCaptureCount, setTurnCaptureCount] = useState(0);
+  const [myDoubleKills, setMyDoubleKills] = useState(0);
+  const [myTripleKills, setMyTripleKills] = useState(0);
+
   const [ratingData, setRatingData] = useState<{
     winnerId: string;
     loserId: string;
@@ -457,7 +462,11 @@ const Multiplayer: React.FC = () => {
           player1Id: myRole === 'player1' ? userId : opponentId,
           reason: 'timeout',
           winCondition: 'timeout',
-          gameHistory: moveHistory
+          gameHistory: moveHistory,
+          stats: {
+            doubleKills: myDoubleKills,
+            tripleKills: myTripleKills
+          }
         });
       }
       setWinner(gameWinner);
@@ -665,6 +674,10 @@ const Multiplayer: React.FC = () => {
     setCapturedByP1(newCapturedP1);
     setCapturedByP2(newCapturedP2);
 
+    // Increment capture count for this turn
+    const currentCaptureCount = turnCaptureCount + 1;
+    setTurnCaptureCount(currentCaptureCount);
+
     if (result.winner) {
       setWinner(result.winner);
       setTurnPhase('locked');
@@ -695,6 +708,13 @@ const Multiplayer: React.FC = () => {
         };
         const finalHistory = [...moveHistory, finalMove];
 
+        // Finalize stats for this turn 
+        let finalDoubleKills = myDoubleKills;
+        let finalTripleKills = myTripleKills;
+
+        if (currentCaptureCount === 2) finalDoubleKills++;
+        if (currentCaptureCount >= 3) finalTripleKills++;
+
         socket.emit('gameEnd', {
           matchId,
           winner: result.winner,
@@ -703,7 +723,11 @@ const Multiplayer: React.FC = () => {
           loserId,
           player1Id: myRole === 'player1' ? userId : opponentId,
           winCondition,
-          gameHistory: finalHistory
+          gameHistory: finalHistory,
+          stats: {
+            doubleKills: finalDoubleKills,
+            tripleKills: finalTripleKills
+          }
         });
       }
 
@@ -780,6 +804,12 @@ const Multiplayer: React.FC = () => {
 
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
+
+    // Process Turn Stats
+    if (turnCaptureCount === 2) setMyDoubleKills(prev => prev + 1);
+    if (turnCaptureCount >= 3) setMyTripleKills(prev => prev + 1);
+    setTurnCaptureCount(0); // Reset for next turn
+
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
     setCurrentTurn(nextTurn);
     setTurnPhase('locked');
