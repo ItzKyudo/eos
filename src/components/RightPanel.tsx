@@ -196,7 +196,12 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
                 {game.result === 'win' ? 'W' : game.result === 'loss' ? 'L' : 'D'}
               </div>
               <div>
-                <div className="text-sm font-bold text-gray-200">{game.opponent}</div>
+                <div className="text-sm font-bold text-gray-200 flex items-center gap-2">
+                  {game.opponent}
+                  {(game.userScore !== undefined && game.opponentScore !== undefined) && (
+                    <span className="text-xs text-gray-400 bg-white/5 px-1.5 rounded">{game.userScore}-{game.opponentScore}</span>
+                  )}
+                </div>
                 <div className="text-xs text-gray-500">{game.type} • {game.date}</div>
               </div>
             </div>

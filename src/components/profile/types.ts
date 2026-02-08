@@ -25,16 +25,19 @@ export interface UserProfile {
 }
 
 export interface GameHistoryEntry {
-  id: string;
+  id: number | string;
   opponent: string;
+  opponentId: string;
   opponentRating: number;
   opponentFlag: string;
   result: 'win' | 'loss' | 'draw';
   accuracy?: string;
   moves: number;
   date: string;
-  gameType: 'bullet' | 'blitz' | 'rapid';
-  reviewAvailable: boolean;
+  gameType: string;
+  reviewAvailable?: boolean;
+  userScore?: number;
+  opponentScore?: number;
 }
 
 export interface Friend {
