@@ -17,8 +17,6 @@ export interface UserProfile {
   show_ads?: boolean;
 
   // Rating Changes (For Analytics/Trends)
-  rating_bullet_change?: number;
-  rating_blitz_change?: number;
   rating_rapid_change?: number;
   rating_classic_change?: number;
   rating_swift_change?: number;
