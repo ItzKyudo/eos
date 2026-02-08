@@ -16,6 +16,14 @@ export interface UserProfile {
   theme_preference?: string;
   show_ads?: boolean;
 
+  // Rating Changes (For Analytics/Trends)
+  rating_bullet_change?: number;
+  rating_blitz_change?: number;
+  rating_rapid_change?: number;
+  rating_classic_change?: number;
+  rating_swift_change?: number;
+  rating_turbo_change?: number;
+
   // New Detailed Stats (Aligned with DB)
   supremo_wins?: number;
   solitude_wins?: number;
