@@ -147,6 +147,13 @@ const Board: React.FC = () => {
     return () => clearInterval(timer);
   }, [currentTurn, winner, loadingRules]);
 
+  // --- MOVE SOUND OBSERVER ---
+  useEffect(() => {
+    if (moveHistory.length > 0 && !loadingRules) {
+      playRandomMoveSound();
+    }
+  }, [moveHistory.length]);
+
 
 
   const handleTimeout = (winningPlayer: 'player1' | 'player2') => {
@@ -170,7 +177,6 @@ const Board: React.FC = () => {
   const executeMove = (pieceId: PieceKey, targetCoord: string) => {
     if (loadingRules) return;
 
-    playRandomMoveSound();
     const fromCoord = gameState[pieceId]!;
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
@@ -273,7 +279,6 @@ const Board: React.FC = () => {
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
-    playRandomMoveSound();
     const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
     const pieceBaseName = targetName.replace(/ \d.*$/, '');
     const points = PIECE_VALUES[pieceBaseName] || 1;
