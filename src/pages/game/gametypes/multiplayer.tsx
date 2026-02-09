@@ -252,6 +252,8 @@ const Multiplayer: React.FC = () => {
     });
     newSocket.on('moveMade', (data: MoveData) => {
       if (data.move && data.playerId !== newSocket.id) {
+        // Opponent made a move, play sound
+        playRandomMoveSound();
         const move = data.move;
         setGameState(move.gameState);
         setCurrentTurn(move.currentTurn);
