@@ -7,6 +7,7 @@ import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import GameOverModal from '../components/GameOverModal';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
+import { playRandomMoveSound } from '../utils/soundUtils';
 
 interface DbPiece {
   name: string;
@@ -169,6 +170,7 @@ const Board: React.FC = () => {
   const executeMove = (pieceId: PieceKey, targetCoord: string) => {
     if (loadingRules) return;
 
+    playRandomMoveSound();
     const fromCoord = gameState[pieceId]!;
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
@@ -271,6 +273,7 @@ const Board: React.FC = () => {
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
+    playRandomMoveSound();
     const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
     const pieceBaseName = targetName.replace(/ \d.*$/, '');
     const points = PIECE_VALUES[pieceBaseName] || 1;

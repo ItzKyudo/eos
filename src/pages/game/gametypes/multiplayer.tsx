@@ -8,6 +8,7 @@ import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import { motion } from 'framer-motion';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
+import { playRandomMoveSound } from '../utils/soundUtils';
 
 import MultiplayerGameResult from '../components/MultiplayerGameResult';
 import { calculateCapturePoints } from '../utils/scoring';
@@ -505,6 +506,7 @@ const Multiplayer: React.FC = () => {
   };
 
   const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
+    playRandomMoveSound();
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
     const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
@@ -663,6 +665,7 @@ const Multiplayer: React.FC = () => {
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
+    playRandomMoveSound();
     const newGameState = result.newGameState;
     const newCapturedP1 = [...capturedByP1];
     const newCapturedP2 = [...capturedByP2];
