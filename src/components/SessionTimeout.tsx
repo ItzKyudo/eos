@@ -1,101 +1,42 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Clock, LogOut } from 'lucide-react';
-
-const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
-const WARNING_TIME = 60 * 1000; // 1 minute warning before logout
 
 const SessionTimeout: React.FC = () => {
     const navigate = useNavigate();
-    const [showWarning, setShowWarning] = useState(false);
-    const [countdown, setCountdown] = useState(60);
-    const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-    const logout = useCallback(() => {
-        // Clear session storage
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
-
-        // Clear all timers
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-        // Navigate to login
-        navigate('/login');
-    }, [navigate]);
-
-    const resetTimer = useCallback(() => {
-        // Clear existing timers
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-        // Hide warning if showing
-        setShowWarning(false);
-        setCountdown(60);
-
-        // Only set timers if user is logged in
-        const token = sessionStorage.getItem('token');
-        if (!token) return;
-
-        // Set warning timer (show warning 1 minute before logout)
-        warningTimerRef.current = setTimeout(() => {
-            setShowWarning(true);
-            setCountdown(60);
-
-            // Start countdown
-            countdownIntervalRef.current = setInterval(() => {
-                setCountdown((prev) => {
-                    if (prev <= 1) {
-                        logout();
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }, IDLE_TIMEOUT - WARNING_TIME);
-
-        // Set logout timer (auto logout after full idle time)
-        idleTimerRef.current = setTimeout(() => {
-            logout();
-        }, IDLE_TIMEOUT);
-    }, [logout]);
-
-    const handleStayLoggedIn = () => {
-        resetTimer();
-    };
+    const location = useLocation();
+    const [showModal, setShowModal] = useState(false);
 
     useEffect(() => {
-        // Check if user is logged in
+        // Check if user is trying to access a protected route without a token
         const token = sessionStorage.getItem('token');
-        if (!token) return;
 
-        // Activity events to track
-        const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+        // List of public routes that don't require authentication
+        const publicRoutes = ['/', '/login', '/register', '/learn', '/puzzle'];
+        const isPublicRoute = publicRoutes.some(route => location.pathname === route);
 
-        // Reset timer on any activity
-        events.forEach((event) => {
-            window.addEventListener(event, resetTimer);
-        });
+        // Show modal if:
+        // 1. No token exists (session expired or browser was closed)
+        // 2. User is trying to access a protected route
+        // 3. Not already on login/register page
+        if (!token && !isPublicRoute && location.pathname !== '/login' && location.pathname !== '/register') {
+            setShowModal(true);
+        } else {
+            setShowModal(false);
+        }
+    }, [location.pathname]);
 
-        // Initialize timer
-        resetTimer();
+    const handleLoginRedirect = () => {
+        setShowModal(false);
+        navigate('/login');
+    };
 
-        // Cleanup
-        return () => {
-            events.forEach((event) => {
-                window.removeEventListener(event, resetTimer);
-            });
-            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-            if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        };
-    }, [resetTimer]);
+    const handleGoHome = () => {
+        setShowModal(false);
+        navigate('/');
+    };
 
-    if (!showWarning) return null;
+    if (!showModal) return null;
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -110,40 +51,32 @@ const SessionTimeout: React.FC = () => {
                 {/* Content */}
                 <div className="text-center space-y-3 mb-8">
                     <h2 className="text-3xl font-black text-white tracking-tighter">
-                        SESSION EXPIRING
+                        SESSION EXPIRED
                     </h2>
                     <p className="text-gray-400 font-medium">
-                        You've been inactive for a while. Your session will expire in:
+                        Your session has expired. Please log in again to continue.
                     </p>
 
-                    {/* Countdown */}
-                    <div className="py-4">
-                        <div className="text-6xl font-black text-[#e63e3e] tracking-tighter">
-                            {countdown}s
-                        </div>
-                    </div>
-
-                    <p className="text-gray-500 text-sm">
-                        Click below to stay logged in or you'll be automatically logged out.
+                    <p className="text-gray-500 text-sm mt-4">
+                        Sessions expire when you close your browser or log out for security purposes.
                     </p>
                 </div>
 
                 {/* Actions */}
                 <div className="flex flex-col gap-3">
                     <button
-                        onClick={handleStayLoggedIn}
+                        onClick={handleLoginRedirect}
                         className="w-full bg-gradient-to-r from-[#2c4dbd] to-[#e63e3e] text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 group hover:brightness-110 transition-all shadow-lg active:scale-[0.98]"
                     >
-                        <Clock size={20} />
-                        STAY LOGGED IN
+                        <LogOut size={20} />
+                        GO TO LOGIN
                     </button>
 
                     <button
-                        onClick={logout}
+                        onClick={handleGoHome}
                         className="w-full bg-transparent border-2 border-white/10 text-gray-400 py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-white/5 transition-all"
                     >
-                        <LogOut size={20} />
-                        Log Out Now
+                        Go to Home
                     </button>
                 </div>
             </div>
