@@ -3,6 +3,7 @@ import Sidebar from '../components/sidebar';
 import { Users, Check, X, UserX, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useFriendsStatus } from '../hooks/useFriendsStatus';
+import Leaderboard from '../components/Leaderboard';
 
 interface Friend {
     friendship_id: number;
@@ -327,11 +328,7 @@ const SocialPage: React.FC = () => {
                         )}
 
                         {activeTab === 'members' && (
-                            <div className="text-center py-20 bg-[#302e2b] rounded-xl border border-white/5">
-                                <h2 className="text-xl font-bold text-white mb-2">Members Directory</h2>
-                                <p className="text-gray-400">Search and find other players in the community.</p>
-                                <p className="text-xs text-gray-500 mt-4">(Coming Soon)</p>
-                            </div>
+                            <Leaderboard />
                         )}
                     </div>
                 </div>

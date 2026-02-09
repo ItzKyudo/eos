@@ -17,17 +17,18 @@ const GAME_MODES = [
     { label: 'Classic', time: 1800, icon: <Hourglass size={18} className="text-green-400" />, desc: '30 min' },
 ];
 
-const FriendsList: React.FC<FriendsListProps> = ({ 
-    className = "", 
-    limit, 
-    showInvite = false, 
-    selectedTime = 600 
+const FriendsList: React.FC<FriendsListProps> = ({
+    className = "",
+    limit,
+    showInvite = false,
+    selectedTime = 600
 }) => {
+    const navigate = useNavigate();
     const { friends, loading, sendChallenge } = useFriendsStatus();
-    
+
     // State to track which friend is being challenged (triggers modal open)
     const [challengingFriend, setChallengingFriend] = useState<any | null>(null);
-    
+
     // State to track the selected time inside the modal (defaults to prop value)
     const [modalTime, setModalTime] = useState<number>(selectedTime);
 
@@ -42,7 +43,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
     // 1. OPEN MODAL: User clicks invite button
     const handleInviteClick = (friend: any) => {
         // Pre-select the time from props, but allow changing it
-        setModalTime(selectedTime); 
+        setModalTime(selectedTime);
         setChallengingFriend(friend); // This opens the modal
     };
 
@@ -51,8 +52,8 @@ const FriendsList: React.FC<FriendsListProps> = ({
         if (challengingFriend) {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             sendChallenge(
-                challengingFriend.user_id, 
-                modalTime, 
+                challengingFriend.user_id,
+                modalTime,
                 user.username || 'Friend'
             );
             setChallengingFriend(null); // Close modal
@@ -113,9 +114,9 @@ const FriendsList: React.FC<FriendsListProps> = ({
             {challengingFriend && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
                     <div className="bg-[#1e293b] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl p-6 transform transition-all scale-100 relative">
-                        
+
                         {/* Close Button */}
-                        <button 
+                        <button
                             onClick={() => setChallengingFriend(null)}
                             className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
                         >
@@ -139,8 +140,8 @@ const FriendsList: React.FC<FriendsListProps> = ({
                                     onClick={() => setModalTime(mode.time)}
                                     className={`
                                         flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200
-                                        ${modalTime === mode.time 
-                                            ? 'bg-blue-600/20 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]' 
+                                        ${modalTime === mode.time
+                                            ? 'bg-blue-600/20 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]'
                                             : 'bg-[#0f172a] border-white/5 text-gray-500 hover:border-white/20 hover:bg-white/5'}
                                     `}
                                 >
