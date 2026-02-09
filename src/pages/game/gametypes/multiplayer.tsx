@@ -121,6 +121,9 @@ const Multiplayer: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
   const ghostRef = useRef<HTMLDivElement>(null);
+  const lastMoveLengthRef = useRef(0);
+
+  // --- DERIVED ---
   const [boardScale, setBoardScale] = useState(0.85);
   const circleSize = "w-17 h-17";
   const rowHeight = "h-12";
@@ -255,6 +258,7 @@ const Multiplayer: React.FC = () => {
         // ALWAYS play sound on received move to guarantee sync
         playRandomMoveSound();
         const move = data.move;
+        lastMoveLengthRef.current = move.moveHistory?.length || 0;
         setGameState(move.gameState);
         setCurrentTurn(move.currentTurn);
         setMoveHistory(move.moveHistory);
@@ -420,7 +424,16 @@ const Multiplayer: React.FC = () => {
     const channel = new BroadcastChannel('eos_game_sync');
     channel.onmessage = (event) => {
       const data = event.data as GameSyncData;
-      playRandomMoveSound();
+
+      // ONLY play sound if move history actually grew (it's a move, not just a state sync)
+      if (data.moveHistory && data.moveHistory.length > lastMoveLengthRef.current) {
+        playRandomMoveSound();
+      }
+
+      if (data.moveHistory) {
+        lastMoveLengthRef.current = data.moveHistory.length;
+      }
+
       setGameState(data.gameState);
       setCurrentTurn(data.currentTurn);
       setMoveHistory(data.moveHistory);
@@ -551,6 +564,8 @@ const Multiplayer: React.FC = () => {
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
     if (nextPhase === 'locked') setActivePiece(null);
+
+    lastMoveLengthRef.current = newHistory.length;
 
     const p1Score = calculateCapturePoints(newHistory, 'player1').points;
     const p2Score = calculateCapturePoints(newHistory, 'player2').points;
@@ -785,6 +800,8 @@ const Multiplayer: React.FC = () => {
     setValidAdvanceMoves([]);
     setTurnPhase(nextPhase);
 
+    lastMoveLengthRef.current = newHistory.length;
+
     const p1Score = calculateCapturePoints(newHistory, 'player1').points;
     const p2Score = calculateCapturePoints(newHistory, 'player2').points;
 
@@ -824,6 +841,9 @@ const Multiplayer: React.FC = () => {
     setValidAdvanceMoves([]);
     setValidAttacks([]);
     setMandatoryMoveUsed(false);
+
+    // Update ref even on turn switch to stay in sync
+    lastMoveLengthRef.current = moveHistory.length;
 
     broadcastUpdate({
       gameState: gameState,
