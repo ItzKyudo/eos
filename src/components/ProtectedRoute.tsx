@@ -5,8 +5,8 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ role }: ProtectedRouteProps) => {
-    const token = sessionStorage.getItem('token');
-    const userString = sessionStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    const userString = localStorage.getItem('user');
     let user = null;
 
     try {

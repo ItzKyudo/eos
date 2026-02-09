@@ -22,7 +22,7 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
         fetchFriends();
 
         // Setup Socket for status updates
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token');
         if (token) {
             const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
 
@@ -99,7 +99,7 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
     };
 
     const checkReconnection = () => {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token');
         if (token && socketRef.current) {
             socketRef.current.emit('checkReconnection', { token });
         }
@@ -107,7 +107,7 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
 
     const fetchFriends = async () => {
         try {
-            const token = sessionStorage.getItem('token');
+            const token = localStorage.getItem('token');
             if (!token) return;
 
             const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';

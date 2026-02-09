@@ -58,7 +58,7 @@ const Dashboard = () => {
   const fetchDashboardData = async (pageNum: number) => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
 
       const res = await fetch(`${API_URL}/api/admin/dashboard?page=${pageNum}`, {
         headers: {

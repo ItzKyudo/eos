@@ -41,7 +41,7 @@ const ManageUsers = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/users?page=${page}&search=${searchTerm}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -92,7 +92,7 @@ const ManageUsers = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/users/${userId}/ban`, {
         method: 'PATCH',
         headers: {
@@ -141,7 +141,7 @@ const ManageUsers = () => {
     if (!password) return; // User cancelled
 
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       // Verify Password with Backend
       const verifyRes = await fetch(`${API_URL}/api/admin/verify-password`, {
         method: 'POST',
@@ -208,7 +208,7 @@ const ManageUsers = () => {
   const handleSaveEdit = async () => {
     if (!editingUser) return;
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/users/${editingUser.user_id}`, {
         method: 'PUT',
         headers: {
