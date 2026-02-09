@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '../images/logo.png';
-import { Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Check } from 'lucide-react';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +10,7 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,9 @@ const Register: React.FC = () => {
       const data = await response.json();
       console.log('Account created:', data);
 
-      navigate('/login');
+      console.log('Account created:', data);
+
+      setShowModal(true);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -136,6 +139,35 @@ const Register: React.FC = () => {
           </p>
         </div>
       </div>
+      {/* Confirmation Modal */}
+      {
+        showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+            <div className="relative bg-[#21201d] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl transform transition-all animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-[#2c4dbd]/10 rounded-full flex items-center justify-center mb-2">
+                  <Check className="text-[#2c4dbd]" size={32} />
+                </div>
+
+                <h3 className="text-2xl font-black text-white">Check Your Email</h3>
+
+                <p className="text-gray-400 leading-relaxed">
+                  Your account has been successfully created! We've sent a verification link to <span className="text-white font-medium">{email}</span>.
+                  Please verify your email to access your account.
+                </p>
+
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full mt-4 bg-[#2c4dbd] text-white py-3 rounded-xl font-bold hover:bg-[#2c4dbd]/90 transition-colors shadow-lg shadow-[#2c4dbd]/20"
+                >
+                  Proceed to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
     </div>
   );
 };

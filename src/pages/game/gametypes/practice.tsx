@@ -1,78 +1,233 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
 import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
-import MoveHistory, { useGameHistory } from '../mechanics/MoveHistory';
-import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner } from '../mechanics/attackpieces';
+import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
+import GameOverModal from '../components/GameOverModal';
+import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
+import supabase from '../../../config/supabase';
 
-const PRACTICE_MOVE_RULES: Record<string, number[]> = {
-  "Supremo": [1, 2],
-  "Chancellor": [1, 2],
-  "Vice Roy": [1, 2],
-  "Archer": [1],
-  "Deacon": [1],
-  "Minister": [1, 2],
-  "Steward": [1]
-};
+interface DbPiece {
+  name: string;
+  movement_stats: string | {
+    move_steps: number[];
+    attack_rules: DbAttackRule
+  };
+}
 
-const PRACTICE_ATTACK_RULES: Record<string, { range: number[]; mandatory_move: number[] }> = {
-  "Supremo": { range: [1, 2], mandatory_move: [1] },
-  "Chancellor": { range: [1, 2, 3], mandatory_move: [1, 2] },
-  "Vice Roy": { range: [1, 2], mandatory_move: [1, 2] },
-  "Archer": { range: [1, 2, 3], mandatory_move: [1] },
-  "Deacon": { range: [1, 2], mandatory_move: [1] },
-  "Minister": { range: [1], mandatory_move: [1, 2] },
-  "Steward": { range: [1], mandatory_move: [1] }
+const PIECE_VALUES: Record<string, number> = {
+  "Supremo": 10, // Game over
+  "Chancellor": 6,
+  "Vice Roy": 5,
+  "Archer": 4,
+  "Deacon": 3,
+  "Minister": 2,
+  "Steward": 1
 };
 
 const Board: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const timeLimit = parseInt(searchParams.get('time') || '600', 10);
+
+  // Game State
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
-  const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
-  const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
+  const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
+  const [capturedByP1, setCapturedByP1] = useState<PieceKey[]>([]);
+  const [capturedByP2, setCapturedByP2] = useState<PieceKey[]>([]);
+  const [p1Score, setP1Score] = useState(0);
+  const [p2Score, setP2Score] = useState(0);
+  const [p1Time, setP1Time] = useState(timeLimit);
+  const [p2Time, setP2Time] = useState(timeLimit);
+
   const [currentTurn, setCurrentTurn] = useState<'player1' | 'player2'>('player1');
   const [winner, setWinner] = useState<Winner>(null);
-  const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
-  const [viewMode, setViewMode] = useState<'auto' | 'locked'>('auto');
-  const [perspective, setPerspective] = useState<'player1' | 'player2'>('player1');
-  const { moveHistory, capturedByP1, capturedByP2, addMove, addCapture } = useGameHistory();
+  const [gameEndReason, setGameEndReason] = useState<string>('');
+
+  // Turn Logic
   const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
+  const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
+  const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
+  const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
+
+  // Interaction
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAdvanceMoves, setValidAdvanceMoves] = useState<string[]>([]);
   const [validAttacks, setValidAttacks] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const ghostRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null); // Ghost ref
   const [initialDragPos, setInitialDragPos] = useState({ x: 0, y: 0 });
   const [boardScale, setBoardScale] = useState(0.85);
+
+  // Rules from DB
+  const [moveRules, setMoveRules] = useState<Record<string, number[]>>({});
+  const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
+  const [loadingRules, setLoadingRules] = useState(true);
+
+  // View
+  const perspective = 'player1';
+
+  // Constants
   const circleSize = "w-17 h-17";
   const rowHeight = "h-12";
   const gridWidth = 'w-[900px]';
   const sideWidth = 'w-16';
 
-  const handleTimeout = (winner: 'player1' | 'player2') => {
-    setWinner(winner);
+  // --- FETCH RULES ---
+  useEffect(() => {
+    const fetchGameRules = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pieces')
+          .select('name, movement_stats');
+
+        if (error) throw error;
+
+        if (data) {
+          const loadedMoveRules: Record<string, number[]> = {};
+          const loadedAttackRules: Record<string, DbAttackRule> = {};
+
+          (data as DbPiece[]).forEach((piece) => {
+            let stats = piece.movement_stats;
+            if (typeof stats === 'string') {
+              try {
+                stats = JSON.parse(stats);
+              } catch (e) {
+                console.error("Failed to parse JSON for piece:", piece.name, e);
+                return;
+              }
+            }
+
+            const typedStats = stats as { move_steps: number[]; attack_rules: DbAttackRule };
+
+            if (typedStats) {
+              loadedMoveRules[piece.name] = typedStats.move_steps;
+              loadedAttackRules[piece.name] = typedStats.attack_rules;
+            }
+          });
+
+          setMoveRules(loadedMoveRules);
+          setAttackRules(loadedAttackRules);
+        }
+      } catch (err) {
+        console.error("Error loading game rules:", err);
+      } finally {
+        setLoadingRules(false);
+      }
+    };
+
+    fetchGameRules();
+  }, []);
+
+  // --- TIMERS ---
+  useEffect(() => {
+    if (winner || loadingRules) return;
+    const timer = setInterval(() => {
+      if (currentTurn === 'player1') {
+        setP1Time(t => {
+          if (t <= 0) {
+            handleTimeout('player2');
+            return 0;
+          }
+          return t - 1;
+        });
+      } else {
+        setP2Time(t => {
+          if (t <= 0) {
+            handleTimeout('player1');
+            return 0;
+          }
+          return t - 1;
+        });
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [currentTurn, winner, loadingRules]);
+
+
+
+  const handleTimeout = (winningPlayer: 'player1' | 'player2') => {
+    setWinner(winningPlayer);
+    setGameEndReason('timeout');
     setTurnPhase('locked');
   };
 
-  const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
-    if (winner || turnPhase === 'locked') return;
+  const handleResign = () => {
+    const winner = currentTurn === 'player1' ? 'player2' : 'player1';
+    setWinner(winner);
+    setGameEndReason('resignation');
+    setTurnPhase('locked');
+  };
 
-    if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
+  const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
+    return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
+  };
+
+  // --- EXECUTE MOVE ---
+  const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+    if (loadingRules) return;
+
+    const fromCoord = gameState[pieceId]!;
+    const newGameState = { ...gameState, [pieceId]: targetCoord };
+    const newHasMoved = { ...hasMoved, [pieceId]: true };
+    const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
+
+    const newMove: MoveLog = {
+      player: currentTurn,
+      pieceName: PIECE_MOVEMENTS[pieceId].name,
+      pieceId: pieceId,
+      from: fromCoord,
+      to: targetCoord,
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
+    };
+
+    // DISABLE MULTI-MOVE/CHAINING: Always end turn phase after a move.
+    setGameState(newGameState);
+    setHasMoved(newHasMoved);
+    setPieceMoveCount(newMoveCount);
+    setMoveHistory(prev => [...prev, newMove]);
+    setMandatoryMoveUsed(true);
+
+    setValidMoves([]);
+    setValidAdvanceMoves([]);
+    setValidAttacks([]);
+    setTurnPhase('locked');
+    setActivePiece(null);
+  };
+
+  // --- HANDLERS ---
+  const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
+    if (winner || turnPhase === 'locked' || loadingRules) return;
+
+    // If in mandatory move, only allow active piece
+    if (turnPhase === 'mandatory_move' && activePiece && gameState[activePiece] !== coordinate) return;
 
     const pieceId = getPieceAtTile(coordinate);
-    if (!pieceId) return;
+    const allMoves = [...validMoves, ...validAdvanceMoves];
 
+    // If clicking a valid move tile
+    if (activePiece && allMoves.includes(coordinate)) {
+      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+      executeMove(activePiece, coordinate);
+      return;
+    }
+
+    // Select new piece
+    if (!pieceId) return;
     const owner = getPieceOwner(pieceId);
-    if ((turnPhase === 'select' || turnPhase === 'action') && owner !== currentTurn) return;
+    if (owner !== currentTurn) return; // Can only select own pieces
+
+    if (turnPhase === 'mandatory_move' && pieceId !== activePiece) return; // Locked to active piece
 
     if (e.cancelable && e.type !== 'touchstart') e.preventDefault();
 
     setActivePiece(pieceId);
     setIsDragging(true);
 
+    // Drag visual setup
     let clientX, clientY;
     if ('touches' in e) {
       clientX = e.touches[0].clientX;
@@ -83,21 +238,30 @@ const Board: React.FC = () => {
     }
     setInitialDragPos({ x: clientX, y: clientY });
 
+    // Calculate Moves
     if (turnPhase === 'select' || turnPhase === 'action') {
       const isLifetimeFirstMove = !hasMoved[pieceId];
-      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
-      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, PRACTICE_ATTACK_RULES);
+      const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
 
       setValidMoves(moves);
       setValidAdvanceMoves(advanceMoves);
       setValidAttacks(attacks);
       setTurnPhase('action');
-    }
-    else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, PRACTICE_MOVE_RULES);
+    } else if (turnPhase === 'mandatory_move') {
+      // Should already be handled, but just in case re-selecting same piece
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      // Check if attacks available (multi-capture path)
+      let allowedAttacks: string[] = [];
+      if (mandatoryMoveUsed) {
+        allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
+      } else {
+        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, moveRules);
+        allowedAttacks = attacks;
+      }
       setValidMoves(allowedMoves);
       setValidAdvanceMoves([]);
-      setValidAttacks([]);
+      setValidAttacks(allowedAttacks);
     }
   };
 
@@ -107,47 +271,49 @@ const Board: React.FC = () => {
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
-    setGameState(result.newGameState);
-    addCapture(currentTurn, result.capturedPieceId);
+    const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
+    const pieceBaseName = targetName.replace(/ \d.*$/, '');
+    const points = PIECE_VALUES[pieceBaseName] || 1;
+
+    const newGameState = result.newGameState;
+    const newCapturedP1 = [...capturedByP1];
+    const newCapturedP2 = [...capturedByP2];
+
+    if (currentTurn === 'player1') {
+      newCapturedP1.push(result.capturedPieceId);
+      setCapturedByP1(newCapturedP1);
+      setP1Score(s => s + points);
+    } else {
+      newCapturedP2.push(result.capturedPieceId);
+      setCapturedByP2(newCapturedP2);
+      setP2Score(s => s + points);
+    }
+
+    setGameState(newGameState);
 
     if (result.winner) {
       setWinner(result.winner);
+      setGameEndReason(targetName.includes('Supremo') ? 'supremo_capture' : 'solitude');
       setTurnPhase('locked');
       return;
     }
 
-    const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
-    const pieceName = PIECE_MOVEMENTS[activePiece].name;
-    addMove({
+    const newMove: MoveLog = {
       player: currentTurn,
-      pieceName: `${pieceName} captures ${targetName}`,
+      pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures ${targetName}`,
       pieceId: activePiece,
       from: gameState[activePiece]!,
       to: targetCoord,
       turnNumber: moveHistory.length + 1,
       timestamp: Date.now()
-    });
+    };
+    setMoveHistory(prev => [...prev, newMove]);
 
-    const currentPos = gameState[activePiece]!;
-
-    const { attacks, moves } = getMultiCaptureOptions(
-      activePiece,
-      currentPos,
-      result.newGameState as Record<string, string>,
-      mandatoryMoveUsed,
-      pieceMoveCount,
-      PRACTICE_MOVE_RULES
-    );
-
-    setValidAttacks(attacks);
-    setValidMoves(moves);
+    // DISABLE MULTI-CAPTURE: Always lock after capture.
+    setValidAttacks([]);
+    setValidMoves([]);
     setValidAdvanceMoves([]);
-
-    if (attacks.length > 0 || moves.length > 0) {
-      setTurnPhase('mandatory_move');
-    } else {
-      setTurnPhase('locked');
-    }
+    setTurnPhase('locked');
   };
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
@@ -165,67 +331,14 @@ const Board: React.FC = () => {
 
     const elementUnderMouse = document.elementFromPoint(clientX, clientY);
     const tile = elementUnderMouse?.closest('[data-tile]');
-
     if (tile) {
       const targetCoord = tile.getAttribute('data-tile');
-      const currentCoord = gameState[activePiece];
       const allMoves = [...validMoves, ...validAdvanceMoves];
-      const isAdvance = !!targetCoord && validAdvanceMoves.includes(targetCoord);
-
       if (targetCoord && allMoves.includes(targetCoord)) {
-        setGameState(prev => ({ ...prev, [activePiece]: targetCoord }));
-        setHasMoved(prev => ({ ...prev, [activePiece]: true }));
-        setPieceMoveCount(prev => ({ ...prev, [activePiece]: (prev[activePiece] || 0) + 1 }));
-        setMandatoryMoveUsed(true);
-
-        addMove({
-          player: currentTurn,
-          pieceName: PIECE_MOVEMENTS[activePiece].name,
-          pieceId: activePiece,
-          from: currentCoord!,
-          to: targetCoord,
-          turnNumber: moveHistory.length + 1,
-          timestamp: Date.now()
-        });
-
-        // Turn-based logic: Post-move is never first move of the turn.
-        const turnBasedFirstMove = false;
-
-        let attacks: string[] = [];
-        if (!isAdvance) {
-          if (turnPhase === 'action') {
-            attacks = getValidAttacks(
-              activePiece, targetCoord,
-              { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
-              'post-move',
-              turnBasedFirstMove,
-              PRACTICE_ATTACK_RULES
-            );
-          } else if (turnPhase === 'mandatory_move') {
-            attacks = getValidAttacks(
-              activePiece, targetCoord,
-              { ...gameState, [activePiece]: targetCoord } as Record<string, string>,
-              'post-move',
-              false,
-              PRACTICE_ATTACK_RULES
-            );
-          }
-        }
-
-        if (attacks.length > 0) {
-          setValidMoves([]);
-          setValidAdvanceMoves([]);
-          setValidAttacks(attacks);
-          setTurnPhase('mandatory_move');
-        } else {
-          setValidMoves([]);
-          setValidAdvanceMoves([]);
-          setValidAttacks([]);
-          setTurnPhase('locked');
-        }
+        executeMove(activePiece, targetCoord);
       }
     }
-  }, [isDragging, activePiece, gameState, validMoves, validAdvanceMoves, turnPhase, currentTurn, moveHistory, addMove]);
+  }, [isDragging, activePiece, validMoves, validAdvanceMoves]);
 
   const handleSwitchTurn = () => {
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
@@ -237,20 +350,12 @@ const Board: React.FC = () => {
     setMandatoryMoveUsed(false);
   };
 
-  const togglePerspective = () => {
-    setViewMode('locked');
-    setPerspective(prev => prev === 'player1' ? 'player2' : 'player1');
-  };
 
-  useEffect(() => {
-    if (viewMode === 'auto') {
-      setPerspective(currentTurn);
-    }
-  }, [currentTurn, viewMode]);
 
+  // --- DRAG GHOST ---
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-      if (isDragging && ghostRef.current) {
+      if (isDragging && filterRef.current) {
         if (e.cancelable) e.preventDefault();
         let clientX, clientY;
         if ('touches' in e) {
@@ -260,8 +365,8 @@ const Board: React.FC = () => {
           clientX = (e as MouseEvent).clientX;
           clientY = (e as MouseEvent).clientY;
         }
-        ghostRef.current.style.left = `${clientX}px`;
-        ghostRef.current.style.top = `${clientY}px`;
+        filterRef.current.style.left = `${clientX}px`;
+        filterRef.current.style.top = `${clientY}px`;
       }
     };
 
@@ -279,9 +384,11 @@ const Board: React.FC = () => {
     };
   }, [isDragging, handleMouseUp]);
 
+  // --- RESIZE ---
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
+      // Adjust validation/breakpoints as needed
       if (width < 1024) {
         setBoardScale(Math.min((width - 10) / 980, 0.85));
       } else {
@@ -293,21 +400,18 @@ const Board: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
-    return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
-  };
-
+  // --- RENDERING HELPERS ---
   const getRenderRows = () => {
     const defaultRows = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-    return perspective === 'player1' ? defaultRows : [...defaultRows].reverse();
+    return defaultRows;
   };
-
-  const getRenderCols = () => {
-    return perspective === 'player1' ? BOARD_COLUMNS : [...BOARD_COLUMNS].reverse();
-  };
+  const getRenderCols = () => BOARD_COLUMNS;
 
   const getRowTiles = (rowNum: number) => {
     let tiles: string[] = [];
+    // ... same mapping as before ... 
+    // Optimization: Generate dynamically since logic is consistent
+    // But keeping explicit switch for safety/legacy
     switch (rowNum) {
       case 13: tiles = ['A13', 'C13', 'E13', 'G13', 'I13', 'K13', 'M13', 'O13', 'Q13']; break;
       case 12: tiles = ['B12', 'D12', 'F12', 'H12', 'J12', 'L12', 'N12', 'P12']; break;
@@ -322,64 +426,48 @@ const Board: React.FC = () => {
       case 3: tiles = ['A3', 'C3', 'E3', 'G3', 'I3', 'K3', 'M3', 'O3', 'Q3']; break;
       case 2: tiles = ['B2', 'D2', 'F2', 'H2', 'J2', 'L2', 'N2', 'P2']; break;
       case 1: tiles = ['A1', 'C1', 'E1', 'G1', 'I1', 'K1', 'M1', 'O1', 'Q1']; break;
-      default: tiles = [];
     }
-    return perspective === 'player1' ? tiles : tiles.reverse();
+    return tiles;
   };
 
-  return (
-    <div className="flex flex-col lg:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
+  if (loadingRules) {
+    return <div className="w-full h-screen bg-neutral-800 flex items-center justify-center text-white">Loading Game Rules...</div>;
+  }
 
+  return (
+    <div className="flex flex-col xl:flex-row w-full h-screen bg-neutral-800 overflow-hidden">
+
+      {/* 2. MAIN BOARD AREA */}
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
 
-        <div className="absolute top-4 left-4 z-50 flex gap-2">
-          <button
-            onClick={togglePerspective}
-            className="bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg border border-neutral-600 flex items-center gap-2 transition-all"
-          >
-            <span className="text-xl">↻</span>
-            {perspective === 'player1' ? 'View: P1 (Bottom)' : 'View: P2 (Top)'}
-          </button>
-          {viewMode === 'locked' && (
-            <button onClick={() => setViewMode('auto')} className="text-[10px] text-neutral-400 underline">Reset Auto</button>
-          )}
-        </div>
 
-        {winner && (
-          <div className="absolute top-24 z-50 bg-red-600 text-white px-8 py-4 rounded-xl shadow-2xl font-black text-2xl animate-bounce text-center">
-            GAME OVER! {winner === 'player1' ? 'BOTTOM' : 'TOP'} WINS!
-          </div>
-        )}
 
-        {turnPhase === 'mandatory_move' && !winner && (
-          <div className="absolute top-24 z-50 bg-yellow-600 text-white px-6 py-2 rounded-full shadow-lg font-bold animate-pulse text-center">
-            {validMoves.length > 0 ? "Capture Successful! You MUST move now." : "Capture Successful! Capture again or End Turn."}
-          </div>
-        )}
-
+        {/* Ghost Piece */}
         {isDragging && activePiece && activePiece in PIECES && (
           <div
-            ref={ghostRef}
-            className="fixed pointer-events-none z-100"
+            ref={filterRef}
+            className="fixed pointer-events-none z-[100]"
             style={{
               left: initialDragPos.x,
               top: initialDragPos.y,
-              transform: 'translate(-50%, -50%) scale(0.65) scale(1.15)',
+              transform: 'translate(-50%, -50%) scale(1.15)',
               willChange: 'left, top'
             }}
           >
-            <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]`}>
-              <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full rounded-full object-cover" />
+            <div className={`${circleSize} rounded-full shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)] overflow-hidden`}>
+              <img src={PIECES[activePiece]} alt="dragging" className="w-full h-full object-cover" />
             </div>
           </div>
         )}
 
+        {/* Board */}
         <div
           className="origin-center transition-transform duration-500 ease-in-out"
           style={{ transform: `scale(${boardScale})` }}
         >
           <div className="relative bg-[#1a8a3d] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#145c2b] flex flex-col items-center">
 
+            {/* Top Labels */}
             <div className="flex items-center mb-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
@@ -388,23 +476,28 @@ const Board: React.FC = () => {
               <div className={`${sideWidth}`}></div>
             </div>
 
+            {/* Rows */}
             <div className="flex flex-col space-y-1">
               {getRenderRows().map((row) => {
                 const currentTiles = getRowTiles(row);
                 const is9TileRow = currentTiles.length === 9;
-
                 return (
                   <div key={row} className="flex items-center">
                     <div className={`${sideWidth} text-[#a3dcb5] font-bold text-xl ${rowHeight} flex items-center justify-end pr-1`}>{row}</div>
-
                     <div className={`flex ${gridWidth} ${rowHeight} items-center justify-around ${!is9TileRow ? 'px-16' : 'px-4'}`}>
                       {currentTiles.map((coordinate, i) => {
                         const pieceId = getPieceAtTile(coordinate);
                         const isMyPiece = pieceId && getPieceOwner(pieceId) === currentTurn;
+
+                        // Interaction States
                         const isMoveTarget = validMoves.includes(coordinate);
                         const isAdvanceTarget = validAdvanceMoves.includes(coordinate);
                         const isAttackTarget = validAttacks.includes(coordinate);
-                        const canInteract = !winner && (isMyPiece || isAttackTarget || isMoveTarget || isAdvanceTarget);
+
+                        const canInteract = !winner && (
+                          (isMyPiece && turnPhase !== 'locked' && (turnPhase !== 'mandatory_move' || pieceId === activePiece)) ||
+                          isAttackTarget || isMoveTarget || isAdvanceTarget
+                        );
 
                         return (
                           <div
@@ -413,32 +506,34 @@ const Board: React.FC = () => {
                             onMouseDown={(e) => isAttackTarget ? handleAttackClick(coordinate) : handleMouseDown(coordinate, e)}
                             onTouchStart={(e) => isAttackTarget ? handleAttackClick(coordinate) : handleMouseDown(coordinate, e)}
                             className={`
-                              group relative ${circleSize} 
-                              bg-linear-to-br from-white to-gray-200 
-                              rounded-full 
-                              shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
-                              ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
-                              border border-gray-300 
-                              shrink-0 flex items-center justify-center
-                              z-10
-                            `}
+                               group relative ${circleSize} 
+                               bg-linear-to-br from-white to-gray-200 
+                               rounded-full 
+                               shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
+                               ${canInteract ? 'cursor-pointer hover:scale-105' : ''}
+                               border border-gray-300 
+                               shrink-0 flex items-center justify-center
+                               z-10
+                             `}
                           >
-                            {pieceId && pieceId in PIECES && (
+                            {pieceId && PIECES[pieceId] && (
                               <img
-                                src={PIECES[pieceId as PieceKey]}
+                                src={PIECES[pieceId]}
                                 alt="piece"
                                 className={`
-                                  w-full h-full rounded-full object-cover 
-                                  ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
-                                  pointer-events-none select-none
-                                `}
+                                   w-full h-full rounded-full object-cover 
+                                   ${(isDragging && pieceId === activePiece) ? 'opacity-30 grayscale' : ''}
+                                   pointer-events-none select-none
+                                 `}
                               />
                             )}
+
+                            {/* Highlights */}
                             {isMoveTarget && !pieceId && (
-                              <div className="absolute w-6 h-6 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
+                              <div className="absolute w-3 h-3 bg-green-500 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(74,222,128,1)]" />
                             )}
                             {isAdvanceTarget && !pieceId && (
-                              <div className="absolute w-6 h-6 bg-yellow-400 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(250,204,21,1)]" />
+                              <div className="absolute w-3 h-3 bg-yellow-400 rounded-full animate-pulse z-20 shadow-[0_0_15px_rgba(250,204,21,1)]" />
                             )}
                             {isAttackTarget && (
                               <div className="absolute w-full h-full rounded-full border-4 border-red-600 animate-pulse z-30 shadow-[0_0_20px_rgba(220,38,38,0.6)]">
@@ -458,6 +553,7 @@ const Board: React.FC = () => {
               })}
             </div>
 
+            {/* Bottom Labels */}
             <div className="flex items-center mt-4 w-full justify-center">
               <div className={`${sideWidth}`}></div>
               <div className={`flex justify-between ${gridWidth} px-10`}>
@@ -465,21 +561,54 @@ const Board: React.FC = () => {
               </div>
               <div className={`${sideWidth}`}></div>
             </div>
+
           </div>
         </div>
       </div>
 
-      <MoveHistory
-        moves={moveHistory}
-        currentTurn={currentTurn}
+      {/* 1. HUD: Moved to Right */}
+      <MultiplayerHUD
+        myRole={perspective} // Determines who is at the bottom
+        gameState={{
+          currentTurn,
+          moves: moveHistory,
+          p1Time,
+          p2Time,
+          p1Score,
+          p2Score,
+          capturedByP1,
+          capturedByP2
+        }}
+        playerDetails={{
+          myUsername: 'Player 1',
+          opponentUsername: 'Player 2',
+          myRating: 'Local',
+          opponentRating: 'Local',
+          opponentConnected: true,
+          disconnectTimer: ''
+        }}
         onSwitchTurn={handleSwitchTurn}
-        canSwitchTurn={turnPhase === 'locked'}
-        capturedByP1={capturedByP1}
-        capturedByP2={capturedByP2}
-        onTimeout={handleTimeout}
-        initialTime={timeLimit}
+        onResign={handleResign}
+        canSwitchTurn={turnPhase === 'locked' && !winner}
+        gameStatus={winner ? 'finished' : 'active'}
       />
 
+      {/* Game Over Modal */}
+      <GameOverModal
+        isOpen={!!winner}
+        onClose={() => navigate('/game')}
+        winner={winner}
+        currentUserId={winner === 'player1' ? 'p1' : 'p2'} // Simulation
+        winnerId={winner === 'player1' ? 'p1' : 'p2'}
+        winnerName={winner === 'player1' ? 'Player 1' : 'Player 2'}
+        loserName={winner === 'player1' ? 'Player 2' : 'Player 1'}
+        winnerRatingChange={0}
+        loserRatingChange={0}
+        winnerNewRating={1200}
+        loserNewRating={1200}
+        reason={gameEndReason}
+        score={winner === 'player1' ? p1Score : p2Score}
+      />
     </div>
   );
 };
