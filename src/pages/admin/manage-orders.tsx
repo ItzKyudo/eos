@@ -4,6 +4,7 @@ import { CheckCircle, Clock, XCircle, Eye, Package, User, MapPin, Phone, Refresh
 import Swal from 'sweetalert2';
 
 const ManageOrders = () => {
+  const [searchTerm, setSearchTerm] = useState('');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -80,10 +81,20 @@ const ManageOrders = () => {
   // Filter Logic
   const filteredOrders = orders.filter((order: any) => {
     const s = order.status.toLowerCase();
-    if (activeTab === 'pending') return s.includes('pending');
-    if (activeTab === 'claimed') return s.includes('claimed') || s.includes('completed');
-    if (activeTab === 'cancelled') return s.includes('cancelled');
-    return true;
+    const matchesTab = (activeTab === 'pending' && s.includes('pending')) ||
+      (activeTab === 'claimed' && (s.includes('claimed') || s.includes('completed'))) ||
+      (activeTab === 'cancelled' && s.includes('cancelled'));
+
+    if (!matchesTab) return false;
+
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      order.order_id.toString().includes(search) ||
+      (order.receipt_no && order.receipt_no.toString().toLowerCase().includes(search)) ||
+      (order.users?.username && order.users.username.toLowerCase().includes(search)) ||
+      (order.recipient_name && order.recipient_name.toLowerCase().includes(search))
+    );
   });
 
   return (
@@ -96,8 +107,20 @@ const ManageOrders = () => {
             <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
             <p className="text-gray-500 text-sm mt-1">Manage and track customer orders</p>
           </div>
-          <button onClick={fetchOrders} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600"><RefreshCw size={20} /></button>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search orders..."
+                className="pl-4 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none w-64 bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button onClick={fetchOrders} className="p-2 bg-white border rounded-lg hover:bg-gray-50 text-gray-600 transition-colors shadow-sm"><RefreshCw size={20} /></button>
+          </div>
         </div>
+
 
         {/* Status Tabs */}
         <div className="flex gap-4 mb-6 border-b border-gray-200">
