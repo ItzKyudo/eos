@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { Gamepad2, X, Check, Clock, Zap, Target, Hourglass } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface FriendsListProps {
     className?: string;
