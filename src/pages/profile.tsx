@@ -9,6 +9,7 @@ import StatsGrid from '../components/profile/StatsGrid';
 import GamesTable from '../components/profile/GamesTable';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import FriendsList from '../components/profile/FriendsList';
+import GameAnalytics from '../components/profile/GameAnalytics';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -250,7 +251,8 @@ const Profile: React.FC = () => {
         )}
 
         {activeTab === 'games' && (
-          <div className="animate-fadeIn">
+          <div className="animate-fadeIn space-y-8">
+            <GameAnalytics games={gameHistory} />
             <GamesTable games={gameHistory} />
           </div>
         )}
