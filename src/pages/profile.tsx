@@ -242,8 +242,8 @@ const Profile: React.FC = () => {
 
             <aside className="w-full xl:w-80 flex-shrink-0 space-y-6">
               <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-md">
-                <h3 className="font-bold text-gray-200 mb-4">Friends Online</h3>
-                <FriendsList className="flex flex-col gap-1" limit={10} showInvite={false} />
+                <h3 className="font-bold text-gray-200 mb-4">{isOwnProfile ? 'Friends Online' : `${user?.username}'s Friends`}</h3>
+                <FriendsList className="flex flex-col gap-1" limit={10} showInvite={false} userId={userId} />
               </div>
             </aside>
           </div>
@@ -260,19 +260,25 @@ const Profile: React.FC = () => {
             <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 shadow-xl">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-black text-white uppercase tracking-tight">Your Friends</h2>
-                  <p className="text-slate-400 text-sm mt-1">Manage your connections and challenges</p>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+                    {isOwnProfile ? 'Your Friends' : `${user?.username}'s Friends`}
+                  </h2>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {isOwnProfile ? 'Manage your connections and challenges' : `View ${user?.username}'s connections`}
+                  </p>
                 </div>
-                <button
-                  onClick={() => navigate('/social')}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center gap-2"
-                >
-                  Find Friends
-                </button>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => navigate('/social')}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center gap-2"
+                  >
+                    Find Friends
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FriendsList className="contents" showInvite={true} />
+                <FriendsList className="contents" showInvite={isOwnProfile} userId={userId} />
               </div>
             </div>
           </div>

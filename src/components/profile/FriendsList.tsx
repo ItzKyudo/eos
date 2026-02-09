@@ -8,6 +8,7 @@ interface FriendsListProps {
     limit?: number;
     showInvite?: boolean;
     selectedTime?: number; // Currently selected time from RightPanel (default suggestion)
+    userId?: string | number;
 }
 
 // Data for the modes available in the modal
@@ -22,10 +23,18 @@ const FriendsList: React.FC<FriendsListProps> = ({
     className = "",
     limit,
     showInvite = false,
-    selectedTime = 600
+    selectedTime = 600,
+    userId
 }) => {
     const navigate = useNavigate();
-    const { friends, loading, sendChallenge } = useFriendsStatus();
+
+    // Check if this is the current user's friend list
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isOwnFriends = !userId || userId === currentUser.id;
+
+    const { friends, loading, sendChallenge } = useFriendsStatus({
+        targetUserId: userId
+    });
 
     // State to track which friend is being challenged (triggers modal open)
     const [challengingFriend, setChallengingFriend] = useState<any | null>(null);
@@ -101,7 +110,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
                             </div>
                         </div>
 
-                        {showInvite && friend.isOnline && (
+                        {showInvite && isOwnFriends && friend.isOnline && (
                             <button
                                 onClick={() => handleInviteClick(friend)}
                                 className="opacity-0 group-hover:opacity-100 p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-all text-white shadow-lg"
@@ -115,7 +124,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
             )}
 
             {/* --- UNIFIED CHALLENGE MODAL --- */}
-            {challengingFriend && (
+            {isOwnFriends && challengingFriend && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
                     <div className="bg-[#1e293b] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl p-6 transform transition-all scale-100 relative">
 

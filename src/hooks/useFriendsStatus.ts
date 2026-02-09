@@ -11,7 +11,11 @@ interface Friend {
     isOnline?: boolean;
 }
 
-export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconnectionOnConnect?: boolean } = { enableInvites: false, checkReconnectionOnConnect: false }) => {
+export const useFriendsStatus = (options: {
+    enableInvites?: boolean;
+    checkReconnectionOnConnect?: boolean;
+    targetUserId?: string | number;
+} = { enableInvites: false, checkReconnectionOnConnect: false }) => {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
     const [onlineCount, setOnlineCount] = useState(0);
@@ -26,8 +30,8 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
             return;
         }
         try {
-            // No need to manually get token or set headers, api instance handles it
-            const response = await api.get('/friends');
+            const url = options.targetUserId ? `/friends?userId=${options.targetUserId}` : '/friends';
+            const response = await api.get(url);
             const data = response.data;
 
             // Initialize with offline status
