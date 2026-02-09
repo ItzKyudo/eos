@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { Gamepad2, X, Check, Clock, Zap, Target, Hourglass } from 'lucide-react';
 
@@ -23,6 +24,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
     showInvite = false,
     selectedTime = 600
 }) => {
+    const navigate = useNavigate();
     const { friends, loading, sendChallenge } = useFriendsStatus();
 
     // State to track which friend is being challenged (triggers modal open)
@@ -71,7 +73,10 @@ const FriendsList: React.FC<FriendsListProps> = ({
             ) : (
                 displayFriends.map(friend => (
                     <div key={friend.friendship_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors group">
-                        <div className="flex items-center gap-3">
+                        <div
+                            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => navigate(`/profile/${friend.user_id}`)}
+                        >
                             <div className="relative w-10 h-10">
                                 {/* Avatar */}
                                 <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden">

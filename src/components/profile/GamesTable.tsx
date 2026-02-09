@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GameHistoryEntry } from './types';
 
 interface GamesTableProps {
@@ -6,6 +7,8 @@ interface GamesTableProps {
 }
 
 const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="bg-[#1e293b] rounded-xl shadow-lg border border-slate-700 overflow-hidden min-h-[200px] flex flex-col">
       <div className="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
@@ -42,7 +45,13 @@ const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{game.opponentFlag}</span>
-                      <div className="flex flex-col">
+                      <div
+                        className="flex flex-col cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Avoid triggering row click if any
+                          navigate(`/profile/${game.opponentId}`);
+                        }}
+                      >
                         <span className="font-bold text-gray-200 group-hover:text-blue-400 transition">{game.opponent}</span>
                         <span className="text-slate-500 text-xs">({game.opponentRating})</span>
                       </div>

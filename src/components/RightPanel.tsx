@@ -195,7 +195,10 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
               `}>
                 {game.result === 'win' ? 'W' : game.result === 'loss' ? 'L' : 'D'}
               </div>
-              <div>
+              <div
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate(`/profile/${game.opponentId}`)}
+              >
                 <div className="text-sm font-bold text-gray-200 flex items-center gap-2">
                   {game.opponent}
                   {(game.userScore !== undefined && game.opponentScore !== undefined) && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from '../components/sidebar';
 import { Users, Check, X, UserX, Link as LinkIcon, AlertCircle } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useFriendsStatus } from '../hooks/useFriendsStatus';
 import Leaderboard from '../components/Leaderboard';
 
@@ -16,6 +16,7 @@ interface Friend {
 }
 
 const SocialPage: React.FC = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'friends' | 'members'>('friends');
 
     // Use hook for Friends list and Online Status
@@ -251,7 +252,10 @@ const SocialPage: React.FC = () => {
                                         <div className="grid gap-4 md:grid-cols-2">
                                             {requests.map(req => (
                                                 <div key={req.friendship_id} className="bg-[#302e2b] p-4 rounded-xl border border-white/10 flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                                        onClick={() => navigate(`/profile/${req.user_id}`)}
+                                                    >
                                                         <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden">
                                                             {req.avatar_url ? <img src={req.avatar_url} alt={req.username} /> : <User2IconPlaceholder />}
                                                         </div>
@@ -294,7 +298,10 @@ const SocialPage: React.FC = () => {
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                             {friends.map((friend: any) => (
                                                 <div key={friend.friendship_id} className="bg-[#302e2b] p-4 rounded-xl border border-white/10 flex items-center justify-between group hover:border-white/20 transition-all">
-                                                    <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                                        onClick={() => navigate(`/profile/${friend.user_id}`)}
+                                                    >
                                                         <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden relative">
                                                             {friend.status_message && (
                                                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-center p-1">
