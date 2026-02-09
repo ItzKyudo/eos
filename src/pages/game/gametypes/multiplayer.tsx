@@ -252,6 +252,8 @@ const Multiplayer: React.FC = () => {
     });
     newSocket.on('moveMade', (data: MoveData) => {
       if (data.move) {
+        // ALWAYS play sound on received move to guarantee sync
+        playRandomMoveSound();
         const move = data.move;
         setGameState(move.gameState);
         setCurrentTurn(move.currentTurn);
@@ -418,6 +420,7 @@ const Multiplayer: React.FC = () => {
     const channel = new BroadcastChannel('eos_game_sync');
     channel.onmessage = (event) => {
       const data = event.data as GameSyncData;
+      playRandomMoveSound();
       setGameState(data.gameState);
       setCurrentTurn(data.currentTurn);
       setMoveHistory(data.moveHistory);
@@ -436,14 +439,6 @@ const Multiplayer: React.FC = () => {
     };
     return () => channel.close();
   }, [myRole, isGuest]);
-
-  // --- MOVE SOUND OBSERVER ---
-  useEffect(() => {
-    // Only play if not syncing and moveHistory actually grew
-    if (moveHistory.length > 0 && !isSyncing) {
-      playRandomMoveSound();
-    }
-  }, [moveHistory.length]);
 
   useEffect(() => {
     // FIX: Don't tick timer if syncing or winner exists
@@ -514,6 +509,7 @@ const Multiplayer: React.FC = () => {
   };
 
   const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
+    playRandomMoveSound(); // Play locally
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
     const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
@@ -672,6 +668,7 @@ const Multiplayer: React.FC = () => {
     const result = executeAttack(targetCoord, gameState, activePiece);
     if (!result) return;
 
+    playRandomMoveSound(); // Play locally on capture
     const newGameState = result.newGameState;
     const newCapturedP1 = [...capturedByP1];
     const newCapturedP2 = [...capturedByP2];
