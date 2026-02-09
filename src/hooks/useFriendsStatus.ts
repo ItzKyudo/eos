@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import api from '../api/axios';
 
 interface Friend {
     friendship_id: number;
@@ -17,6 +18,33 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
     const socketRef = useRef<Socket | null>(null);
 
     const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
+
+    const fetchFriends = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+        try {
+            // No need to manually get token or set headers, api instance handles it
+            const response = await api.get('/friends');
+            const data = response.data;
+
+            // Initialize with offline status
+            const mappedFriends = (data.friends || []).map((f: any) => ({
+                ...f,
+                isOnline: false,
+                user_id: f.user_id // Preserve ID type
+            }));
+
+            setFriends(mappedFriends);
+        } catch (err) {
+            console.error(err);
+            // 401/403 errors are now handled by the interceptor
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         fetchFriends();
@@ -47,6 +75,18 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
                 if (options.checkReconnectionOnConnect) {
                     console.log("Checking for active match on connect...");
                     newSocket.emit('checkReconnection', { token });
+                }
+            });
+
+            newSocket.on('connect_error', (err) => {
+                console.error("Socket connection error:", err.message);
+                if (err.message === "Invalid authentication token" || err.message === "Authentication error") {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    // We need to use window.location because navigate might not be available if not in Router context? 
+                    // But this hook is used in components inside Router.
+                    // However, to be safe and simple in a hook without passing navigate:
+                    window.location.href = '/';
                 }
             });
 
@@ -102,34 +142,6 @@ export const useFriendsStatus = (options: { enableInvites?: boolean; checkReconn
         const token = localStorage.getItem('token');
         if (token && socketRef.current) {
             socketRef.current.emit('checkReconnection', { token });
-        }
-    };
-
-    const fetchFriends = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
-
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const response = await fetch(`${serverUrl}/api/friends`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (!response.ok) throw new Error("Failed to fetch friends");
-            const data = await response.json();
-
-            // Initialize with offline status
-            const mappedFriends = (data.friends || []).map((f: any) => ({
-                ...f,
-                isOnline: false,
-                user_id: f.user_id // Preserve ID type
-            }));
-
-            setFriends(mappedFriends);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
         }
     };
 

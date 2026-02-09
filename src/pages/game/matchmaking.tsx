@@ -109,7 +109,8 @@ const Matchmaking: React.FC = () => {
             if (data.message === 'Invalid authentication token') {
                 // Token expired or invalid
                 localStorage.removeItem('token');
-                navigate('/login');
+                localStorage.removeItem('user'); // Ensure user is also cleared
+                navigate('/');
             }
         };
 

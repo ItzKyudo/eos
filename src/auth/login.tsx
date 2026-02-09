@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '../images/logo.png';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
+import api from '../api/axios';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -18,19 +19,8 @@ const Login: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('https://eos-server-jxy0.onrender.com/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      const response = await api.post('/login', { email, password });
+      const data = response.data;
 
       // Store auth data
       localStorage.setItem('token', data.token);
@@ -44,7 +34,7 @@ const Login: React.FC = () => {
       }
 
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
