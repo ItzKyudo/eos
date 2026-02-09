@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/sidebar';
 import { UserProfile, GameHistoryEntry } from '../components/profile/types';
 import { useLocation } from 'react-router-dom';
@@ -12,6 +12,7 @@ import FriendsList from '../components/profile/FriendsList';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const { userId } = useParams<{ userId?: string }>();
   const location = useLocation();
 
   // --- STATE ---
@@ -27,6 +28,10 @@ const Profile: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAds, setShowAds] = useState(true);
 
+  // Is this the user's own profile?
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isOwnProfile = !userId || userId === currentUser.id;
+
   // --- ACTIONS ---
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token');
@@ -41,7 +46,10 @@ const Profile: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
 
-        const response = await fetch('https://eos-server-jxy0.onrender.com/api/profile', {
+        const serverUrl = 'https://eos-server-jxy0.onrender.com';
+        const endpoint = userId ? `${serverUrl}/api/profile/${userId}` : `${serverUrl}/api/profile`;
+
+        const response = await fetch(endpoint, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -69,7 +77,9 @@ const Profile: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=20', {
+        const serverUrl = 'https://eos-server-jxy0.onrender.com';
+        const targetId = userId || currentUser.id;
+        const res = await fetch(`${serverUrl}/api/profile/history?userId=${targetId}&limit=20`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -194,9 +204,10 @@ const Profile: React.FC = () => {
         <ProfileHeader
           user={user}
           status={user?.status_message || ''}
-          onUpdateStatus={handleUpdateStatus}
-          onEditClick={() => setShowEditModal(true)}
-          onLogout={handleLogout}
+          onUpdateStatus={isOwnProfile ? handleUpdateStatus : undefined}
+          onEditClick={isOwnProfile ? () => setShowEditModal(true) : undefined}
+          onLogout={isOwnProfile ? handleLogout : undefined}
+          isOwnProfile={isOwnProfile}
         />
 
         <nav className="flex gap-2 border-b border-slate-700 mb-8 px-2 overflow-x-auto">

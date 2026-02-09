@@ -48,6 +48,7 @@ function App() {
         <Route path="/puzzle" element={<PuzzlePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/:userId" element={<Profile />} />
 
         {/* Auth*/}
         <Route path="/login" element={<Login />} />

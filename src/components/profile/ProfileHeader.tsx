@@ -4,9 +4,9 @@ import { UserProfile } from './types';
 interface ProfileHeaderProps {
   user: UserProfile | null;
   status: string;
-  onUpdateStatus: (newStatus: string) => Promise<void>;
-  onEditClick: () => void;
-  onLogout: () => void;
+  onUpdateStatus?: (newStatus: string) => Promise<void>;
+  onEditClick?: () => void;
+  onLogout?: () => void;
   isOwnProfile?: boolean;
 }
 
@@ -20,7 +20,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, status, onUpdateSta
   };
 
   const handleSave = async () => {
-    await onUpdateStatus(tempStatus);
+    if (onUpdateStatus) {
+      await onUpdateStatus(tempStatus);
+    }
     setIsEditingStatus(false);
   };
 
