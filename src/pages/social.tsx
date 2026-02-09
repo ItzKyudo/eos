@@ -17,7 +17,7 @@ interface Friend {
 
 const SocialPage: React.FC = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'friends' | 'members'>('friends');
+    const [activeTab, setActiveTab] = useState<'friends' | 'leaderboard'>('friends');
 
     // Use hook for Friends list and Online Status
     // Note: The hook returns mapped friends which might have slightly different interface but we cast/adapt if needed.
@@ -214,12 +214,12 @@ const SocialPage: React.FC = () => {
                             )}
                         </button>
                         <button
-                            onClick={() => setActiveTab('members')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'members' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                            onClick={() => setActiveTab('leaderboard')}
+                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'leaderboard' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
                                 }`}
                         >
-                            Members
-                            {activeTab === 'members' && (
+                            Leaderboard
+                            {activeTab === 'leaderboard' && (
                                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#81b64c]" />
                             )}
                         </button>
@@ -334,7 +334,7 @@ const SocialPage: React.FC = () => {
                             </>
                         )}
 
-                        {activeTab === 'members' && (
+                        {activeTab === 'leaderboard' && (
                             <Leaderboard />
                         )}
                     </div>
