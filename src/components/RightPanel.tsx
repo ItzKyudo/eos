@@ -34,7 +34,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   useEffect(() => {
     if (activeTab === 'history') {
       const fetchHistory = async () => {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         if (!token) return;
         try {
           const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=5', {
@@ -69,7 +69,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   }, [gameModes, isLoading, selectedTime]);
 
   const startGame = (mode: string = 'multiplayer') => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     if (mode === 'multiplayer') {
       if (token) {

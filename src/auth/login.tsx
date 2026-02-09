@@ -32,9 +32,9 @@ const Login: React.FC = () => {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store auth data
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Store auth data in session storage (expires when browser closes)
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
 
       console.log('Login successful:', data.user)
       if (data.user.role === 'admin') {

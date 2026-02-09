@@ -12,7 +12,7 @@ const Sidebar: React.FC = () => {
   // const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ enableInvites: true });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     setIsLoggedIn(!!token);
   }, [location.pathname]); // Re-check on route change
 

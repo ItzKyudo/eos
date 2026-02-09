@@ -29,6 +29,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import UnderTesting from './UnderTesting';
 
 import GlobalInviteHandler from './components/GlobalInviteHandler';
+import SessionTimeout from './components/SessionTimeout';
 
 const IS_MAINTENANCE_MODE = true;
 
@@ -39,6 +40,7 @@ function App() {
   }
   return (
     <>
+      <SessionTimeout />
       <GlobalInviteHandler />
       <Routes>
         <Route path="/" element={<LandingPage />} />

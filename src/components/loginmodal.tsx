@@ -15,7 +15,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, selectedTime =
   // Check auth status whenever modal opens
   useEffect(() => {
     if (isOpen) {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       setIsLoggedIn(!!token);
     }
   }, [isOpen]);

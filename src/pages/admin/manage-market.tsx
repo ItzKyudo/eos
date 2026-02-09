@@ -56,7 +56,7 @@ const ManageMarket = () => {
     const fetchItems = useCallback(async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await fetch(`${API_URL}/api/market/admin/items`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -88,7 +88,7 @@ const ManageMarket = () => {
             const formData = new FormData();
             formData.append('image', file);
 
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await fetch(`${API_URL}/api/market/upload`, {
                 method: 'POST',
                 headers: {
@@ -164,7 +164,7 @@ const ManageMarket = () => {
         };
 
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const url = editingItem
                 ? `${API_URL}/api/market/items/${editingItem.item_id}`
                 : `${API_URL}/api/market/items`;
@@ -213,7 +213,7 @@ const ManageMarket = () => {
 
         if (result.isConfirmed) {
             try {
-                const token = localStorage.getItem('token');
+                const token = sessionStorage.getItem('token');
                 const res = await fetch(`${API_URL}/api/market/items/${itemId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
