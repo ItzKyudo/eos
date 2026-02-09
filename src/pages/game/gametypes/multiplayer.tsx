@@ -10,6 +10,7 @@ import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptio
 import supabase from '../../../config/supabase';
 
 import MultiplayerGameResult from '../components/MultiplayerGameResult';
+import { calculateCapturePoints } from '../utils/scoring';
 
 // --- INTERFACES ---
 
@@ -25,6 +26,8 @@ interface GameSyncData {
   mandatoryMoveUsed: boolean;
   p1Time?: number;
   p2Time?: number;
+  p1Score?: number;
+  p2Score?: number;
 }
 
 interface MoveData {
@@ -79,7 +82,7 @@ const Multiplayer: React.FC = () => {
   const userId = localUser?.id || localUser?._id || sessionStorage.getItem('guestUserId') || `guest_${Math.random().toString(36).substr(2, 9)}`;
   const isGuest = !localUser;
 
- 
+
   const [myRole, setMyRole] = useState<'player1' | 'player2'>('player1'); // Default to P1 until sync
   const [p1Name, setP1Name] = useState('Player 1');
   const [p2Name, setP2Name] = useState('Player 2');
@@ -135,6 +138,11 @@ const Multiplayer: React.FC = () => {
 
   // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
+
+  // --- STATS TRACKING ---
+  const [turnCaptureCount, setTurnCaptureCount] = useState(0);
+  const [myDoubleKills, setMyDoubleKills] = useState(0);
+  const [myTripleKills, setMyTripleKills] = useState(0);
 
   const [ratingData, setRatingData] = useState<{
     winnerId: string;
@@ -252,6 +260,8 @@ const Multiplayer: React.FC = () => {
         setWinner(move.winner);
         setHasMoved(move.hasMoved || {});
         setMandatoryMoveUsed(move.mandatoryMoveUsed || false);
+        if (move.p1Score !== undefined) setP1Score(move.p1Score);
+        if (move.p2Score !== undefined) setP2Score(move.p2Score);
 
         if (move.currentTurn === myRole) {
           if (move.turnPhase === 'locked') setTurnPhase('locked');
@@ -413,6 +423,8 @@ const Multiplayer: React.FC = () => {
       setCapturedByP1(data.capturedByP1);
       setCapturedByP2(data.capturedByP2);
       setWinner(data.winner);
+      if (data.p1Score !== undefined) setP1Score(data.p1Score);
+      if (data.p2Score !== undefined) setP2Score(data.p2Score);
       if (data.currentTurn === myRole) {
         if (data.turnPhase === 'locked') setTurnPhase('locked');
         else if (data.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
@@ -450,7 +462,11 @@ const Multiplayer: React.FC = () => {
           player1Id: myRole === 'player1' ? userId : opponentId,
           reason: 'timeout',
           winCondition: 'timeout',
-          gameHistory: moveHistory
+          gameHistory: moveHistory,
+          stats: {
+            doubleKills: myDoubleKills,
+            tripleKills: myTripleKills
+          }
         });
       }
       setWinner(gameWinner);
@@ -531,6 +547,12 @@ const Multiplayer: React.FC = () => {
     setCurrentTurn(nextTurn);
     if (nextPhase === 'locked') setActivePiece(null);
 
+    const p1Score = calculateCapturePoints(newHistory, 'player1').points;
+    const p2Score = calculateCapturePoints(newHistory, 'player2').points;
+
+    setP1Score(p1Score);
+    setP2Score(p2Score);
+
     broadcastUpdate({
       gameState: newGameState,
       currentTurn: nextTurn,
@@ -542,7 +564,9 @@ const Multiplayer: React.FC = () => {
       hasMoved: newHasMoved,
       mandatoryMoveUsed: true,
       p1Time: p1Time,
-      p2Time: p2Time
+      p2Time: p2Time,
+      p1Score,
+      p2Score
     });
   }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate]);
 
@@ -650,6 +674,10 @@ const Multiplayer: React.FC = () => {
     setCapturedByP1(newCapturedP1);
     setCapturedByP2(newCapturedP2);
 
+    // Increment capture count for this turn
+    const currentCaptureCount = turnCaptureCount + 1;
+    setTurnCaptureCount(currentCaptureCount);
+
     if (result.winner) {
       setWinner(result.winner);
       setTurnPhase('locked');
@@ -680,6 +708,13 @@ const Multiplayer: React.FC = () => {
         };
         const finalHistory = [...moveHistory, finalMove];
 
+        // Finalize stats for this turn 
+        let finalDoubleKills = myDoubleKills;
+        let finalTripleKills = myTripleKills;
+
+        if (currentCaptureCount === 2) finalDoubleKills++;
+        if (currentCaptureCount >= 3) finalTripleKills++;
+
         socket.emit('gameEnd', {
           matchId,
           winner: result.winner,
@@ -688,7 +723,11 @@ const Multiplayer: React.FC = () => {
           loserId,
           player1Id: myRole === 'player1' ? userId : opponentId,
           winCondition,
-          gameHistory: finalHistory
+          gameHistory: finalHistory,
+          stats: {
+            doubleKills: finalDoubleKills,
+            tripleKills: finalTripleKills
+          }
         });
       }
 
@@ -740,6 +779,12 @@ const Multiplayer: React.FC = () => {
     setValidAdvanceMoves([]);
     setTurnPhase(nextPhase);
 
+    const p1Score = calculateCapturePoints(newHistory, 'player1').points;
+    const p2Score = calculateCapturePoints(newHistory, 'player2').points;
+
+    setP1Score(p1Score);
+    setP2Score(p2Score);
+
     broadcastUpdate({
       gameState: newGameState,
       currentTurn: currentTurn,
@@ -751,12 +796,20 @@ const Multiplayer: React.FC = () => {
       hasMoved: hasMoved,
       mandatoryMoveUsed: mandatoryMoveUsed,
       p1Time: p1Time,
-      p2Time: p2Time
+      p2Time: p2Time,
+      p1Score,
+      p2Score
     });
   };
 
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
+
+    // Process Turn Stats
+    if (turnCaptureCount === 2) setMyDoubleKills(prev => prev + 1);
+    if (turnCaptureCount >= 3) setMyTripleKills(prev => prev + 1);
+    setTurnCaptureCount(0); // Reset for next turn
+
     const nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
     setCurrentTurn(nextTurn);
     setTurnPhase('locked');
@@ -777,7 +830,9 @@ const Multiplayer: React.FC = () => {
       hasMoved: hasMoved,
       mandatoryMoveUsed: false,
       p1Time: p1Time,
-      p2Time: p2Time
+      p2Time: p2Time,
+      p1Score: p1Score,
+      p2Score: p2Score
     });
   };
 

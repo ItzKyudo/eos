@@ -16,7 +16,7 @@ const ManageOrders = () => {
   const fetchOrders = () => {
     setLoading(true);
     fetch(`${API_URL}/api/admin/orders`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token')}` }
     })
       .then(res => res.json())
       .then(data => { setOrders(data); setLoading(false); })
@@ -46,7 +46,7 @@ const ManageOrders = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify({ status: newStatus })
       });

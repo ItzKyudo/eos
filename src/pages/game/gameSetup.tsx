@@ -64,12 +64,18 @@ const GameSetup: React.FC = () => {
   // 2. Handle Match Found Navigation
   useEffect(() => {
     const handleMatchFound = (e: Event) => {
-      const customEvent = e as CustomEvent<MatchFoundDetail>;
+      const customEvent = e as CustomEvent<MatchFoundDetail & { id?: string; gameId?: string }>;
       const data = customEvent.detail;
 
-      const gameUrl = `/multiplayer/${data.matchId}`;
+      // Robustness: Check for matchId, id, or gameId
+      const targetId = data.matchId || data.id || data.gameId;
 
-      navigate(gameUrl);
+      if (targetId) {
+        const gameUrl = `/multiplayer/${targetId}`;
+        navigate(gameUrl);
+      } else {
+        console.error("Match ID missing in GameSetup payload:", data);
+      }
     };
 
     window.addEventListener('matchFound', handleMatchFound);

@@ -34,7 +34,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   useEffect(() => {
     if (activeTab === 'history') {
       const fetchHistory = async () => {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         if (!token) return;
         try {
           const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=5', {
@@ -69,7 +69,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   }, [gameModes, isLoading, selectedTime]);
 
   const startGame = (mode: string = 'multiplayer') => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     if (mode === 'multiplayer') {
       if (token) {
@@ -196,17 +196,22 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
                 {game.result === 'win' ? 'W' : game.result === 'loss' ? 'L' : 'D'}
               </div>
               <div>
-                <div className="text-sm font-bold text-gray-200">{game.opponent}</div>
+                <div className="text-sm font-bold text-gray-200 flex items-center gap-2">
+                  {game.opponent}
+                  {(game.userScore !== undefined && game.opponentScore !== undefined) && (
+                    <span className="text-xs text-gray-400 bg-white/5 px-1.5 rounded">{game.userScore}-{game.opponentScore}</span>
+                  )}
+                </div>
                 <div className="text-xs text-gray-500">{game.type} • {game.date}</div>
               </div>
             </div>
-            <button className="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-colors">
-              <ArrowRight size={16} />
-            </button>
           </div>
         ))}
       </div>
-      <button className="w-full py-3 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+      <button
+        onClick={() => navigate('/profile?tab=games')}
+        className="w-full py-3 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+      >
         View Full History
       </button>
     </div>

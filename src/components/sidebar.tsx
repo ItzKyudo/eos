@@ -1,48 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../images/logo.png';
 import { Play, ShoppingCart, Users, BookOpen, Settings, Search, User2 } from 'lucide-react';
-import { useFriendsStatus } from '../hooks/useFriendsStatus';
-import InviteReceivedModal from './profile/InviteReceivedModal';
+
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Global Invite Listener
-  const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ enableInvites: true });
+  // Global Invite Listener moved to GlobalInviteHandler
+  // const { incomingChallenge, acceptChallenge, declineChallenge } = useFriendsStatus({ enableInvites: true });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     setIsLoggedIn(!!token);
   }, [location.pathname]); // Re-check on route change
 
-  // Listen for match found event to navigate
-  useEffect(() => {
-    const handleMatchFound = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      console.log("Navigating to game match:", detail);
-      // Assuming match handling page is /game or similar, logic usually in GameSetup or specific route
-      // If we are mostly just redirected to 'game', let's do that.
-      // But usually MatchmakingHandler in backend emits 'matchFound'. 
-      // If frontend receives it, it should go to /game.
-      navigate('/game');
-    };
-
-    window.addEventListener('matchFound', handleMatchFound);
-    return () => window.removeEventListener('matchFound', handleMatchFound);
-  }, [navigate]);
+  // Match Found Listener moved to GlobalInviteHandler
 
   return (
     <>
-      <InviteReceivedModal
-        isOpen={!!incomingChallenge}
-        challengerName={incomingChallenge?.challengerName || 'Friend'}
-        timeControl={incomingChallenge?.timeControl || 600}
-        onAccept={() => incomingChallenge && acceptChallenge(incomingChallenge.challengerId, incomingChallenge.timeControl)}
-        onDecline={() => incomingChallenge && declineChallenge(incomingChallenge.challengerId)}
-      />
+      {/* InviteReceivedModal moved to GlobalInviteHandler */}
 
       {/* Spacer for fixed sidebar */}
       <div className="hidden md:block w-20 flex-shrink-0" />

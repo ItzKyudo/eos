@@ -16,25 +16,36 @@ export interface UserProfile {
   theme_preference?: string;
   show_ads?: boolean;
 
-  // New Detailed Stats
-  wins_supremo_captured?: number;
-  wins_solitude?: number;
+  // Rating Changes (For Analytics/Trends)
+  rating_rapid_change?: number;
+  rating_classic_change?: number;
+  rating_swift_change?: number;
+  rating_turbo_change?: number;
+
+  // New Detailed Stats (Aligned with DB)
+  supremo_wins?: number;
+  solitude_wins?: number;
   pieces_captured?: number;
-  double_captured?: number;
-  triple_captured?: number;
+  double_kills?: number;
+  triple_kills?: number;
 }
 
 export interface GameHistoryEntry {
-  id: string;
+  id: number | string;
   opponent: string;
+  opponentId: string;
   opponentRating: number;
   opponentFlag: string;
   result: 'win' | 'loss' | 'draw';
   accuracy?: string;
   moves: number;
   date: string;
-  gameType: 'bullet' | 'blitz' | 'rapid';
-  reviewAvailable: boolean;
+  gameType: string;
+  reviewAvailable?: boolean;
+  userScore?: number;
+  opponentScore?: number;
+  rating_change?: number;
+  ratingChange?: number;
 }
 
 export interface Friend {
