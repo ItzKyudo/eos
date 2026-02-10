@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../images/logo.png';
-import { Play, ShoppingCart, Users, BookOpen,  User2 } from 'lucide-react';
+import { Play, ShoppingCart, Users, BookOpen, Search,  User2 } from 'lucide-react';
 
 
 const Sidebar: React.FC = () => {
