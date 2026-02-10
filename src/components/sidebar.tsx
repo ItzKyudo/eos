@@ -83,7 +83,7 @@ const Sidebar: React.FC = () => {
         </nav>
 
         {/* Footer */}
-        <div className="mt-auto w-full px-2 mb-2">
+        {/* <div className="mt-auto w-full px-2 mb-2">
           {isLoggedIn && (
             <SidebarItem
               to="/settings"
@@ -92,7 +92,7 @@ const Sidebar: React.FC = () => {
               active={location.pathname === '/settings'}
             />
           )}
-        </div>
+        </div> */}
       </aside>
     </>
   );
