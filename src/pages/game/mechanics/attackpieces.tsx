@@ -126,6 +126,9 @@ export function getMultiCaptureOptions(
   pieceMoveCount: Record<string, number>,
   moveRules: Record<string, number[]>
 ): { attacks: string[]; moves: string[] } {
+  if (_mandatoryMoveUsed) {
+    return { attacks: [], moves: [] };
+  }
   const moves = getMandatoryMoves(pieceId, position, gameState, pieceMoveCount, moveRules);
   return { attacks: [], moves };
 }
