@@ -331,18 +331,16 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('drawDeclined', (data: { message: string }) => {
-      newSocket.on('drawDeclined', (data: { message: string }) => {
-        Swal.fire({
-          title: 'Draw Declined',
-          text: data.message,
-          icon: 'info',
-          confirmButtonText: 'OK',
-          customClass: {
-            popup: 'bg-neutral-800 text-white border border-neutral-700',
-            title: 'text-xl font-bold',
-            confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded'
-          }
-        });
+      Swal.fire({
+        title: 'Draw Declined',
+        text: data.message,
+        icon: 'info',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'bg-neutral-800 text-white border border-neutral-700',
+          title: 'text-xl font-bold',
+          confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded'
+        }
       });
     });
 
