@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getSocket } from '../config/socket';
+import { useState, useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import api from '../api/axios';
 
 interface Friend {
@@ -19,9 +19,9 @@ export const useFriendsStatus = (options: {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
     const [onlineCount, setOnlineCount] = useState(0);
+    const socketRef = useRef<Socket | null>(null);
 
     const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
-    const [sentChallenge, setSentChallenge] = useState<{ targetUserId: string | number, targetUserName: string, timeControl: number } | null>(null);
 
     const fetchFriends = async () => {
         const token = localStorage.getItem('token');
@@ -44,6 +44,7 @@ export const useFriendsStatus = (options: {
             setFriends(mappedFriends);
         } catch (err) {
             console.error(err);
+            // 401/403 errors are now handled by the interceptor
         } finally {
             setLoading(false);
         }
@@ -52,140 +53,101 @@ export const useFriendsStatus = (options: {
     useEffect(() => {
         fetchFriends();
 
-        const socket = getSocket();
-        if (!socket) return;
+        // Setup Socket for status updates
+        const token = localStorage.getItem('token');
+        if (token) {
+            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
 
-        const onConnect = () => {
-            // Request initial online status
-            socket.emit('getOnlineFriends', (onlineIds: (string | number)[]) => {
-                setFriends((prev) => prev.map(f => ({
-                    ...f,
-                    isOnline: onlineIds.includes(f.user_id)
-                })));
+            // Avoid creating multiple sockets if possible, but for now ensure clean disconnect
+            const newSocket = io(serverUrl, {
+                auth: { token },
+                transports: ['websocket']
             });
 
-            // Check for reconnection if requested
-            if (options.checkReconnectionOnConnect) {
-                const token = localStorage.getItem('token');
-                console.log("Checking for active match on connect...");
-                socket.emit('checkReconnection', { token });
-            }
-        };
+            socketRef.current = newSocket;
 
-        if (socket.connected) {
-            onConnect();
-        }
-
-        socket.on('connect', onConnect);
-
-        socket.on('onlineUsers', (count: number) => {
-            setOnlineCount(count);
-        });
-
-        socket.on('friendStatusUpdate', ({ userId, isOnline }: { userId: string | number, isOnline: boolean }) => {
-            setFriends((prev) => prev.map(f =>
-                String(f.user_id) === String(userId) ? { ...f, isOnline } : f
-            ));
-        });
-
-        // Challenge Events
-        if (options.enableInvites) {
-            socket.on('challengeReceived', (challenge) => {
-                console.log("Challenge Received:", challenge);
-                setIncomingChallenge(challenge);
-            });
-
-            socket.on('challengeDeclined', () => {
-                setSentChallenge(null);
-            });
-
-            socket.on('challengeCancelled', ({ challengerId }) => {
-                setIncomingChallenge(prev => {
-                    if (prev && String(prev.challengerId) === String(challengerId)) {
-                        return null;
-                    }
-                    return prev;
+            newSocket.on('connect', () => {
+                // Request initial online status
+                newSocket.emit('getOnlineFriends', (onlineIds: (string | number)[]) => {
+                    setFriends(prev => prev.map(f => ({
+                        ...f,
+                        isOnline: onlineIds.includes(f.user_id)
+                    })));
                 });
+
+                // Check for reconnection if requested
+                if (options.checkReconnectionOnConnect) {
+                    console.log("Checking for active match on connect...");
+                    newSocket.emit('checkReconnection', { token });
+                }
             });
 
-            socket.on('matchFound', (matchData) => {
-                console.log("Match Found via Invite:", matchData);
-                setSentChallenge(null);
-                setIncomingChallenge(null);
-                window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
+            newSocket.on('connect_error', (err) => {
+                console.error("Socket connection error:", err.message);
+                if (err.message === "Invalid authentication token" || err.message === "Authentication error") {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    // We need to use window.location because navigate might not be available if not in Router context? 
+                    // But this hook is used in components inside Router.
+                    // However, to be safe and simple in a hook without passing navigate:
+                    window.location.href = '/';
+                }
             });
 
-            const handleLocalChallengeSent = (e: Event) => {
-                const detail = (e as CustomEvent).detail;
-                setSentChallenge(detail);
-            };
-            window.addEventListener('challengeSent', handleLocalChallengeSent);
+            newSocket.on('onlineUsers', (count: number) => {
+                setOnlineCount(count);
+            });
+
+            newSocket.on('friendStatusUpdate', ({ userId, isOnline }: { userId: string | number, isOnline: boolean }) => {
+                setFriends(prev => prev.map(f =>
+                    // Ensure type-safe comparison (toString() just in case)
+                    String(f.user_id) === String(userId) ? { ...f, isOnline } : f
+                ));
+            });
+
+            // Challenge Events - Only if enabled (Global Listener)
+            if (options.enableInvites) {
+                newSocket.on('challengeReceived', (challenge) => {
+                    console.log("Challenge Received:", challenge);
+                    setIncomingChallenge(challenge);
+                });
+
+                newSocket.on('challengeDeclined', () => {
+                    // alert("Challenge declined."); // Optional
+                });
+
+                newSocket.on('matchFound', (matchData) => {
+                    console.log("Match Found via Invite:", matchData);
+                    window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
+                });
+            }
 
             return () => {
-                window.removeEventListener('challengeSent', handleLocalChallengeSent);
-                socket.off('connect', onConnect);
-                socket.off('onlineUsers');
-                socket.off('friendStatusUpdate');
-                socket.off('challengeReceived');
-                socket.off('challengeDeclined');
-                socket.off('challengeCancelled');
-                socket.off('matchFound');
+                newSocket.disconnect();
             };
         }
+    }, [options.enableInvites]); // Re-run if option changes
 
-        return () => {
-            socket.off('connect', onConnect);
-            socket.off('onlineUsers');
-            socket.off('friendStatusUpdate');
-        };
-    }, [options.enableInvites, options.checkReconnectionOnConnect, options.targetUserId]);
-
-    const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string, targetUserName?: string) => {
-        getSocket()?.emit('sendChallenge', { targetUserId, timeControl, challengerName });
-        window.dispatchEvent(new CustomEvent('challengeSent', {
-            detail: { targetUserId, targetUserName: targetUserName || 'Friend', timeControl }
-        }));
+    const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string) => {
+        socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });
     };
 
     const acceptChallenge = (challengerId: string | number, timeControl: number) => {
-        getSocket()?.emit('acceptChallenge', { challengerId, timeControl });
+        socketRef.current?.emit('acceptChallenge', { challengerId, timeControl });
         setIncomingChallenge(null);
     };
 
     const declineChallenge = (challengerId: string | number) => {
-        getSocket()?.emit('declineChallenge', { challengerId });
+        socketRef.current?.emit('declineChallenge', { challengerId });
         setIncomingChallenge(null);
-    };
-
-    const cancelChallenge = (targetUserId: string | number) => {
-        getSocket()?.emit('cancelChallenge', { targetUserId });
-        setSentChallenge(null);
-    };
-
-    const clearSentChallenge = () => {
-        setSentChallenge(null);
     };
 
     const checkReconnection = () => {
         const token = localStorage.getItem('token');
-        if (token) {
-            getSocket()?.emit('checkReconnection', { token });
+        if (token && socketRef.current) {
+            socketRef.current.emit('checkReconnection', { token });
         }
     };
 
-    return {
-        friends,
-        loading,
-        onlineCount,
-        incomingChallenge,
-        sentChallenge,
-        setSentChallenge,
-        sendChallenge,
-        acceptChallenge,
-        declineChallenge,
-        cancelChallenge,
-        clearSentChallenge,
-        checkReconnection,
-        refreshFriends: fetchFriends
-    };
+    return { friends, loading, onlineCount, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection, refreshFriends: fetchFriends };
 };

@@ -1,9 +1,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import Sidebar from '../../components/sidebar';
-import { getSocket } from '../../config/socket';
 
 
 
@@ -54,8 +53,15 @@ const Matchmaking: React.FC = () => {
 
 
         // Connect to socket server
-        const newSocket = getSocket();
-        if (!newSocket) return;
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
+        const newSocket = io(serverUrl, {
+            transports: ['websocket', 'polling'],
+            autoConnect: true,
+            reconnection: true,
+            auth: {
+                token: token // Start standardizing on auth handshake too, though matchmakingHandler uses payload
+            }
+        });
 
         socketInstanceRef.current = newSocket;
         setSocket(newSocket);
@@ -133,13 +139,10 @@ const Matchmaking: React.FC = () => {
             if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
 
             const socketToCleanup = socketInstanceRef.current || newSocket;
-            if (socketToCleanup) {
+            if (socketToCleanup && socketToCleanup.connected) {
                 socketToCleanup.emit('leaveQueue');
-                socketToCleanup.off('connect', handleConnect);
-                socketToCleanup.off('queued', handleQueued);
-                socketToCleanup.off('matchFound', handleMatchFound);
-                socketToCleanup.off('error', handleError);
-                socketToCleanup.off('disconnect', handleDisconnect);
+                socketToCleanup.removeAllListeners();
+                socketToCleanup.disconnect();
             }
             socketInstanceRef.current = null;
         };
