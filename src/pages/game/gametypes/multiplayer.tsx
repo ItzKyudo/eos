@@ -146,7 +146,9 @@ const Multiplayer: React.FC = () => {
 
   // --- DRAW STATE ---
   const [showDrawRequestModal, setShowDrawRequestModal] = useState(false);
+  const [isWaitingForDrawResponse, setIsWaitingForDrawResponse] = useState(false);
   const [drawRequesterName, setDrawRequesterName] = useState<string>('');
+  const [drawTimer, setDrawTimer] = useState(10);
 
   // --- STATS TRACKING ---
   const [turnCaptureCount, setTurnCaptureCount] = useState(0);
@@ -345,14 +347,17 @@ const Multiplayer: React.FC = () => {
       console.log("📥 Draw Requested by:", data.username);
       setDrawRequesterName(data.username);
       setShowDrawRequestModal(true);
+      setDrawTimer(10);
     });
 
     newSocket.on('drawDeclined', (data: { message: string }) => {
+      setIsWaitingForDrawResponse(false);
       Swal.fire({
         title: 'Draw Declined',
         text: data.message,
         icon: 'info',
         confirmButtonText: 'OK',
+        timer: 3000,
         customClass: {
           popup: 'bg-neutral-800 text-white border border-neutral-700',
           title: 'text-xl font-bold',
@@ -362,6 +367,7 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('drawCooldown', (data: { message: string }) => {
+      setIsWaitingForDrawResponse(false);
       Swal.fire({
         title: 'Cooldown Active',
         text: data.message,
@@ -378,17 +384,7 @@ const Multiplayer: React.FC = () => {
 
     newSocket.on('drawRequestSent', (data: { message: string }) => {
       console.log("📤 Draw Request Sent:", data.message);
-      Swal.fire({
-        title: 'Draw Request Sent',
-        text: 'Waiting for opponent response...',
-        icon: 'success',
-        timer: 2000,
-        showConfirmButton: false,
-        customClass: {
-          popup: 'bg-neutral-800 text-white border border-neutral-700',
-          title: 'text-xl font-bold'
-        }
-      });
+      // Removed Swal success alert as we now show a waiting modal
     });
 
     newSocket.on('gameState', (state: ServerGameState) => {
@@ -583,6 +579,8 @@ const Multiplayer: React.FC = () => {
   const handleRequestDraw = useCallback(() => {
     if (socket && matchId) {
       socket.emit('requestDraw', { matchId });
+      setIsWaitingForDrawResponse(true);
+      setDrawTimer(10);
     }
   }, [socket, matchId]);
 
@@ -590,8 +588,36 @@ const Multiplayer: React.FC = () => {
     if (socket && matchId) {
       socket.emit('respondDraw', { matchId, accepted });
       setShowDrawRequestModal(false);
+      setIsWaitingForDrawResponse(false);
     }
   }, [socket, matchId]);
+
+  // --- DRAW TIMER EFFECT ---
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (showDrawRequestModal || isWaitingForDrawResponse) {
+      interval = setInterval(() => {
+        setDrawTimer((prev) => {
+          if (prev <= 1) {
+            // Timer expired
+            clearInterval(interval);
+            if (showDrawRequestModal) {
+              // Receiver: Auto-decline
+              handleRespondDraw(false);
+            } else {
+              // Sender: Just close waiting modal (Receiver presumably declined)
+              setIsWaitingForDrawResponse(false);
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [showDrawRequestModal, isWaitingForDrawResponse, handleRespondDraw]);
 
   useEffect(() => {
     if (!opponentDisconnectTime) {
@@ -1208,7 +1234,7 @@ const Multiplayer: React.FC = () => {
         </div>
       )}
 
-      {/* Draw Request Modal */}
+      {/* Draw Request Modal (Receiver) */}
       {showDrawRequestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <motion.div
@@ -1216,7 +1242,10 @@ const Multiplayer: React.FC = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="bg-zinc-900 border border-amber-500/30 rounded-xl p-6 max-w-sm w-full shadow-2xl shadow-amber-900/10"
           >
-            <h3 className="text-xl font-bold text-amber-500 mb-2">Draw Requested</h3>
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-xl font-bold text-amber-500">Draw Requested</h3>
+              <span className="text-amber-500/50 font-mono text-sm">{drawTimer}s</span>
+            </div>
             <p className="text-zinc-300 mb-6">
               <span className="font-semibold text-white">{drawRequesterName || 'Opponent'}</span> has requested a draw. Do you accept?
             </p>
@@ -1232,6 +1261,32 @@ const Multiplayer: React.FC = () => {
                 className="px-4 py-2 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-900/20 transition-all hover:scale-105"
               >
                 Accept Draw
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Draw Waiting Modal (Sender) */}
+      {isWaitingForDrawResponse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-6 max-w-sm w-full shadow-2xl"
+          >
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 rounded-full border-4 border-amber-500/30 border-t-amber-500 animate-spin" />
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">Request Sent</h3>
+                <p className="text-zinc-400 text-sm">Waiting for opponent response...</p>
+              </div>
+              <span className="text-zinc-500 font-mono text-xs uppercase tracking-widest mt-2">{drawTimer}s remaining</span>
+              <button
+                onClick={() => setIsWaitingForDrawResponse(false)}
+                className="mt-2 text-xs text-zinc-600 hover:text-white transition-colors"
+              >
+                Cancel View
               </button>
             </div>
           </motion.div>
