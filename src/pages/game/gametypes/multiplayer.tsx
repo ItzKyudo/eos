@@ -6,6 +6,7 @@ import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import { motion } from 'framer-motion';
+import Swal from 'sweetalert2';
 import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
@@ -330,16 +331,49 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('drawDeclined', (data: { message: string }) => {
-      alert(data.message); // Simple alert for now, could be a toast
+      newSocket.on('drawDeclined', (data: { message: string }) => {
+        Swal.fire({
+          title: 'Draw Declined',
+          text: data.message,
+          icon: 'info',
+          confirmButtonText: 'OK',
+          customClass: {
+            popup: 'bg-neutral-800 text-white border border-neutral-700',
+            title: 'text-xl font-bold',
+            confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded'
+          }
+        });
+      });
     });
 
     newSocket.on('drawCooldown', (data: { message: string }) => {
-      alert(data.message);
+      Swal.fire({
+        title: 'Cooldown Active',
+        text: data.message,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        timer: 3000,
+        customClass: {
+          popup: 'bg-neutral-800 text-white border border-neutral-700',
+          title: 'text-xl font-bold',
+          confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded'
+        }
+      });
     });
 
     newSocket.on('drawRequestSent', (data: { message: string }) => {
       console.log("📤 Draw Request Sent:", data.message);
-      alert(data.message); // Request by user: "display it on both players"
+      Swal.fire({
+        title: 'Draw Request Sent',
+        text: 'Waiting for opponent response...',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'bg-neutral-800 text-white border border-neutral-700',
+          title: 'text-xl font-bold'
+        }
+      });
     });
 
     newSocket.on('gameState', (state: ServerGameState) => {

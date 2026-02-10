@@ -10,6 +10,7 @@ import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
 
 import { calculateCapturePoints } from '../utils/scoring';
+import Swal from 'sweetalert2';
 
 // ... (keep earlier imports)
 
@@ -670,7 +671,19 @@ const Board: React.FC = () => {
         }}
         onSwitchTurn={handleSwitchTurn}
         onResign={handleResign}
-        onRequestDraw={() => alert("Draw requests are not available in practice mode.")}
+        onRequestDraw={() => {
+          Swal.fire({
+            title: 'Practice Mode',
+            text: "Draw requests are not available in practice mode.",
+            icon: 'info',
+            confirmButtonText: 'OK',
+            customClass: {
+              popup: 'bg-neutral-800 text-white border border-neutral-700',
+              title: 'text-xl font-bold',
+              confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded'
+            }
+          });
+        }}
         canSwitchTurn={turnPhase === 'locked' && !winner}
         gameStatus={winner ? 'finished' : 'active'}
       />
