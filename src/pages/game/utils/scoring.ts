@@ -29,11 +29,21 @@ export const calculateCapturePoints = (moveHistory: any[], playerRole: 'player1'
                 }
 
                 if (captorName && victimName) {
-                    const cleanCaptor = captorName.replace(/ \d+[a-z]?$/, '').trim();
-                    const cleanVictim = victimName.replace(/ \d+[a-z]?$/, '').trim();
+                    // Regex updated to match server fix (handle trailing spaces)
+                    const cleanCaptor = captorName.replace(/ \d+[a-z]?\s*$/, '').trim();
+                    const cleanVictim = victimName.replace(/ \d+[a-z]?\s*$/, '').trim();
 
-                    const captorVal = PIECE_VALUES[cleanCaptor] || 0;
-                    const victimVal = PIECE_VALUES[cleanVictim] || 0;
+                    // Case-insensitive lookup helper
+                    const getPieceValue = (name: string) => {
+                        if (PIECE_VALUES[name]) return PIECE_VALUES[name];
+                        const titleCase = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                        if (PIECE_VALUES[titleCase]) return PIECE_VALUES[titleCase];
+                        const key = Object.keys(PIECE_VALUES).find(k => k.toLowerCase() === name.toLowerCase());
+                        return key ? PIECE_VALUES[key] : 0;
+                    };
+
+                    const captorVal = getPieceValue(cleanCaptor);
+                    const victimVal = getPieceValue(cleanVictim);
 
                     totalPointsCapture += (captorVal + victimVal);
                     totalCapturedCount++;
@@ -66,5 +76,6 @@ export const calculatePlayerScore = (moveHistory: any[], winnerRole: 'player1' |
     // 4. Final Total
     const totalScore = totalPointsCapture + winningBonus + capturedRatio;
 
+    // Enforce integer rounding
     return Math.round(totalScore);
 };

@@ -12,7 +12,7 @@ import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
 
 import MultiplayerGameResult from '../components/MultiplayerGameResult';
-import { calculateCapturePoints } from '../utils/scoring';
+import { calculateCapturePoints, calculatePlayerScore } from '../utils/scoring';
 
 // --- INTERFACES ---
 
@@ -543,6 +543,13 @@ const Multiplayer: React.FC = () => {
       if (isMyWin && socket && matchId) {
         const opponent = players.find(p => p.userId !== userId);
         const opponentId = opponent ? opponent.userId : null;
+
+        // Calculate final scores for timeout
+        const p1Points = calculatePlayerScore(moveHistory, 'player1', 'timeout');
+        const p2Points = calculatePlayerScore(moveHistory, 'player2', 'timeout');
+
+        // Apply fallback if scoring undefined? (Unlikely with utility)
+
         socket.emit('gameEnd', {
           matchId,
           winner: gameWinner,
@@ -552,6 +559,8 @@ const Multiplayer: React.FC = () => {
           reason: 'timeout',
           winCondition: 'timeout',
           gameHistory: moveHistory,
+          p1Score: p1Points,
+          p2Score: p2Points,
           stats: {
             doubleKills: myDoubleKills,
             tripleKills: myTripleKills
@@ -857,6 +866,21 @@ const Multiplayer: React.FC = () => {
         if (currentCaptureCount === 2) finalDoubleKills++;
         if (currentCaptureCount >= 3) finalTripleKills++;
 
+        // Calculate final scores for checkmate/win
+        // The winner gets the win bonus. The loser just gets capture points? 
+        // calculatePlayerScore adds win bonus based on 'winCondition' passed.
+        // For the winner, we pass 'winCondition'. For the loser, we pass 'loss'? or just empty?
+        // If we pass 'winCondition' to loser's calculation, they might get bonus if not careful.
+        // calculatePlayerScore checks: if (winCondition === 'solitude')...
+        // So for loser, we should probably pass 'loss' or null to ensure no win bonus.
+
+        const p1IsWinner = result.winner === 'player1';
+        const p1Condition = p1IsWinner ? winCondition : 'loss';
+        const p2Condition = p1IsWinner ? 'loss' : winCondition;
+
+        const p1FinalScore = calculatePlayerScore(finalHistory, 'player1', p1Condition);
+        const p2FinalScore = calculatePlayerScore(finalHistory, 'player2', p2Condition);
+
         socket.emit('gameEnd', {
           matchId,
           winner: result.winner,
@@ -866,6 +890,8 @@ const Multiplayer: React.FC = () => {
           player1Id: myRole === 'player1' ? userId : opponentId,
           winCondition,
           gameHistory: finalHistory,
+          p1Score: p1FinalScore,
+          p2Score: p2FinalScore,
           stats: {
             doubleKills: finalDoubleKills,
             tripleKills: finalTripleKills
