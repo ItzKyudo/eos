@@ -66,7 +66,7 @@ export const calculatePlayerScore = (moveHistory: any[], winnerRole: 'player1' |
     if (winCondition === 'solitude') {
         winningBonus = 5;
     }
-    else if (winCondition === 'supremo_capture' || winCondition === 'opponent_quit' || winCondition === 'resignation') {
+    else if (winCondition === 'supremo_capture' || winCondition === 'opponent_quit' || winCondition === 'resignation' || winCondition === 'timeout') {
         winningBonus = 10;
     }
 

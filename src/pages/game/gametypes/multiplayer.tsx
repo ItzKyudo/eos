@@ -165,6 +165,12 @@ const Multiplayer: React.FC = () => {
     score?: number;
   } | null>(null);
 
+  const [scoreBreakdown, setScoreBreakdown] = useState<{
+    captureScore: number;
+    captureRatio: number;
+    winBonus: number;
+  } | null>(null);
+
   const perspective = myRole;
 
   useEffect(() => {
@@ -881,6 +887,20 @@ const Multiplayer: React.FC = () => {
         const p1FinalScore = calculatePlayerScore(finalHistory, 'player1', p1Condition);
         const p2FinalScore = calculatePlayerScore(finalHistory, 'player2', p2Condition);
 
+        // Calculate score breakdown for the winner
+        const winnerRole = result.winner;
+        if (winnerRole && winnerRole !== 'draw') {
+          const { points: capturePoints, count: captureCount } = calculateCapturePoints(finalHistory, winnerRole);
+          const captureRatio = (captureCount / 17) * 10;
+          const winBonus = winCondition === 'solitude' ? 5 : 10;
+
+          setScoreBreakdown({
+            captureScore: capturePoints,
+            captureRatio: captureRatio,
+            winBonus: winBonus
+          });
+        }
+
         socket.emit('gameEnd', {
           matchId,
           winner: result.winner,
@@ -1101,6 +1121,9 @@ const Multiplayer: React.FC = () => {
         currentUserId={userId || ''}
         onRestart={() => navigate('/game')}
         onHome={() => navigate('/game')}
+        captureScore={scoreBreakdown?.captureScore}
+        captureRatio={scoreBreakdown?.captureRatio}
+        winBonus={scoreBreakdown?.winBonus}
       />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
         {isDragging && activePiece && activePiece in PIECES && (
@@ -1243,6 +1266,13 @@ const Multiplayer: React.FC = () => {
                 if (socket && matchId) {
                   const opponent = players.find(p => p.userId !== userId);
                   const opponentId = opponent ? opponent.userId : null;
+                  const p1IsWinner = myRole === 'player2'; // I resigned, so opponent wins
+                  const p1Condition = p1IsWinner ? 'resignation' : 'loss';
+                  const p2Condition = p1IsWinner ? 'loss' : 'resignation';
+
+                  const p1ResignScore = calculatePlayerScore(moveHistory, 'player1', p1Condition);
+                  const p2ResignScore = calculatePlayerScore(moveHistory, 'player2', p2Condition);
+
                   socket.emit('gameEnd', {
                     matchId,
                     winner: myRole === 'player1' ? 'player2' : 'player1',
@@ -1250,7 +1280,13 @@ const Multiplayer: React.FC = () => {
                     loserId: userId,
                     reason: 'opponent_quit',
                     winCondition: 'resignation',
-                    gameHistory: moveHistory
+                    gameHistory: moveHistory,
+                    p1Score: p1ResignScore,
+                    p2Score: p2ResignScore,
+                    stats: {
+                      doubleKills: 0,
+                      tripleKills: 0
+                    }
                   });
                 }
                 setShowResignModal(false);
@@ -1258,67 +1294,72 @@ const Multiplayer: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Draw Request Modal (Receiver) */}
-      {showDrawRequestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-zinc-900 border border-amber-500/30 rounded-xl p-6 max-w-sm w-full shadow-2xl shadow-amber-900/10"
-          >
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xl font-bold text-amber-500">Draw Requested</h3>
-              <span className="text-amber-500/50 font-mono text-sm">{drawTimer}s</span>
-            </div>
-            <p className="text-zinc-300 mb-6">
-              <span className="font-semibold text-white">{drawRequesterName || 'Opponent'}</span> has requested a draw. Do you accept?
-            </p>
-            <div className="flex gap-4 justify-end">
-              <button
-                onClick={() => handleRespondDraw(false)}
-                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => handleRespondDraw(true)}
-                className="px-4 py-2 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-900/20 transition-all hover:scale-105"
-              >
-                Accept Draw
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      {
+        showDrawRequestModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-zinc-900 border border-amber-500/30 rounded-xl p-6 max-w-sm w-full shadow-2xl shadow-amber-900/10"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-xl font-bold text-amber-500">Draw Requested</h3>
+                <span className="text-amber-500/50 font-mono text-sm">{drawTimer}s</span>
+              </div>
+              <p className="text-zinc-300 mb-6">
+                <span className="font-semibold text-white">{drawRequesterName || 'Opponent'}</span> has requested a draw. Do you accept?
+              </p>
+              <div className="flex gap-4 justify-end">
+                <button
+                  onClick={() => handleRespondDraw(false)}
+                  className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                >
+                  Decline
+                </button>
+                <button
+                  onClick={() => handleRespondDraw(true)}
+                  className="px-4 py-2 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-900/20 transition-all hover:scale-105"
+                >
+                  Accept Draw
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )
+      }
 
       {/* Draw Waiting Modal (Sender) */}
-      {isWaitingForDrawResponse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-6 max-w-sm w-full shadow-2xl"
-          >
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 rounded-full border-4 border-amber-500/30 border-t-amber-500 animate-spin" />
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">Request Sent</h3>
-                <p className="text-zinc-400 text-sm">Waiting for opponent response...</p>
+      {
+        isWaitingForDrawResponse && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-zinc-900 border border-zinc-700/50 rounded-xl p-6 max-w-sm w-full shadow-2xl"
+            >
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-12 h-12 rounded-full border-4 border-amber-500/30 border-t-amber-500 animate-spin" />
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-1">Request Sent</h3>
+                  <p className="text-zinc-400 text-sm">Waiting for opponent response...</p>
+                </div>
+                <span className="text-zinc-500 font-mono text-xs uppercase tracking-widest mt-2">{drawTimer}s remaining</span>
+                <button
+                  onClick={() => setIsWaitingForDrawResponse(false)}
+                  className="mt-2 text-xs text-zinc-600 hover:text-white transition-colors"
+                >
+                  Cancel View
+                </button>
               </div>
-              <span className="text-zinc-500 font-mono text-xs uppercase tracking-widest mt-2">{drawTimer}s remaining</span>
-              <button
-                onClick={() => setIsWaitingForDrawResponse(false)}
-                className="mt-2 text-xs text-zinc-600 hover:text-white transition-colors"
-              >
-                Cancel View
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </div>
+            </motion.div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 

@@ -16,6 +16,9 @@ interface MultiplayerGameResultProps {
     currentUserId: string;
     onRestart: () => void;
     onHome?: () => void;
+    captureScore?: number;
+    captureRatio?: number;
+    winBonus?: number;
 }
 
 interface UserProfile {
@@ -35,7 +38,10 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
     reason,
     currentUserId,
     onRestart,
-    onHome
+    onHome,
+    captureScore,
+    captureRatio,
+    winBonus
 }) => {
     const navigate = useNavigate();
     const [winnerProfile, setWinnerProfile] = useState<UserProfile | null>(null);
@@ -204,6 +210,41 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                             </div>
 
                         </div>
+
+                        {/* Score Breakdown */}
+                        {!isDraw && captureScore !== undefined && (
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.4 }}
+                                className="w-full max-w-sm md:max-w-md mb-6 bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-sm"
+                            >
+                                <h3 className="text-white/70 text-xs uppercase tracking-widest font-bold mb-3">Score Breakdown</h3>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-white/50 text-sm">Capture Score</span>
+                                        <span className="text-white font-mono font-bold">{captureScore}</span>
+                                    </div>
+                                    {winBonus !== undefined && winBonus > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/50 text-sm">Win Bonus</span>
+                                            <span className="text-green-400 font-mono font-bold">+{winBonus}</span>
+                                        </div>
+                                    )}
+                                    {captureRatio !== undefined && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/50 text-sm">Capture Ratio</span>
+                                            <span className="text-blue-400 font-mono font-bold">+{captureRatio.toFixed(1)}</span>
+                                        </div>
+                                    )}
+                                    <div className="h-px bg-white/10 my-2"></div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-white font-bold text-sm">Total Score</span>
+                                        <span className="text-yellow-400 font-mono font-bold text-lg">{ratingChange}</span>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex flex-col gap-3 w-full max-w-sm md:max-w-md">
