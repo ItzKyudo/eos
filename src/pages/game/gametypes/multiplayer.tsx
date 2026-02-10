@@ -143,6 +143,10 @@ const Multiplayer: React.FC = () => {
   // FIX: Added isSyncing state to block default values until server connects
   const [isSyncing, setIsSyncing] = useState(true);
 
+  // --- DRAW STATE ---
+  const [showDrawRequestModal, setShowDrawRequestModal] = useState(false);
+  const [drawRequesterName, setDrawRequesterName] = useState<string>('');
+
   // --- STATS TRACKING ---
   const [turnCaptureCount, setTurnCaptureCount] = useState(0);
   const [myDoubleKills, setMyDoubleKills] = useState(0);
@@ -313,6 +317,27 @@ const Multiplayer: React.FC = () => {
       }
 
       if (data.reason === 'opponent_disconnect') setOpponentConnected(false);
+
+      // Close any draw modals
+      setShowDrawRequestModal(false);
+    });
+
+    // --- DRAW LISTENERS ---
+    newSocket.on('drawRequested', (data: { requesterId: string; username: string }) => {
+      setDrawRequesterName(data.username);
+      setShowDrawRequestModal(true);
+    });
+
+    newSocket.on('drawDeclined', (data: { message: string }) => {
+      alert(data.message); // Simple alert for now, could be a toast
+    });
+
+    newSocket.on('drawCooldown', (data: { message: string }) => {
+      alert(data.message);
+    });
+
+    newSocket.on('drawRequestSent', (data: { message: string }) => {
+      console.log(data.message); // Log confirmation
     });
 
     newSocket.on('gameState', (state: ServerGameState) => {
@@ -496,7 +521,26 @@ const Multiplayer: React.FC = () => {
     else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
     else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1');
 
+    if (p1Time <= 0 && myRole === 'player1') handleTimeout('player2');
+    else if (p1Time <= 0 && myRole === 'player2') handleTimeout('player2');
+    else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
+    else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1');
+
   }, [p1Time, p2Time, winner, myRole, matchId, socket, players, moveHistory, userId]);
+
+  // --- DRAW HANDLERS ---
+  const handleRequestDraw = useCallback(() => {
+    if (socket && matchId) {
+      socket.emit('requestDraw', { matchId });
+    }
+  }, [socket, matchId]);
+
+  const handleRespondDraw = useCallback((accepted: boolean) => {
+    if (socket && matchId) {
+      socket.emit('respondDraw', { matchId, accepted });
+      setShowDrawRequestModal(false);
+    }
+  }, [socket, matchId]);
 
   useEffect(() => {
     if (!opponentDisconnectTime) {
@@ -1060,6 +1104,11 @@ const Multiplayer: React.FC = () => {
 
       <MultiplayerHUD
         myRole={myRole}
+        onRequestDraw={handleRequestDraw}
+        onSwitchTurn={handleSwitchTurn}
+        canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
+        gameStatus={winner ? 'finished' : 'active'}
+        onResign={() => winner ? navigate('/') : setShowResignModal(true)}
         gameState={{
           currentTurn,
           moves: moveHistory,
@@ -1078,10 +1127,6 @@ const Multiplayer: React.FC = () => {
           opponentConnected,
           disconnectTimer: disconnectTimerStr
         }}
-        onSwitchTurn={handleSwitchTurn}
-        onResign={() => winner ? navigate('/') : setShowResignModal(true)}
-        canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
-        gameStatus={winner ? 'finished' : 'active'}
       />
 
       {showResignModal && (
@@ -1109,6 +1154,36 @@ const Multiplayer: React.FC = () => {
               }} className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all hover:scale-105">Confirm Resignation</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Draw Request Modal */}
+      {showDrawRequestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-zinc-900 border border-amber-500/30 rounded-xl p-6 max-w-sm w-full shadow-2xl shadow-amber-900/10"
+          >
+            <h3 className="text-xl font-bold text-amber-500 mb-2">Draw Requested</h3>
+            <p className="text-zinc-300 mb-6">
+              <span className="font-semibold text-white">{drawRequesterName || 'Opponent'}</span> has requested a draw. Do you accept?
+            </p>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => handleRespondDraw(false)}
+                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => handleRespondDraw(true)}
+                className="px-4 py-2 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-900/20 transition-all hover:scale-105"
+              >
+                Accept Draw
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

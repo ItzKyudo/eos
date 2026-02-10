@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { PIECES, PieceKey } from './piecemovements';
-import { Flag, ScrollText, X } from 'lucide-react';
+import { Flag, ScrollText, X, Handshake } from 'lucide-react';
 
 export interface MoveLog {
   player: 'player1' | 'player2';
@@ -34,6 +34,7 @@ interface MultiplayerHUDProps {
   };
   onSwitchTurn: () => void;
   onResign: () => void;
+  onRequestDraw: () => void;
   canSwitchTurn: boolean;
   gameStatus: 'active' | 'finished' | 'waiting';
 }
@@ -51,7 +52,8 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
   canSwitchTurn,
   gameStatus,
   playerDetails,
-  onResign
+  onResign,
+  onRequestDraw
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -263,6 +265,14 @@ const MultiplayerHUD: React.FC<MultiplayerHUDProps> = ({
               title="Resign Game"
             >
               <Flag className="w-3.5 h-3.5 group-hover:fill-red-400/20" />
+            </button>
+
+            <button
+              onClick={onRequestDraw}
+              className="p-1.5 bg-neutral-800 hover:bg-amber-900/30 text-neutral-500 hover:text-amber-400 rounded-lg border border-transparent hover:border-amber-900/50 transition-all group pointer-events-auto"
+              title="Request Draw"
+            >
+              <Handshake className="w-3.5 h-3.5 group-hover:stroke-amber-400" />
             </button>
           </div>
         </div>
