@@ -26,6 +26,7 @@ interface UserProfile {
 
 const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
     isOpen,
+    winner,
     winnerId,
     loserId,
     winnerName,
@@ -75,11 +76,20 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
         else navigate('/game');
     };
 
+    const isDraw = winner === 'draw' || reason === 'draw' || reason === 'Mutual Agreement';
     const isWinner = currentUserId === winnerId;
-    const titleText = isWinner ? "YOU WIN" : "YOU LOST";
-    const titleColor = isWinner ? "text-yellow-500" : "text-red-500";
-    const headerGradient = isWinner ? "from-yellow-900/20" : "from-red-900/20";
-    const borderColor = isWinner ? "border-yellow-500/20" : "border-red-500/20";
+
+    let titleText = isWinner ? "YOU WIN" : "YOU LOST";
+    let titleColor = isWinner ? "text-yellow-500" : "text-red-500";
+    let headerGradient = isWinner ? "from-yellow-900/20" : "from-red-900/20";
+    let borderColor = isWinner ? "border-yellow-500/20" : "border-red-500/20";
+
+    if (isDraw) {
+        titleText = "DRAW";
+        titleColor = "text-gray-400";
+        headerGradient = "from-gray-800/20";
+        borderColor = "border-gray-500/20";
+    }
 
     const reasonText = reason === 'checkmate' ? 'Checkmate' :
         reason === 'timeout' ? 'Time Out' :
@@ -131,12 +141,12 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                         {/* Players Comparison - Responsive Layout */}
                         <div className="flex flex-col md:flex-row items-center justify-center w-full mb-8 md:mb-12 gap-8 md:gap-0 relative">
 
-                            {/* Winner */}
-                            <div className="flex flex-col items-center flex-1 z-10 order-1 md:order-1">
+                            {/* Player 1 (Winner or Left) */}
+                            <div className={`flex flex-col items-center flex-1 z-10 order-1 md:order-1 ${isDraw ? 'opacity-90' : ''}`}>
                                 <div className="relative mb-3 md:mb-4">
-                                    <div className="w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.3)] overflow-hidden bg-neutral-800">
+                                    <div className={`w-20 h-20 md:w-28 md:h-28 rounded-full border-4 ${isDraw ? 'border-gray-500' : 'border-yellow-500'} shadow-[0_0_30px_rgba(234,179,8,0.3)] overflow-hidden bg-neutral-800`}>
                                         {winnerProfile?.avatar_url ? (
-                                            <img src={winnerProfile.avatar_url} alt="Winner" className="w-full h-full object-cover" />
+                                            <img src={winnerProfile.avatar_url} alt="P1" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>
                                         )}
@@ -144,13 +154,21 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                                     <div className="absolute -bottom-2 -right-2 w-8 h-8 md:w-10 md:h-10 bg-neutral-900 rounded-full flex items-center justify-center border border-white/10 shadow-lg text-lg md:text-xl">
                                         {winnerProfile?.country_flag || '🏳️'}
                                     </div>
-                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-yellow-500 animate-bounce">
-                                        <Trophy size={28} className="md:w-8 md:h-8" fill="currentColor" />
-                                    </div>
+                                    {!isDraw && (
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-yellow-500 animate-bounce">
+                                            <Trophy size={28} className="md:w-8 md:h-8" fill="currentColor" />
+                                        </div>
+                                    )}
                                 </div>
                                 <h3 className="text-lg md:text-xl font-bold text-white mb-1 truncate max-w-[120px] md:max-w-[150px]">{winnerName}</h3>
-                                <span className="text-green-400 font-mono font-bold text-sm md:text-base">+{ratingChange} ERS</span>
-                                <span className="text-yellow-500 text-[10px] font-bold uppercase tracking-widest mt-1 border border-yellow-500/30 px-2 py-0.5 rounded-full bg-yellow-500/10">Winner</span>
+                                {!isDraw ? (
+                                    <>
+                                        <span className="text-green-400 font-mono font-bold text-sm md:text-base">+{ratingChange} ERS</span>
+                                        <span className="text-yellow-500 text-[10px] font-bold uppercase tracking-widest mt-1 border border-yellow-500/30 px-2 py-0.5 rounded-full bg-yellow-500/10">Winner</span>
+                                    </>
+                                ) : (
+                                    <span className="text-gray-400 font-mono font-bold text-sm md:text-base">+0 ERS</span>
+                                )}
                             </div>
 
                             {/* VS Divider - Responsive */}
@@ -160,12 +178,12 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                                 <span className="text-2xl md:text-4xl font-black text-white/10 italic pr-0 md:pr-2">VS</span>
                             </div>
 
-                            {/* Loser */}
-                            <div className="flex flex-col items-center flex-1 z-10 opacity-70 scale-95 order-3 md:order-3">
+                            {/* Player 2 (Loser or Right) */}
+                            <div className={`flex flex-col items-center flex-1 z-10 order-3 md:order-3 ${isDraw ? 'opacity-90' : 'opacity-70 scale-95'}`}>
                                 <div className="relative mb-3 md:mb-4">
-                                    <div className="w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-red-500/30 shadow-none overflow-hidden bg-neutral-800 grayscale-[0.5]">
+                                    <div className={`w-20 h-20 md:w-28 md:h-28 rounded-full border-4 ${isDraw ? 'border-gray-500' : 'border-red-500/30'} shadow-none overflow-hidden bg-neutral-800 ${isDraw ? '' : 'grayscale-[0.5]'}`}>
                                         {loserProfile?.avatar_url ? (
-                                            <img src={loserProfile.avatar_url} alt="Loser" className="w-full h-full object-cover" />
+                                            <img src={loserProfile.avatar_url} alt="P2" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>
                                         )}
@@ -175,8 +193,14 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                                     </div>
                                 </div>
                                 <h3 className="text-lg md:text-xl font-bold text-white/70 mb-1 truncate max-w-[120px] md:max-w-[150px]">{loserName}</h3>
-                                <span className="text-red-400 font-mono font-bold text-sm md:text-base">-{Math.abs(ratingChange)} ERS</span>
-                                <span className="text-red-500/50 text-[10px] font-bold uppercase tracking-widest mt-1 border border-red-500/10 px-2 py-0.5 rounded-full bg-red-500/5">Defeat</span>
+                                {!isDraw ? (
+                                    <>
+                                        <span className="text-red-400 font-mono font-bold text-sm md:text-base">-{Math.abs(ratingChange)} ERS</span>
+                                        <span className="text-red-500/50 text-[10px] font-bold uppercase tracking-widest mt-1 border border-red-500/10 px-2 py-0.5 rounded-full bg-red-500/5">Defeat</span>
+                                    </>
+                                ) : (
+                                    <span className="text-gray-400 font-mono font-bold text-sm md:text-base">+0 ERS</span>
+                                )}
                             </div>
 
                         </div>

@@ -294,27 +294,44 @@ const Multiplayer: React.FC = () => {
       setOpponentConnected(false);
     });
 
-    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string; score?: number }) => {
+    newSocket.on('gameEnded', (data: { matchId: string; winner: Winner; reason: string; winnerId?: string; loserId?: string; score?: number; draw?: boolean }) => {
       console.log("🏁 gameEnded received:", data);
       if (matchId && data.matchId !== matchId) {
         console.warn("⚠️ matchId mismatch in gameEnded:", { expected: matchId, received: data.matchId });
         return;
       }
-      setWinner(data.winner);
-      setGameEndReason(data.reason);
-      setTurnPhase('locked');
 
-      // If server provides IDs in gameEnded, use them as backup if ratingUpdate hasn't arrived
-      if (data.winnerId && data.loserId) {
-        setRatingData(prev => prev ? prev : {
-          winnerId: data.winnerId!,
-          loserId: data.loserId!,
-          change: data.score || 0,
+      // Handle Draw specifically
+      if (data.reason === 'draw' || data.draw) {
+        setWinner('draw');
+        setGameEndReason('Mutual Agreement');
+        setTurnPhase('locked');
+        setRatingData({
+          winnerId: players[0]?.userId || '',
+          loserId: players[1]?.userId || '',
+          change: 0,
           winnerNew: 0,
           loserNew: 0,
-          reason: data.reason,
-          score: data.score
+          reason: 'Mutual Agreement',
+          score: 0
         });
+      } else {
+        setWinner(data.winner);
+        setGameEndReason(data.reason);
+        setTurnPhase('locked');
+
+        // If server provides IDs in gameEnded, use them as backup if ratingUpdate hasn't arrived
+        if (data.winnerId && data.loserId) {
+          setRatingData(prev => prev ? prev : {
+            winnerId: data.winnerId!,
+            loserId: data.loserId!,
+            change: data.score || 0,
+            winnerNew: 0,
+            loserNew: 0,
+            reason: data.reason,
+            score: data.score
+          });
+        }
       }
 
       if (data.reason === 'opponent_disconnect') setOpponentConnected(false);
