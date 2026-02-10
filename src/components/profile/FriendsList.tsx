@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
+import { useGameModes } from '../../hooks/useGameModes';
 import { Gamepad2, X, Check, Clock, Zap, Target, Hourglass } from 'lucide-react';
 
 interface FriendsListProps {
@@ -11,13 +12,15 @@ interface FriendsListProps {
     userId?: string | number;
 }
 
-// Data for the modes available in the modal
-const GAME_MODES = [
-    { label: 'Bullet', time: 60, icon: <Zap size={18} className="text-yellow-400" />, desc: '1 min' },
-    { label: 'Blitz', time: 300, icon: <Target size={18} className="text-red-400" />, desc: '5 min' },
-    { label: 'Rapid', time: 600, icon: <Clock size={18} className="text-blue-400" />, desc: '10 min' },
-    { label: 'Classic', time: 1800, icon: <Hourglass size={18} className="text-green-400" />, desc: '30 min' },
-];
+// Helper to get icons for modes
+const getIconForMode = (title: string, size = 18) => {
+    const t = title.toLowerCase();
+    if (t.includes('bullet')) return <Zap size={size} className="text-yellow-400" />;
+    if (t.includes('blitz')) return <Target size={size} className="text-red-400" />;
+    if (t.includes('rapid')) return <Clock size={size} className="text-blue-400" />;
+    if (t.includes('classic')) return <Hourglass size={size} className="text-green-400" />;
+    return <Gamepad2 size={size} className="text-gray-400" />;
+};
 
 const FriendsList: React.FC<FriendsListProps> = ({
     className = "",
@@ -32,9 +35,12 @@ const FriendsList: React.FC<FriendsListProps> = ({
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const isOwnFriends = !userId || userId === currentUser.id;
 
-    const { friends, loading, sendChallenge } = useFriendsStatus({
+    const { friends, loading: loadingFriends, sendChallenge } = useFriendsStatus({
         targetUserId: userId
     });
+    const { gameModes, loading: loadingModes } = useGameModes();
+
+    const loading = loadingFriends || loadingModes;
 
     // State to track which friend is being challenged (triggers modal open)
     const [challengingFriend, setChallengingFriend] = useState<any | null>(null);
@@ -64,7 +70,8 @@ const FriendsList: React.FC<FriendsListProps> = ({
             sendChallenge(
                 challengingFriend.user_id,
                 modalTime,
-                user.username || 'Friend'
+                user.username || 'Friend',
+                challengingFriend.username
             );
             setChallengingFriend(null); // Close modal
         }
@@ -145,31 +152,29 @@ const FriendsList: React.FC<FriendsListProps> = ({
                             <p className="text-gray-400 text-xs mt-1">Select a game mode for this match</p>
                         </div>
 
-                        {/* Mode Selection Grid */}
                         <div className="grid grid-cols-2 gap-3 mb-6">
-                            {GAME_MODES.map((mode) => (
+                            {gameModes.map((mode) => (
                                 <button
-                                    key={mode.label}
-                                    onClick={() => setModalTime(mode.time)}
+                                    key={mode.game_mode_id}
+                                    onClick={() => setModalTime(mode.duration_minutes * 60)}
                                     className={`
                                         flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200
-                                        ${modalTime === mode.time
+                                        ${modalTime === mode.duration_minutes * 60
                                             ? 'bg-blue-600/20 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]'
                                             : 'bg-[#0f172a] border-white/5 text-gray-500 hover:border-white/20 hover:bg-white/5'}
                                     `}
                                 >
-                                    <div className="mb-1 opacity-90">{mode.icon}</div>
-                                    <span className="text-sm font-bold">{mode.label}</span>
-                                    <span className="text-[10px] opacity-60 font-medium">{mode.desc}</span>
+                                    <div className="mb-1 opacity-90">{getIconForMode(mode.title)}</div>
+                                    <span className="text-sm font-bold">{mode.title}</span>
+                                    <span className="text-[10px] opacity-60 font-medium">{mode.duration_minutes} min</span>
                                 </button>
                             ))}
                         </div>
 
-                        {/* Selected Summary */}
                         <div className="bg-[#0f172a] rounded-lg p-3 mb-6 flex items-center justify-center gap-2 border border-white/5">
                             <span className="text-gray-400 text-xs">Selected:</span>
                             <span className="text-blue-400 font-bold text-sm">
-                                {modalTime / 60} Minutes ({GAME_MODES.find(m => m.time === modalTime)?.label || 'Custom'})
+                                {modalTime / 60} Minutes ({gameModes.find(m => m.duration_minutes * 60 === modalTime)?.title || 'Custom'})
                             </span>
                         </div>
 

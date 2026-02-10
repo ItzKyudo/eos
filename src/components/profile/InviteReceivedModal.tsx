@@ -1,5 +1,6 @@
 import React from 'react';
 import { Gamepad2, X, Check } from 'lucide-react';
+import { useGameModes } from '../../hooks/useGameModes';
 
 interface InviteReceivedModalProps {
     isOpen: boolean;
@@ -16,7 +17,11 @@ const InviteReceivedModal: React.FC<InviteReceivedModalProps> = ({
     onAccept,
     onDecline
 }) => {
+    const { getModeByDuration } = useGameModes();
+
     if (!isOpen) return null;
+
+    const matchedMode = getModeByDuration(timeControl);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -36,7 +41,7 @@ const InviteReceivedModal: React.FC<InviteReceivedModalProps> = ({
                         <span className="font-bold text-white">{challengerName}</span> invited you to play!
                     </p>
                     <div className="mt-2 inline-block px-3 py-1 bg-slate-700/50 rounded-lg border border-slate-600 text-sm font-mono text-blue-200">
-                        {formatTime(timeControl)} Match
+                        {matchedMode ? matchedMode.title : `${formatTime(timeControl)} Match`}
                     </div>
                 </div>
 

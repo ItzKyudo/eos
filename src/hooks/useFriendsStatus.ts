@@ -22,6 +22,7 @@ export const useFriendsStatus = (options: {
     const socketRef = useRef<Socket | null>(null);
 
     const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
+    const [sentChallenge, setSentChallenge] = useState<{ targetUserId: string | number, targetUserName: string, timeControl: number } | null>(null);
 
     const fetchFriends = async () => {
         const token = localStorage.getItem('token');
@@ -113,13 +114,35 @@ export const useFriendsStatus = (options: {
                 });
 
                 newSocket.on('challengeDeclined', () => {
-                    // alert("Challenge declined."); // Optional
+                    // console.log("Challenge declined.");
+                    setSentChallenge(null);
+                });
+
+                newSocket.on('challengeCancelled', ({ challengerId }) => {
+                    setIncomingChallenge(prev => {
+                        if (prev && String(prev.challengerId) === String(challengerId)) {
+                            return null;
+                        }
+                        return prev;
+                    });
                 });
 
                 newSocket.on('matchFound', (matchData) => {
                     console.log("Match Found via Invite:", matchData);
                     window.dispatchEvent(new CustomEvent('matchFound', { detail: matchData }));
                 });
+
+                // Listen for own custom event to sync state across hook instances
+                const handleLocalChallengeSent = (e: Event) => {
+                    const detail = (e as CustomEvent).detail;
+                    setSentChallenge(detail);
+                };
+                window.addEventListener('challengeSent', handleLocalChallengeSent);
+
+                return () => {
+                    window.removeEventListener('challengeSent', handleLocalChallengeSent);
+                    newSocket.disconnect();
+                };
             }
 
             return () => {
@@ -128,8 +151,12 @@ export const useFriendsStatus = (options: {
         }
     }, [options.enableInvites]); // Re-run if option changes
 
-    const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string) => {
+    const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string, targetUserName?: string) => {
         socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });
+        // Dispatch event so other instances (like GlobalInviteHandler) can show the modal
+        window.dispatchEvent(new CustomEvent('challengeSent', {
+            detail: { targetUserId, targetUserName: targetUserName || 'Friend', timeControl }
+        }));
     };
 
     const acceptChallenge = (challengerId: string | number, timeControl: number) => {
@@ -142,6 +169,15 @@ export const useFriendsStatus = (options: {
         setIncomingChallenge(null);
     };
 
+    const cancelChallenge = (targetUserId: string | number) => {
+        socketRef.current?.emit('cancelChallenge', { targetUserId });
+        setSentChallenge(null);
+    };
+
+    const clearSentChallenge = () => {
+        setSentChallenge(null);
+    };
+
     const checkReconnection = () => {
         const token = localStorage.getItem('token');
         if (token && socketRef.current) {
@@ -149,5 +185,19 @@ export const useFriendsStatus = (options: {
         }
     };
 
-    return { friends, loading, onlineCount, incomingChallenge, sendChallenge, acceptChallenge, declineChallenge, checkReconnection, refreshFriends: fetchFriends };
+    return {
+        friends,
+        loading,
+        onlineCount,
+        incomingChallenge,
+        sentChallenge,
+        setSentChallenge,
+        sendChallenge,
+        acceptChallenge,
+        declineChallenge,
+        cancelChallenge,
+        clearSentChallenge,
+        checkReconnection,
+        refreshFriends: fetchFriends
+    };
 };
