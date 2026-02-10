@@ -1,12 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import Sidebar from '../../components/sidebar';
+import { getSocket } from '../../config/socket';
 
-// Module-level flag to prevent duplicate socket creation (React Strict Mode protection)
-// This persists across component remounts in Strict Mode
-let isCreatingSocket = false;
-const SOCKET_CREATION_LOCK_DURATION = 2000; // 2 second lock to prevent duplicates
+// No longer need module-level locks for singleton
 
 const GuestMatchmaking: React.FC = () => {
   const navigate = useNavigate();
@@ -43,34 +41,9 @@ const GuestMatchmaking: React.FC = () => {
     };
     fetchGameModes();
 
-    // Prevent duplicate socket creation (React Strict Mode causes double execution)
-    if (isCreatingSocket) {
-      console.log('⚠️ Socket creation already in progress, skipping duplicate creation');
-      return;
-    }
-
-    // Check if socket already exists in component
-    if (socketInstanceRef.current && socketInstanceRef.current.connected) {
-      console.log('⚠️ Socket already exists in component, skipping creation');
-      setSocket(socketInstanceRef.current);
-      return;
-    }
-
-    // Set flag to prevent duplicate creation
-    isCreatingSocket = true;
-    setTimeout(() => {
-      isCreatingSocket = false;
-    }, SOCKET_CREATION_LOCK_DURATION);
-
     // Connect to socket server
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-    const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    const newSocket = getSocket();
+    if (!newSocket) return;
 
     socketInstanceRef.current = newSocket;
     setSocket(newSocket);
@@ -192,13 +165,16 @@ const GuestMatchmaking: React.FC = () => {
 
       if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);
 
-      // Properly clean up socket connection (only if still connected)
+      // Properly clean up socket listeners
       const socketToCleanup = socketInstanceRef.current || newSocket;
-      if (socketToCleanup && socketToCleanup.connected) {
-        console.log('🔌 Leaving queue and disconnecting socket...');
+      if (socketToCleanup) {
+        console.log('🔌 Leaving queue and cleaning up listeners...');
         socketToCleanup.emit('leaveQueue');
-        socketToCleanup.removeAllListeners();
-        socketToCleanup.disconnect();
+        socketToCleanup.off('connect', handleConnect);
+        socketToCleanup.off('queued', handleQueued);
+        socketToCleanup.off('matchFound', handleMatchFound);
+        socketToCleanup.off('error', handleError);
+        socketToCleanup.off('disconnect', handleDisconnect);
       }
 
       // Clear component ref

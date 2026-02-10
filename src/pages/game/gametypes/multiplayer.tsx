@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
+import { getSocket } from '../../../config/socket';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
 import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
@@ -212,16 +213,8 @@ const Multiplayer: React.FC = () => {
 
   // --- SOCKET LISTENERS ---
   useEffect(() => {
-    if (!matchId) return;
-
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-    const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      forceNew: true,
-      auth: { token: localStorage.getItem('token') }
-    });
-
+    const newSocket = getSocket();
+    if (!newSocket) return;
     setSocket(newSocket);
 
     (window as unknown as { gameStateDebug: { status: string } }).gameStateDebug = { status: 'Connecting...' };
@@ -324,7 +317,7 @@ const Multiplayer: React.FC = () => {
       if (state.onlinePlayers && Array.isArray(state.onlinePlayers)) {
         // Check if there are at least 2 unique players connected
         const uniquePlayers = new Set(state.onlinePlayers.map(p =>
-          typeof p === 'string' ? p : p.userId
+          typeof p === 'string' ? (p as string) : (p as OnlinePlayer).userId
         ));
         setOpponentConnected(uniquePlayers.size > 1);
       }
@@ -402,9 +395,16 @@ const Multiplayer: React.FC = () => {
     return () => {
       clearInterval(heartbeatInterval);
       newSocket.off('ratingUpdate');
-      newSocket.disconnect();
+      newSocket.off('moveMade');
+      newSocket.off('playerJoined');
+      newSocket.off('playerReconnected');
+      newSocket.off('playerDisconnected');
+      newSocket.off('opponentDisconnected');
+      newSocket.off('gameEnded');
+      newSocket.off('gameState');
+      // Do NOT disconnect the singleton socket here
     };
-  }, [isGuest, matchId, myRole, userId]);
+  }, [matchId, userId, myRole]); // Removed isGuest, socket (no longer needed as dependency for this effect)
 
   const broadcastUpdate = useCallback((data: GameSyncData) => {
     const s = socketRef.current;
