@@ -13,9 +13,9 @@ interface SentInviteModalProps {
 // Helper to get icons for modes
 const getIconForMode = (title: string, size = 18) => {
     const t = title.toLowerCase();
-    if (t.includes('bullet')) return <Zap size={size} className="text-yellow-400" />;
-    if (t.includes('blitz')) return <Target size={size} className="text-red-400" />;
-    if (t.includes('rapid')) return <Clock size={size} className="text-blue-400" />;
+    if (t.includes('rapid') || t.includes('bullet')) return <Zap size={size} className="text-yellow-400" />;
+    if (t.includes('turbo') || t.includes('blitz')) return <Target size={size} className="text-red-400" />;
+    if (t.includes('swift')) return <Clock size={size} className="text-blue-400" />;
     if (t.includes('classic')) return <Hourglass size={size} className="text-green-400" />;
     return <Gamepad2 size={size} className="text-gray-400" />;
 };
