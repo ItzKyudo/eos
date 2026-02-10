@@ -1,8 +1,9 @@
 import { LayoutDashboard, Users, ShoppingBag, Package, LogOut } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const path = location.pathname;
 
   const menuItems = [
@@ -11,6 +12,12 @@ const Sidebar = () => {
     { name: 'Manage Items', icon: <ShoppingBag size={20} />, href: '/admin/items' },
     { name: 'Manage Orders', icon: <Package size={20} />, href: '/admin/orders' },
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col">
@@ -42,7 +49,10 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-100">
-        <button className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        >
           <LogOut size={20} />
           Sign Out
         </button>
