@@ -9,6 +9,10 @@ import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptio
 import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
 
+import { calculateCapturePoints } from '../utils/scoring';
+
+// ... (keep earlier imports)
+
 interface DbPiece {
   name: string;
   movement_stats: string | {
@@ -17,15 +21,7 @@ interface DbPiece {
   };
 }
 
-const PIECE_VALUES: Record<string, number> = {
-  "Supremo": 10, // Game over
-  "Chancellor": 6,
-  "Vice Roy": 5,
-  "Archer": 4,
-  "Deacon": 3,
-  "Minister": 2,
-  "Steward": 1
-};
+// REMOVED PIECE_VALUES CONSTANT - using calculateCapturePoints instead
 
 const Board: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -51,6 +47,11 @@ const Board: React.FC = () => {
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
+
+  // Stats
+  const [turnCaptureCount, setTurnCaptureCount] = useState(0);
+  const [myDoubleKills, setMyDoubleKills] = useState(0);
+  const [myTripleKills, setMyTripleKills] = useState(0);
 
   // Interaction
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
@@ -79,18 +80,31 @@ const Board: React.FC = () => {
   // --- FETCH RULES ---
   useEffect(() => {
     const fetchGameRules = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('pieces')
-          .select('name, movement_stats');
+      // Create a timeout promise that rejects after 5 seconds
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out")), 5000)
+      );
 
-        if (error) throw error;
+      try {
+        console.log("Fetching game rules...");
+
+        // Race the fetch against the timeout
+        const { data, error } = await Promise.race([
+          supabase.from('pieces').select('name, movement_stats'),
+          timeoutPromise
+        ]) as { data: DbPiece[] | null, error: any };
+
+        if (error) {
+          console.error("Supabase error fetching rules:", error);
+          throw error;
+        }
 
         if (data) {
+          console.log("Rules data received:", data.length);
           const loadedMoveRules: Record<string, number[]> = {};
           const loadedAttackRules: Record<string, DbAttackRule> = {};
 
-          (data as DbPiece[]).forEach((piece) => {
+          data.forEach((piece) => {
             let stats = piece.movement_stats;
             if (typeof stats === 'string') {
               try {
@@ -111,9 +125,11 @@ const Board: React.FC = () => {
 
           setMoveRules(loadedMoveRules);
           setAttackRules(loadedAttackRules);
+        } else {
+          console.warn("No rules data received from Supabase");
         }
       } catch (err) {
-        console.error("Error loading game rules:", err);
+        console.error("Error loading game rules (using defaults/empty):", err);
       } finally {
         setLoadingRules(false);
       }
@@ -147,8 +163,6 @@ const Board: React.FC = () => {
     return () => clearInterval(timer);
   }, [currentTurn, winner, loadingRules]);
 
-
-
   const handleTimeout = (winningPlayer: 'player1' | 'player2') => {
     setWinner(winningPlayer);
     setGameEndReason('timeout');
@@ -167,11 +181,10 @@ const Board: React.FC = () => {
   };
 
   // --- EXECUTE MOVE ---
-  const executeMove = (pieceId: PieceKey, targetCoord: string) => {
+  const executeMove = (pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
     if (loadingRules) return;
 
     playRandomMoveSound(); // DIRECT TRIGGER
-    const fromCoord = gameState[pieceId]!;
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
     const newMoveCount = { ...pieceMoveCount, [pieceId]: (pieceMoveCount[pieceId] || 0) + 1 };
@@ -180,40 +193,62 @@ const Board: React.FC = () => {
       player: currentTurn,
       pieceName: PIECE_MOVEMENTS[pieceId].name,
       pieceId: pieceId,
-      from: fromCoord,
+      from: gameState[pieceId]!,
       to: targetCoord,
       turnNumber: moveHistory.length + 1,
       timestamp: Date.now()
     };
 
-    // DISABLE MULTI-MOVE/CHAINING: Always end turn phase after a move.
+    const newHistory = [...moveHistory, newMove];
+    let attacks: string[] = [];
+
+    if (!isAdvanceMove) {
+      if (turnPhase === 'action') {
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+      } else if (turnPhase === 'mandatory_move') {
+        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+      }
+    }
+
+    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
+
+    if (attacks.length > 0) nextPhase = 'mandatory_move';
+    else nextPhase = 'locked';
+
     setGameState(newGameState);
     setHasMoved(newHasMoved);
     setPieceMoveCount(newMoveCount);
-    setMoveHistory(prev => [...prev, newMove]);
+    setMoveHistory(newHistory);
     setMandatoryMoveUsed(true);
 
     setValidMoves([]);
     setValidAdvanceMoves([]);
-    setValidAttacks([]);
-    setTurnPhase('locked');
-    setActivePiece(null);
+    setValidAttacks(attacks);
+    setTurnPhase(nextPhase);
+
+    if (nextPhase === 'locked') setActivePiece(null);
+
+    const p1 = calculateCapturePoints(newHistory, 'player1').points;
+    const p2 = calculateCapturePoints(newHistory, 'player2').points;
+    setP1Score(p1);
+    setP2Score(p2);
   };
 
   // --- HANDLERS ---
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked' || loadingRules) return;
 
-    // If in mandatory move, only allow active piece
-    if (turnPhase === 'mandatory_move' && activePiece && gameState[activePiece] !== coordinate) return;
+    // Allow clicking if it's a valid move target OR the active piece itself
+    const allMoves = [...validMoves, ...validAdvanceMoves];
+    if (turnPhase === 'mandatory_move' && activePiece && gameState[activePiece] !== coordinate && !allMoves.includes(coordinate)) return;
 
     const pieceId = getPieceAtTile(coordinate);
-    const allMoves = [...validMoves, ...validAdvanceMoves];
 
     // If clicking a valid move tile
     if (activePiece && allMoves.includes(coordinate)) {
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-      executeMove(activePiece, coordinate);
+      const isAdvance = validAdvanceMoves.includes(coordinate);
+      executeMove(activePiece, coordinate, isAdvance);
       return;
     }
 
@@ -275,8 +310,6 @@ const Board: React.FC = () => {
 
     playRandomMoveSound(); // DIRECT TRIGGER ON CAPTURE
     const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
-    const pieceBaseName = targetName.replace(/ \d.*$/, '');
-    const points = PIECE_VALUES[pieceBaseName] || 1;
 
     const newGameState = result.newGameState;
     const newCapturedP1 = [...capturedByP1];
@@ -285,19 +318,40 @@ const Board: React.FC = () => {
     if (currentTurn === 'player1') {
       newCapturedP1.push(result.capturedPieceId);
       setCapturedByP1(newCapturedP1);
-      setP1Score(s => s + points);
     } else {
       newCapturedP2.push(result.capturedPieceId);
       setCapturedByP2(newCapturedP2);
-      setP2Score(s => s + points);
     }
 
     setGameState(newGameState);
+
+    // Increment capture count for this turn
+    const currentCaptureCount = turnCaptureCount + 1;
+    setTurnCaptureCount(currentCaptureCount);
 
     if (result.winner) {
       setWinner(result.winner);
       setGameEndReason(targetName.includes('Supremo') ? 'supremo_capture' : 'solitude');
       setTurnPhase('locked');
+
+      // Final scoring update
+      const finalMove: MoveLog = {
+        player: currentTurn,
+        pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures ${targetName}`,
+        pieceId: activePiece,
+        from: gameState[activePiece]!,
+        to: targetCoord,
+        turnNumber: moveHistory.length + 1,
+        timestamp: Date.now()
+      };
+      const finalHistory = [...moveHistory, finalMove];
+      const p1 = calculateCapturePoints(finalHistory, 'player1').points;
+      const p2 = calculateCapturePoints(finalHistory, 'player2').points;
+      setP1Score(p1);
+      setP2Score(p2);
+
+      // Log/Use Stats to satisfy linter and verify tracking
+      console.log(`Game Over! Double Kills: ${myDoubleKills + (turnCaptureCount + 1 === 2 ? 1 : 0)}, Triple Kills: ${myTripleKills + (turnCaptureCount + 1 >= 3 ? 1 : 0)}`);
       return;
     }
 
@@ -310,13 +364,31 @@ const Board: React.FC = () => {
       turnNumber: moveHistory.length + 1,
       timestamp: Date.now()
     };
-    setMoveHistory(prev => [...prev, newMove]);
+    const newHistory = [...moveHistory, newMove];
 
-    // DISABLE MULTI-CAPTURE: Always lock after capture.
-    setValidAttacks([]);
-    setValidMoves([]);
+    const { attacks, moves } = getMultiCaptureOptions(
+      activePiece,
+      newGameState[activePiece]!,
+      newGameState as Record<string, string>,
+      mandatoryMoveUsed,
+      pieceMoveCount,
+      moveRules
+    );
+
+    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
+    if (attacks.length > 0 || moves.length > 0) nextPhase = 'mandatory_move';
+    else nextPhase = 'locked';
+
+    setMoveHistory(newHistory);
+    setValidAttacks(attacks);
+    setValidMoves(moves);
     setValidAdvanceMoves([]);
-    setTurnPhase('locked');
+    setTurnPhase(nextPhase);
+
+    const p1 = calculateCapturePoints(newHistory, 'player1').points;
+    const p2 = calculateCapturePoints(newHistory, 'player2').points;
+    setP1Score(p1);
+    setP2Score(p2);
   };
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
@@ -338,12 +410,18 @@ const Board: React.FC = () => {
       const targetCoord = tile.getAttribute('data-tile');
       const allMoves = [...validMoves, ...validAdvanceMoves];
       if (targetCoord && allMoves.includes(targetCoord)) {
-        executeMove(activePiece, targetCoord);
+        const isAdvance = validAdvanceMoves.includes(targetCoord);
+        executeMove(activePiece, targetCoord, isAdvance);
       }
     }
   }, [isDragging, activePiece, validMoves, validAdvanceMoves]);
 
   const handleSwitchTurn = () => {
+    // Process Turn Stats
+    if (turnCaptureCount === 2) setMyDoubleKills(prev => prev + 1);
+    if (turnCaptureCount >= 3) setMyTripleKills(prev => prev + 1);
+    setTurnCaptureCount(0); // Reset for next turn
+
     setCurrentTurn(prev => prev === 'player1' ? 'player2' : 'player1');
     setTurnPhase('select');
     setActivePiece(null);

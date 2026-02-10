@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../images/logo.png';
-import { Play, ShoppingCart, Users, BookOpen, Settings, Search, User2 } from 'lucide-react';
+import { Play, ShoppingCart, Users, BookOpen, Search,  User2 } from 'lucide-react';
 
 
 const Sidebar: React.FC = () => {
@@ -83,7 +83,7 @@ const Sidebar: React.FC = () => {
         </nav>
 
         {/* Footer */}
-        <div className="mt-auto w-full px-2 mb-2">
+        {/* <div className="mt-auto w-full px-2 mb-2">
           {isLoggedIn && (
             <SidebarItem
               to="/settings"
@@ -92,7 +92,7 @@ const Sidebar: React.FC = () => {
               active={location.pathname === '/settings'}
             />
           )}
-        </div>
+        </div> */}
       </aside>
     </>
   );
