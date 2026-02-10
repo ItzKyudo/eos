@@ -324,6 +324,7 @@ const Multiplayer: React.FC = () => {
 
     // --- DRAW LISTENERS ---
     newSocket.on('drawRequested', (data: { requesterId: string; username: string }) => {
+      console.log("📥 Draw Requested by:", data.username);
       setDrawRequesterName(data.username);
       setShowDrawRequestModal(true);
     });
@@ -337,7 +338,8 @@ const Multiplayer: React.FC = () => {
     });
 
     newSocket.on('drawRequestSent', (data: { message: string }) => {
-      console.log(data.message); // Log confirmation
+      console.log("📤 Draw Request Sent:", data.message);
+      alert(data.message); // Request by user: "display it on both players"
     });
 
     newSocket.on('gameState', (state: ServerGameState) => {
