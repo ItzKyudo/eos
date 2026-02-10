@@ -670,6 +670,7 @@ const Board: React.FC = () => {
         }}
         onSwitchTurn={handleSwitchTurn}
         onResign={handleResign}
+        onRequestDraw={() => alert("Draw requests are not available in practice mode.")}
         canSwitchTurn={turnPhase === 'locked' && !winner}
         gameStatus={winner ? 'finished' : 'active'}
       />
