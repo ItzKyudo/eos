@@ -175,7 +175,7 @@ const SocialPage: React.FC = () => {
     return (
         <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans overflow-x-hidden">
             <Sidebar />
-            <main className="flex-1 p-8 ml-20">
+            <main className="flex-1 p-8 pb-24 md:pb-8 ml-0 md:ml-20">
                 <div className="max-w-4xl mx-auto">
                     <header className="flex items-center justify-between mb-8">
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

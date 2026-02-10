@@ -200,7 +200,7 @@ const Profile: React.FC = () => {
         }}
       />
 
-      <main className="flex-1 h-screen overflow-y-auto relative z-10 p-6 lg:p-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <main className="flex-1 h-screen overflow-y-auto relative z-10 p-6 pb-24 lg:p-10 lg:pb-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
 
         <ProfileHeader
           user={user}

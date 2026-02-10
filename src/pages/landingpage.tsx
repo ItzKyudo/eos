@@ -21,11 +21,11 @@ const LandingPage: React.FC = () => {
   const closeModal = () => setIsModalOpen(false);
 
   return (
-    <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans selection:bg-[#e63e3e]/30 overflow-x-hidden">
+    <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans selection:bg-[#e63e3e]/30 overflow-x-hidden pb-20 md:pb-0">
       <Sidebar />
       <main className="flex-1 flex flex-col items-center">
-        <section className="w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-start justify-center p-8 lg:p-24 lg:pt-16 gap-16">
-          <div className="flex-1 w-full max-w-150 lg:-mt-4 transition-all duration-500">
+        <section className="w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-start justify-center p-4 md:p-8 lg:p-24 lg:pt-16 gap-8 lg:gap-16">
+          <div className="flex-1 w-full max-w-md lg:max-w-150 lg:-mt-4 transition-all duration-500">
             <div className="relative group">
               <div className="absolute -inset-4 bg-linear-to-tr from-[#2c4dbd]/20 to-[#e63e3e]/20 blur-3xl opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
 
@@ -44,7 +44,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="flex-1 flex flex-col gap-10 text-center lg:text-left">
             <header className="space-y-6">
-              <h1 className="text-6xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter">
+              <h1 className="text-4xl md:text-6xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter">
                 EOS <br />
                 <span className="text-transparent bg-clip-text bg-linear-to-r from-[#2c4dbd] via-[#8c457d] to-[#e63e3e]">
                   Juego de Tactica
@@ -60,7 +60,7 @@ const LandingPage: React.FC = () => {
                 </p>
               </div>
             </header>
-            <div className="flex justify-center lg:justify-start gap-8 py-4 border-y border-white/5">
+            <div className="flex justify-center lg:justify-start gap-4 md:gap-8 py-4 border-y border-white/5">
               <div className="text-center lg:text-left">
                 <div className="text-white font-bold text-xl">17x13</div>
                 <div className="text-[10px] uppercase tracking-widest text-gray-500">Grid Size</div>
@@ -74,10 +74,10 @@ const LandingPage: React.FC = () => {
                 <div className="text-[10px] uppercase tracking-widest text-gray-500">Players</div>
               </div>
             </div>
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-3 md:gap-5">
               <button
                 onClick={openModal}
-                className="relative overflow-hidden group flex items-center justify-center gap-6 bg-linear-to-r from-[#2c4dbd] to-[#e63e3e] text-white py-7 rounded-2xl text-3xl font-black transition-all shadow-[0_8px_0_rgb(15,25,60)] active:shadow-none active:translate-y-2 hover:brightness-110"
+                className="relative overflow-hidden group flex items-center justify-center gap-6 bg-linear-to-r from-[#2c4dbd] to-[#e63e3e] text-white py-5 md:py-7 rounded-2xl text-2xl md:text-3xl font-black transition-all shadow-[0_8px_0_rgb(15,25,60)] active:shadow-none active:translate-y-2 hover:brightness-110"
               >
                 <Play size={36} fill="white" />
                 <span className="tracking-tighter">PLAY ONLINE</span>
@@ -85,7 +85,7 @@ const LandingPage: React.FC = () => {
 
               <button
                 onClick={openModal}
-                className="flex items-center justify-center gap-4 bg-[#312e2b] hover:bg-[#3d3935] text-white py-5 rounded-2xl text-xl font-bold transition-all border-b-4 border-black/60 active:border-b-0 active:translate-y-1"
+                className="flex items-center justify-center gap-4 bg-[#312e2b] hover:bg-[#3d3935] text-white py-4 md:py-5 rounded-2xl text-lg md:text-xl font-bold transition-all border-b-4 border-black/60 active:border-b-0 active:translate-y-1"
               >
                 <Users size={24} className="text-[#2c4dbd]" />
                 Play a Friend
@@ -93,8 +93,8 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
         </section>
-        <section className="w-full bg-[#21201d] py-20 px-8">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
+        <section className="w-full bg-[#21201d] py-12 md:py-20 px-4 md:px-8">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
             <FeatureCard
               icon={<Zap className="text-[#e63e3e]" size={32} />}
               title="Dynamic Tactics"
@@ -112,7 +112,7 @@ const LandingPage: React.FC = () => {
             />
           </div>
         </section>
-        <footer className="w-full p-12 text-center text-sm text-gray-600 border-t border-white/5">
+        <footer className="w-full p-8 md:p-12 text-center text-sm text-gray-600 border-t border-white/5">
           © 2026 EOS Juego de Tactica. All Rights Reserved. WMSU, Philippines.
         </footer>
       </main>
