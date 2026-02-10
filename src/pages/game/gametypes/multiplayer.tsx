@@ -165,12 +165,6 @@ const Multiplayer: React.FC = () => {
     score?: number;
   } | null>(null);
 
-  const [scoreBreakdown, setScoreBreakdown] = useState<{
-    captureScore: number;
-    captureRatio: number;
-    winBonus: number;
-  } | null>(null);
-
   const perspective = myRole;
 
   useEffect(() => {
@@ -887,20 +881,6 @@ const Multiplayer: React.FC = () => {
         const p1FinalScore = calculatePlayerScore(finalHistory, 'player1', p1Condition);
         const p2FinalScore = calculatePlayerScore(finalHistory, 'player2', p2Condition);
 
-        // Calculate score breakdown for the winner
-        const winnerRole = result.winner;
-        if (winnerRole && winnerRole !== 'draw') {
-          const { points: capturePoints, count: captureCount } = calculateCapturePoints(finalHistory, winnerRole);
-          const captureRatio = (captureCount / 17) * 10;
-          const winBonus = winCondition === 'solitude' ? 5 : 10;
-
-          setScoreBreakdown({
-            captureScore: capturePoints,
-            captureRatio: captureRatio,
-            winBonus: winBonus
-          });
-        }
-
         socket.emit('gameEnd', {
           matchId,
           winner: result.winner,
@@ -1121,9 +1101,6 @@ const Multiplayer: React.FC = () => {
         currentUserId={userId || ''}
         onRestart={() => navigate('/game')}
         onHome={() => navigate('/game')}
-        captureScore={scoreBreakdown?.captureScore}
-        captureRatio={scoreBreakdown?.captureRatio}
-        winBonus={scoreBreakdown?.winBonus}
       />
       <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
         {isDragging && activePiece && activePiece in PIECES && (
