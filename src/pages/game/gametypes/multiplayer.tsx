@@ -711,9 +711,9 @@ const Multiplayer: React.FC = () => {
     }
     // Case 2: Post-Move Capture (Normal Move -> Capture)
     else if (turnPhase === 'post_move') {
-      // Rule: "normal move then capture" -> Turn Ends.
-      nextPhase = 'locked';
-      nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+      // Rule: "normal move then capture" -> User must manually end turn.
+      nextPhase = 'post_move';
+      nextTurn = currentTurn;
       setActivePiece(null);
       setValidMoves([]);
       setValidAttacks([]);
