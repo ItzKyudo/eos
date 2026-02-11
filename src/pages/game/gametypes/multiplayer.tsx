@@ -700,13 +700,18 @@ const Multiplayer: React.FC = () => {
     // If we are in `action` phase (freshly selected), this is "Capture First".
     // Rule: "capture first then use the mandatory move"
 
-    if (turnPhase === 'action') {
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
       nextPhase = 'mandatory_move';
+
       // Calculate Mandatory Moves using the NEW rule
       const manMoves = getMandatoryMoves(attackerId, gameState[attackerId]!, newGameState as Record<string, string>, attackRules);
+
+      // NEW: Allow capturing again in this phase if valid targets exist.
+      const followUpAttacks = getValidAttacks(attackerId, gameState[attackerId]!, newGameState as Record<string, string>, 'pre-move', true, attackRules);
+
       setValidMoves(manMoves);
       setValidAdvanceMoves([]);
-      setValidAttacks([]); // No chain attacks for now unless requested
+      setValidAttacks(followUpAttacks);
       // Turn stays same
     }
     // Case 2: Post-Move Capture (Normal Move -> Capture)
@@ -714,9 +719,13 @@ const Multiplayer: React.FC = () => {
       // Rule: "normal move then capture" -> User must manually end turn.
       nextPhase = 'post_move';
       nextTurn = currentTurn;
-      setActivePiece(null);
+
+      // NEW: Allow capturing again if valid targets exist.
+      const followUpAttacks = getValidAttacks(attackerId, gameState[attackerId]!, newGameState as Record<string, string>, 'post-move', false, attackRules);
+
+      setActivePiece(attackerId); // Keep selected
       setValidMoves([]);
-      setValidAttacks([]);
+      setValidAttacks(followUpAttacks);
     }
 
     setGameState(newGameState as Record<PieceKey, string>);
@@ -780,14 +789,21 @@ const Multiplayer: React.FC = () => {
     if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
       // Normal Move or Mandatory Move just happened.
       // ALWAYS Transition to 'post_move' to allow manual end turn or optional capture.
-      const possibleAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+
+      const isAdvance = validAdvanceMoves.includes(targetCoord);
 
       nextPhase = 'post_move';
       // Turn always stays with current player until they click "End Turn" or Timeout
       setActivePiece(pieceId);
       setValidMoves([]);
       setValidAdvanceMoves([]);
-      setValidAttacks(possibleAttacks);
+
+      if (isAdvance) {
+        setValidAttacks([]); // Advance Move forbids attacking
+      } else {
+        const possibleAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+        setValidAttacks(possibleAttacks);
+      }
     }
     // Fallback
     else {
@@ -835,7 +851,7 @@ const Multiplayer: React.FC = () => {
       p1Score,
       p2Score
     });
-  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate, p1Time, p2Time]);
+  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate, p1Time, p2Time, validAdvanceMoves]);
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !activePiece) return;
@@ -897,6 +913,11 @@ const Multiplayer: React.FC = () => {
       // In mandatory move, we can ONLY move to valid mandatory tiles.
       if (activePiece && validMoves.includes(coordinate)) {
         executeMove(activePiece, coordinate);
+        return;
+      }
+      // NEW: Allow attacks in mandatory_move phase (Chain Capture)
+      if (activePiece && validAttacks.includes(coordinate)) {
+        handleAttackClick(coordinate);
         return;
       }
       return;
