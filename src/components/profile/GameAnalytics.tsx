@@ -58,56 +58,56 @@ const GameAnalytics: React.FC<GameAnalyticsProps> = ({ games }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-fadeIn">
             {/* Summary Cards */}
-            <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-green-500/10 rounded-lg">
-                        <Trophy className="w-6 h-6 text-green-500" />
+            <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 h-full transition-all hover:border-slate-600">
+                    <div className="p-2 md:p-3 bg-green-500/10 rounded-lg">
+                        <Trophy className="w-5 h-5 md:w-6 md:h-6 text-green-500" />
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Wins</p>
-                        <p className="text-2xl font-black text-white">{stats.wins}</p>
+                        <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider">Wins</p>
+                        <p className="text-xl md:text-2xl font-black text-white">{stats.wins}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-red-500/10 rounded-lg">
-                        <XCircle className="w-6 h-6 text-red-500" />
+                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 h-full transition-all hover:border-slate-600">
+                    <div className="p-2 md:p-3 bg-red-500/10 rounded-lg">
+                        <XCircle className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Losses</p>
-                        <p className="text-2xl font-black text-white">{stats.losses}</p>
+                        <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider">Losses</p>
+                        <p className="text-xl md:text-2xl font-black text-white">{stats.losses}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-slate-500/10 rounded-lg">
-                        <MinusCircle className="w-6 h-6 text-slate-400" />
+                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 h-full transition-all hover:border-slate-600">
+                    <div className="p-2 md:p-3 bg-slate-500/10 rounded-lg">
+                        <MinusCircle className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
                     </div>
                     <div>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Draws</p>
-                        <p className="text-2xl font-black text-white">{stats.draws}</p>
+                        <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider">Draws</p>
+                        <p className="text-xl md:text-2xl font-black text-white">{stats.draws}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-500/10 rounded-lg">
-                            <Target className="w-6 h-6 text-blue-500" />
+                <div className="md:col-span-1 bg-[#1e293b] p-4 rounded-xl border border-slate-700 shadow-sm flex flex-col justify-between h-full gap-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                            <Target className="w-5 h-5 text-blue-500" />
                         </div>
                         <div>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Win Rate</p>
-                            <p className="text-2xl font-black text-white">{stats.winRate.toFixed(1)}%</p>
+                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Win Rate</p>
+                            <p className="text-xl md:text-2xl font-black text-white">{stats.winRate.toFixed(1)}%</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-end">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mb-1">Recent Trend</p>
-                        <div className="flex gap-1">
-                            {stats.recentTrend.map((res, i) => (
+                    <div className="flex flex-col items-start w-full mt-1 pt-2 border-t border-white/5">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight mb-1">Recent Trend</p>
+                        <div className="flex gap-1 flex-wrap">
+                            {stats.recentTrend.slice(0, 10).map((res, i) => (
                                 <div
                                     key={i}
-                                    className={`w-2 h-2 rounded-full ${res === 'win' ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' :
-                                        res === 'loss' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]' :
+                                    className={`w-1.5 h-1.5 rounded-full ${res === 'win' ? 'bg-green-500' :
+                                        res === 'loss' ? 'bg-red-500' :
                                             'bg-slate-400'
                                         }`}
                                     title={res.toUpperCase()}
@@ -119,7 +119,7 @@ const GameAnalytics: React.FC<GameAnalyticsProps> = ({ games }) => {
             </div>
 
             {/* Grid for Charts */}
-            <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="hidden lg:grid lg:col-span-3 grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Win Distribution Pie */}
                 <div className="bg-[#1e293b] p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col items-center">
                     <h3 className="text-slate-200 font-bold uppercase text-xs tracking-widest mb-6 self-start flex items-center gap-2">

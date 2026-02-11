@@ -193,7 +193,7 @@ const Profile: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100 overflow-hidden relative">
       <div className="fixed inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none z-0" />
-      <div className="relative z-10"><Sidebar /></div>
+      <Sidebar />
 
       <EditProfileModal
         isOpen={showEditModal}
@@ -206,7 +206,7 @@ const Profile: React.FC = () => {
         }}
       />
 
-      <main className="flex-1 h-screen overflow-y-auto relative z-10 p-6 pb-24 lg:p-10 lg:pb-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <main className="flex-1 h-screen overflow-y-auto relative z-10 p-4 pb-24 lg:p-10 lg:pb-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
 
         <ProfileHeader
           user={user}

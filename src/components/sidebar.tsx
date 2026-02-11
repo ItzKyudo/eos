@@ -26,7 +26,7 @@ const Sidebar: React.FC = () => {
       <div className="hidden md:block w-20 flex-shrink-0" />
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full bg-[#262421] border-t border-white/5 flex justify-around items-center py-3 md:hidden z-50 px-2 pb-safe">
+      <nav className="fixed bottom-0 left-0 w-full bg-[#262421]/95 backdrop-blur-md border-t border-white/5 flex justify-around items-center py-3 md:hidden z-[100] px-2 pb-safe shadow-2xl">
         {isLoggedIn && (
           <SidebarItem
             to="/game"
@@ -77,7 +77,7 @@ const Sidebar: React.FC = () => {
         />
       </nav>
 
-      <aside className="fixed left-0 top-0 h-screen w-20 bg-[#262421] flex flex-col items-center py-6 border-r border-white/5 hidden md:flex z-50 shadow-xl">
+      <aside className="fixed left-0 top-0 h-screen w-20 bg-[#262421] flex flex-col items-center py-6 border-r border-white/5 hidden md:flex z-[100] shadow-xl">
 
         {/* Brand Logo */}
         <Link to="/" className="mb-8 p-2 hover:bg-white/5 rounded-xl transition-colors">

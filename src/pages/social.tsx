@@ -18,10 +18,6 @@ interface Friend {
 const SocialPage: React.FC = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'friends' | 'leaderboard'>('friends');
-
-    // Use hook for Friends list and Online Status
-    // Note: The hook returns mapped friends which might have slightly different interface but we cast/adapt if needed.
-    // The hook's Friend interface has { user_id, username, isOnline ... }
     const { friends, loading: friendsLoading, refreshFriends } = useFriendsStatus();
 
     const [requests, setRequests] = useState<Friend[]>([]);
@@ -29,8 +25,6 @@ const SocialPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const [inviteCopied, setInviteCopied] = useState(false);
-
-    // Handlers for "Add Friend via Link" action
     const [actionStatus, setActionStatus] = useState<{ type: 'success' | 'error' | 'loading', message: string } | null>(null);
 
     useEffect(() => {
@@ -66,9 +60,7 @@ const SocialPage: React.FC = () => {
         const targetId = searchParams.get('id');
 
         if (action === 'add' && targetId) {
-            // Clear params to prevent re-triggering on refresh
             setSearchParams({});
-
             sendFriendRequest(targetId);
         }
     };
@@ -93,12 +85,10 @@ const SocialPage: React.FC = () => {
             if (!response.ok) throw new Error(data.message || 'Failed to send request');
 
             setActionStatus({ type: 'success', message: 'Friend request sent successfully!' });
-            fetchRequests(); // Refresh requests list
+            fetchRequests(); 
         } catch (err: any) {
             setActionStatus({ type: 'error', message: err.message });
         }
-
-        // Clear status after 3s
         setTimeout(() => setActionStatus(null), 3000);
     };
 
@@ -152,13 +142,9 @@ const SocialPage: React.FC = () => {
                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                 }).join(''));
                 const payload = JSON.parse(jsonPayload);
-                // Standard JWT often uses 'sub', Supabase/custom might use 'user_id' or 'id'
                 const userId = payload.sub || payload.user_id || payload.id;
 
-                if (!userId) {
-                    console.error("Could not find user ID in token payload:", payload);
-                    return;
-                }
+                if (!userId) return;
 
                 const link = `${window.location.origin}/social?action=add&id=${userId}`;
                 navigator.clipboard.writeText(link);
@@ -170,113 +156,105 @@ const SocialPage: React.FC = () => {
         }
     };
 
-
-
     return (
-        <div className="flex min-h-screen bg-[#262522] text-[#bababa] font-sans overflow-x-hidden">
+        <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-200 relative">
             <Sidebar />
-            <main className="flex-1 p-8 pb-24 md:pb-8 ml-0 md:ml-20">
-                <div className="max-w-4xl mx-auto">
-                    <header className="flex items-center justify-between mb-8">
+
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none fixed z-0" />
+
+            {/* Main container with overflow-hidden to prevent global page breaking on mobile */}
+            <main className="flex-1 w-full p-4 md:p-8 pb-24 md:pb-8 relative z-10 overflow-hidden">
+                <div className="max-w-5xl mx-auto w-full">
+                    
+                    <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                            <Users className="text-[#81b64c]" size={32} />
+                            <Users className="text-blue-500" size={32} />
                             Social
                         </h1>
 
-                        {/* Action Feedback Toast */}
-                        {actionStatus && (
-                            <div className={`px-4 py-2 rounded-lg text-white text-sm font-semibold animate-fade-in-down flex items-center gap-2
-                    ${actionStatus.type === 'success' ? 'bg-green-600' : 'bg-red-500'}`}>
-                                {actionStatus.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-                                {actionStatus.message}
-                            </div>
-                        )}
-
-                        {/* Global Error Display */}
-                        {error && (
-                            <div className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-sm flex items-center gap-2">
-                                <AlertCircle size={16} />
-                                {error}
-                            </div>
-                        )}
+                        <div className="flex flex-col items-end gap-2">
+                            {actionStatus && (
+                                <div className={`px-4 py-2 rounded-lg text-white text-sm font-semibold animate-fade-in-down flex items-center gap-2
+                                    ${actionStatus.type === 'success' ? 'bg-green-600' : 'bg-red-500'}`}>
+                                    {actionStatus.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                                    {actionStatus.message}
+                                </div>
+                            )}
+                            {error && (
+                                <div className="px-4 py-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-sm flex items-center gap-2">
+                                    <AlertCircle size={16} />
+                                    {error}
+                                </div>
+                            )}
+                        </div>
                     </header>
 
-                    {/* Navigation Tabs */}
-                    <div className="flex border-b border-white/10 mb-8">
+                    {/* Navigation Tabs - Added horizontal scroll for small devices */}
+                    <div className="flex border-b border-slate-700 mb-8 overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('friends')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'friends' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-                                }`}
+                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${
+                                activeTab === 'friends' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                            }`}
                         >
                             Friends
                             {activeTab === 'friends' && (
-                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#81b64c]" />
+                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
                             )}
                         </button>
                         <button
                             onClick={() => setActiveTab('leaderboard')}
-                            className={`px-6 py-3 font-medium transition-colors relative ${activeTab === 'leaderboard' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-                                }`}
+                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${
+                                activeTab === 'leaderboard' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                            }`}
                         >
                             Leaderboard
                             {activeTab === 'leaderboard' && (
-                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#81b64c]" />
+                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
                             )}
                         </button>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="w-full">
                         {activeTab === 'friends' && (
-                            <>
-                                {/* Invite Link Section */}
-                                <div className="bg-[#302e2b] rounded-xl p-6 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-                                    <div>
+                            <div className="space-y-8 animate-in fade-in duration-300">
+                                {/* Invite Link Card */}
+                                <div className="bg-[#1e293b] rounded-xl p-6 border border-slate-700/50 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+                                    <div className="relative z-10 text-center md:text-left">
                                         <h3 className="text-white font-semibold mb-1">Invite Friends</h3>
-                                        <p className="text-sm text-gray-400">Share this link to let people add you instantly.</p>
+                                        <p className="text-sm text-slate-400">Share this link with others to grow your network.</p>
                                     </div>
                                     <button
                                         onClick={copyInviteLink}
-                                        className="flex items-center gap-2 px-4 py-2 bg-[#81b64c] hover:bg-[#a3d160] text-white rounded-lg font-semibold transition-all active:scale-95"
+                                        className="w-full md:w-auto relative z-10 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all active:scale-95 shadow-lg shadow-blue-500/20"
                                     >
                                         {inviteCopied ? <Check size={18} /> : <LinkIcon size={18} />}
                                         {inviteCopied ? "Copied!" : "Copy Invite Link"}
                                     </button>
                                 </div>
 
-                                {/* Friend Requests */}
+                                {/* Incoming Friend Requests */}
                                 {loadingRequests ? (
-                                    <div className="text-center py-4 text-gray-500 text-xs">Checking for requests...</div>
+                                    <div className="text-center py-4 text-slate-500 text-xs">Checking for requests...</div>
                                 ) : requests.length > 0 && (
-                                    <div>
-                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Friend Requests</h3>
-                                        <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="animate-slideDown">
+                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Friend Requests</h3>
+                                        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                                             {requests.map(req => (
-                                                <div key={req.friendship_id} className="bg-[#302e2b] p-4 rounded-xl border border-white/10 flex items-center justify-between">
-                                                    <div
-                                                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                                                        onClick={() => navigate(`/profile/${req.user_id}`)}
-                                                    >
-                                                        <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden">
-                                                            {req.avatar_url ? <img src={req.avatar_url} alt={req.username} /> : <User2IconPlaceholder />}
+                                                <div key={req.friendship_id} className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3 cursor-pointer min-w-0" onClick={() => navigate(`/profile/${req.user_id}`)}>
+                                                        <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                                            {req.avatar_url ? <img src={req.avatar_url} alt={req.username} className="w-full h-full object-cover" /> : <User2IconPlaceholder />}
                                                         </div>
-                                                        <div>
-                                                            <p className="text-white font-medium">{req.username}</p>
-                                                            <p className="text-xs text-gray-500">Wants to be friends</p>
+                                                        <div className="min-w-0">
+                                                            <p className="text-white font-medium truncate">{req.username}</p>
+                                                            <p className="text-xs text-blue-400">Wants to be friends</p>
                                                         </div>
                                                     </div>
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => acceptRequest(req.friendship_id)}
-                                                            className="p-2 hover:bg-green-500/20 text-green-500 rounded-lg transition-colors" title="Accept"
-                                                        >
-                                                            <Check size={20} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => removeFriend(req.friendship_id)}
-                                                            className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors" title="Decline"
-                                                        >
-                                                            <X size={20} />
-                                                        </button>
+                                                    <div className="flex gap-1 flex-shrink-0">
+                                                        <button onClick={() => acceptRequest(req.friendship_id)} className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg"><Check size={20} /></button>
+                                                        <button onClick={() => removeFriend(req.friendship_id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><X size={20} /></button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -284,58 +262,47 @@ const SocialPage: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Friends List */}
+                                {/* My Friends List */}
                                 <div>
-                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">My Friends ({friends.length})</h3>
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        My Friends <span className="bg-slate-700 text-white text-[10px] px-2 py-0.5 rounded-full">{friends.length}</span>
+                                    </h3>
                                     {friendsLoading ? (
-                                        <div className="text-center py-12 text-gray-500">Loading friends...</div>
+                                        <div className="text-center py-12 text-slate-500">Loading friends...</div>
                                     ) : friends.length === 0 ? (
-                                        <div className="text-center py-12 bg-[#302e2b] rounded-xl border border-white/5 border-dashed">
-                                            <Users className="mx-auto text-gray-600 mb-2" size={48} />
-                                            <p className="text-gray-400">You haven't added any friends yet.</p>
+                                        <div className="text-center py-12 bg-[#1e293b] rounded-xl border border-slate-700 border-dashed">
+                                            <Users className="mx-auto text-slate-600 mb-2" size={48} />
+                                            <p className="text-slate-400">You haven't added any friends yet.</p>
                                         </div>
                                     ) : (
-                                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                                             {friends.map((friend: any) => (
-                                                <div key={friend.friendship_id} className="bg-[#302e2b] p-4 rounded-xl border border-white/10 flex items-center justify-between group hover:border-white/20 transition-all">
-                                                    <div
-                                                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                                                        onClick={() => navigate(`/profile/${friend.user_id}`)}
-                                                    >
-                                                        <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden relative">
-                                                            {friend.status_message && (
-                                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-center p-1">
-                                                                    {friend.status_message}
-                                                                </div>
-                                                            )}
-                                                            {friend.avatar_url ? <img src={friend.avatar_url} alt={friend.username} /> : <User2IconPlaceholder />}
+                                                <div key={friend.friendship_id} className="bg-[#1e293b] p-4 rounded-xl border border-slate-700 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+                                                    <div className="flex items-center gap-3 cursor-pointer min-w-0" onClick={() => navigate(`/profile/${friend.user_id}`)}>
+                                                        <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
+                                                            {friend.avatar_url ? <img src={friend.avatar_url} alt={friend.username} className="w-full h-full object-cover" /> : <User2IconPlaceholder />}
                                                         </div>
-                                                        <div>
-                                                            <p className="text-white font-medium">{friend.username}</p>
-                                                            <p className={`text-xs flex items-center gap-1 ${friend.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
-                                                                <span className={`w-2 h-2 rounded-full ${friend.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                                                        <div className="min-w-0">
+                                                            <p className="text-white font-medium truncate">{friend.username}</p>
+                                                            <p className={`text-xs flex items-center gap-1 ${friend.isOnline ? 'text-green-400' : 'text-slate-500'}`}>
+                                                                <span className={`w-2 h-2 rounded-full ${friend.isOnline ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`}></span>
                                                                 {friend.isOnline ? 'Online' : 'Offline'}
                                                             </p>
                                                         </div>
                                                     </div>
-
-                                                    <button
-                                                        onClick={() => removeFriend(friend.friendship_id)}
-                                                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
-                                                        title="Remove Friend"
-                                                    >
-                                                        <UserX size={18} />
-                                                    </button>
+                                                    <button onClick={() => removeFriend(friend.friendship_id)} className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"><UserX size={18} /></button>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                 </div>
-                            </>
+                            </div>
                         )}
 
                         {activeTab === 'leaderboard' && (
-                            <Leaderboard />
+                            <div className="w-full overflow-hidden animate-in fade-in duration-300">
+                                <Leaderboard />
+                            </div>
                         )}
                     </div>
                 </div>

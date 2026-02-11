@@ -38,20 +38,20 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, status, onUpdateSta
       <div className="flex flex-col md:flex-row gap-8 items-center md:items-start w-full">
         {/* Avatar */}
         <div className="relative group">
-          <div className="w-40 h-40 rounded-xl overflow-hidden border-4 border-[#1e293b] shadow-lg ring-2 ring-[#09357A]">
+          <div className="w-24 h-24 md:w-40 md:h-40 rounded-xl overflow-hidden border-4 border-[#1e293b] shadow-lg ring-2 ring-[#09357A]">
             <img
               src={user?.avatar_url || "/api/placeholder/200/200"}
               alt="Profile"
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-green-500 w-6 h-6 rounded-full border-4 border-[#1e293b]"></div>
+          <div className="absolute -bottom-2 -right-2 bg-green-500 w-4 h-4 md:w-6 md:h-6 rounded-full border-4 border-[#1e293b]"></div>
         </div>
 
         <div className="flex flex-col gap-3 items-center md:items-start flex-1">
-          <div className="flex items-center gap-4">
-            <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md">{user?.username || 'Player'}</h1>
-            <span className="text-3xl filter drop-shadow-lg">{user?.country_flag || '🇵🇭'}</span>
+          <div className="flex items-center gap-2 md:gap-4">
+            <h1 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight drop-shadow-md">{user?.username || 'Player'}</h1>
+            <span className="text-2xl md:text-3xl filter drop-shadow-lg">{user?.country_flag || '🇵🇭'}</span>
           </div>
 
           {/* Status Section - Only show for own profile */}

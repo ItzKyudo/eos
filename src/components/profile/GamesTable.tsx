@@ -29,20 +29,20 @@ const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10 bg-slate-800 text-xs uppercase text-slate-400 font-semibold tracking-wider shadow-md">
               <tr>
-                <th className="p-4">Mode</th>
-                <th className="p-4">Opponent</th>
-                <th className="p-4 text-center">Score</th>
-                <th className="p-4 text-center">Result</th>
-                <th className="p-4 text-right">Date</th>
+                <th className="p-3 md:p-4">Mode</th>
+                <th className="p-3 md:p-4">Opponent</th>
+                <th className="p-3 md:p-4 text-center">Score</th>
+                <th className="p-3 md:p-4 text-center">Result</th>
+                <th className="p-3 md:p-4 text-right hidden md:table-cell">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
               {games.map((game) => (
                 <tr key={game.id} className="hover:bg-slate-700/40 transition cursor-pointer group">
-                  <td className="p-4 font-medium text-slate-300">
+                  <td className="p-3 md:p-4 font-medium text-slate-300">
                     {game.gameType}
                   </td>
-                  <td className="p-4">
+                  <td className="p-3 md:p-4">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{game.opponentFlag}</span>
                       <div
@@ -57,12 +57,12 @@ const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
                       </div>
                     </div>
                   </td>
-                  <td className="p-4 text-center font-mono text-slate-300">
+                  <td className="p-3 md:p-4 text-center font-mono text-slate-300 text-xs md:text-base">
                     {game.userScore !== undefined && game.opponentScore !== undefined
                       ? `${game.userScore} - ${game.opponentScore}`
                       : '-'}
                   </td>
-                  <td className="p-4 text-center">
+                  <td className="p-3 md:p-4 text-center">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold uppercase tracking-wide border
                         ${game.result === 'win' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
                         game.result === 'loss' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
@@ -70,7 +70,7 @@ const GamesTable: React.FC<GamesTableProps> = ({ games }) => {
                       {game.result}
                     </span>
                   </td>
-                  <td className="p-4 text-right text-sm text-slate-500 font-mono whitespace-nowrap">{game.date}</td>
+                  <td className="p-3 md:p-4 text-right text-sm text-slate-500 font-mono whitespace-nowrap hidden md:table-cell">{game.date}</td>
                 </tr>
               ))}
             </tbody>
