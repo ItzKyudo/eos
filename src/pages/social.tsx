@@ -4,6 +4,7 @@ import { Users, Check, X, UserX, Link as LinkIcon, AlertCircle } from 'lucide-re
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useFriendsStatus } from '../hooks/useFriendsStatus';
 import Leaderboard from '../components/Leaderboard';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface Friend {
     friendship_id: number;
@@ -26,6 +27,16 @@ const SocialPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [inviteCopied, setInviteCopied] = useState(false);
     const [actionStatus, setActionStatus] = useState<{ type: 'success' | 'error' | 'loading', message: string } | null>(null);
+
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type: 'danger' | 'info' | 'success';
+        confirmText?: string;
+    } | null>(null);
 
     useEffect(() => {
         fetchRequests();
@@ -85,7 +96,7 @@ const SocialPage: React.FC = () => {
             if (!response.ok) throw new Error(data.message || 'Failed to send request');
 
             setActionStatus({ type: 'success', message: 'Friend request sent successfully!' });
-            fetchRequests(); 
+            fetchRequests();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: err.message });
         }
@@ -114,8 +125,18 @@ const SocialPage: React.FC = () => {
         }
     };
 
-    const removeFriend = async (friendshipId: number) => {
-        if (!confirm("Are you sure?")) return;
+    const confirmRemoveFriend = (friendshipId: number, username: string) => {
+        setModalConfig({
+            title: "Remove Friend",
+            message: `Are you sure you want to remove ${username} from your friends list?`,
+            type: 'danger',
+            confirmText: "Remove",
+            onConfirm: () => handleRemoveFriend(friendshipId)
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleRemoveFriend = async (friendshipId: number) => {
         try {
             const token = localStorage.getItem('token');
             const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
@@ -127,8 +148,16 @@ const SocialPage: React.FC = () => {
             if (!response.ok) throw new Error('Failed to remove');
 
             if (refreshFriends) refreshFriends();
+
+            // Also update requests if modifying from there (though typically remove is for friends list)
+            setRequests(prev => prev.filter(r => r.friendship_id !== friendshipId));
+
+            setActionStatus({ type: 'success', message: 'Friend removed' });
+            setTimeout(() => setActionStatus(null), 3000);
+
         } catch (err) {
             console.error(err);
+            setActionStatus({ type: 'error', message: 'Failed to remove friend' });
         }
     };
 
@@ -165,7 +194,7 @@ const SocialPage: React.FC = () => {
             {/* Main container with overflow-hidden to prevent global page breaking on mobile */}
             <main className="flex-1 w-full p-4 md:p-8 pb-24 md:pb-8 relative z-10 overflow-hidden">
                 <div className="max-w-5xl mx-auto w-full">
-                    
+
                     <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                             <Users className="text-blue-500" size={32} />
@@ -193,9 +222,8 @@ const SocialPage: React.FC = () => {
                     <div className="flex border-b border-slate-700 mb-8 overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('friends')}
-                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${
-                                activeTab === 'friends' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                            }`}
+                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${activeTab === 'friends' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                                }`}
                         >
                             Friends
                             {activeTab === 'friends' && (
@@ -204,9 +232,8 @@ const SocialPage: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setActiveTab('leaderboard')}
-                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${
-                                activeTab === 'leaderboard' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                            }`}
+                            className={`px-6 py-3 font-medium transition-colors whitespace-nowrap relative ${activeTab === 'leaderboard' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                                }`}
                         >
                             Leaderboard
                             {activeTab === 'leaderboard' && (
@@ -254,7 +281,7 @@ const SocialPage: React.FC = () => {
                                                     </div>
                                                     <div className="flex gap-1 flex-shrink-0">
                                                         <button onClick={() => acceptRequest(req.friendship_id)} className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg"><Check size={20} /></button>
-                                                        <button onClick={() => removeFriend(req.friendship_id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><X size={20} /></button>
+                                                        <button onClick={() => confirmRemoveFriend(req.friendship_id, req.username)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><X size={20} /></button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -290,7 +317,7 @@ const SocialPage: React.FC = () => {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <button onClick={() => removeFriend(friend.friendship_id)} className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"><UserX size={18} /></button>
+                                                    <button onClick={() => confirmRemoveFriend(friend.friendship_id, friend.username)} className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"><UserX size={18} /></button>
                                                 </div>
                                             ))}
                                         </div>
@@ -307,6 +334,19 @@ const SocialPage: React.FC = () => {
                     </div>
                 </div>
             </main>
+
+            {/* Confirmation Modal */}
+            {modalConfig && (
+                <ConfirmationModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    confirmText={modalConfig.confirmText}
+                    onConfirm={modalConfig.onConfirm}
+                    type={modalConfig.type}
+                />
+            )}
         </div>
     );
 };
