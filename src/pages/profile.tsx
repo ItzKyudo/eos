@@ -87,7 +87,13 @@ const Profile: React.FC = () => {
           const data = await res.json();
           const processed = data.map((g: any) => ({
             ...g,
-            date: new Date(g.date).toLocaleDateString()
+            date: g.date ? new Date(g.date).toLocaleString(undefined, {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }) : 'No Date'
           }));
           setGameHistory(processed);
 
