@@ -795,11 +795,19 @@ const Multiplayer: React.FC = () => {
       }
 
     } else if (turnPhase === 'mandatory_move') {
-      // We just performed the mandatory move after a capture.
-      // Rule: "capture first then use the mandatory move" -> End turn after mandatory move.
-      nextPhase = 'locked';
-      nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
-      setActivePiece(null);
+      const postManAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+
+      if (postManAttacks.length > 0) {
+        nextPhase = 'post_move';
+        setActivePiece(pieceId);
+        setValidMoves([]);
+        setValidAdvanceMoves([]);
+        setValidAttacks(postManAttacks);
+      } else {
+        nextPhase = 'locked';
+        nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+        setActivePiece(null);
+      }
     }
     // Fallback
     else {
