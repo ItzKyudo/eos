@@ -5,7 +5,7 @@ import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import GameOverModal from '../components/GameOverModal';
-import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
+import { getValidAttacks, getMandatoryMoves, executeAttack, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
 
@@ -288,14 +288,14 @@ const Board: React.FC = () => {
       setTurnPhase('action');
     } else if (turnPhase === 'mandatory_move') {
       // Should already be handled, but just in case re-selecting same piece
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, moveRules);
+      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, attackRules);
       // Check if attacks available (multi-capture path)
       let allowedAttacks: string[] = [];
       if (mandatoryMoveUsed) {
         allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
       } else {
-        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, moveRules);
-        allowedAttacks = attacks;
+        // Multi-capture logic simplified/removed as per multiplayer updates
+        allowedAttacks = [];
       }
       setValidMoves(allowedMoves);
       setValidAdvanceMoves([]);
@@ -367,14 +367,13 @@ const Board: React.FC = () => {
     };
     const newHistory = [...moveHistory, newMove];
 
-    const { attacks, moves } = getMultiCaptureOptions(
+    const moves = getMandatoryMoves(
       activePiece,
       newGameState[activePiece]!,
       newGameState as Record<string, string>,
-      mandatoryMoveUsed,
-      pieceMoveCount,
-      moveRules
+      attackRules
     );
+    const attacks: string[] = [];
 
     let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
     if (attacks.length > 0 || moves.length > 0) nextPhase = 'mandatory_move';

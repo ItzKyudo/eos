@@ -740,7 +740,7 @@ const Multiplayer: React.FC = () => {
       p1Time, p2Time
     });
 
-  }, [gameState, capturedByP1, capturedByP2, currentTurn, moveHistory, turnPhase, pieceMoveCount, moveRules, attackRules, broadcastUpdate, p1Time, p2Time, winner, activePiece, isSyncing, hasMoved]);
+  }, [gameState, capturedByP1, capturedByP2, currentTurn, moveHistory, turnPhase, attackRules, broadcastUpdate, p1Time, p2Time, winner, activePiece, isSyncing, hasMoved]);
 
 
   const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
