@@ -23,7 +23,7 @@ const Sidebar = () => {
     <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col">
       {/* Logo Area */}
       <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-        <img src="../../src/images/logo.png" alt="EOS Logo" className="w-8 h-8" />
+        <img src="/logo.png" alt="EOS Logo" className="w-8 h-8" />
         <span className="font-bold text-gray-800 text-lg">EOS Admin</span>
       </div>
 
