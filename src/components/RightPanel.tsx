@@ -237,7 +237,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   );
 
   return (
-    <div className="w-full lg:w-[420px] bg-[#1e293b] flex flex-col border-l border-white/5 z-20 shadow-2xl relative">
+    <div className="w-full lg:w-[420px] h-full bg-[#1e293b] flex flex-col border-l border-white/5 z-20 shadow-2xl relative">
 
       {/* TABS */}
       <div className="p-4 border-b border-white/5 bg-[#0f172a]/50 backdrop-blur-sm">

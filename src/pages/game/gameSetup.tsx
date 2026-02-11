@@ -104,7 +104,7 @@ const GameSetup: React.FC = () => {
     <div className="flex min-h-screen bg-[#0f172a] font-sans text-gray-100 relative">
       <Sidebar />
       <main className="flex-1 flex flex-col lg:flex-row h-screen overflow-hidden relative">
-        <div className="flex-1 flex items-center justify-center bg-[#0f172a] p-4 lg:p-0 overflow-hidden relative z-10">
+        <div className="hidden lg:flex flex-1 items-center justify-center bg-[#0f172a] p-4 lg:p-0 overflow-hidden relative z-10">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none" />
 
           <div className="transform scale-[0.35] sm:scale-[0.45] md:scale-[0.55] lg:scale-[0.60] xl:scale-[0.70] origin-center shadow-2xl transition-transform duration-500">
