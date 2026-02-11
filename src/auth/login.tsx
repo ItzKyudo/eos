@@ -50,7 +50,7 @@ const Login: React.FC = () => {
       <div className="relative w-full max-w-4xl bg-[#21201d] rounded-3xl shadow-[0_50px_100px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col md:flex-row overflow-hidden">
 
         {/* Left Side: Branding/Welcome */}
-        <div className="md:w-5/12 bg-[#1a1917] p-12 flex flex-col justify-between border-r border-white/5">
+        <div className="hidden md:flex md:w-5/12 bg-[#1a1917] p-12 flex-col justify-between border-r border-white/5">
           <div>
             <Link to="/">
               <img src={logoImg} alt="EOS Logo" className="w-16 h-16 rounded-2xl mb-8" />
@@ -68,7 +68,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Right Side: Login Form */}
-        <div className="flex-1 p-12 lg:p-16">
+        <div className="flex-1 p-6 md:p-12 lg:p-16">
           <form className="space-y-6" onSubmit={handleLogin}>
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-widest font-bold text-gray-500 ml-1">Email Address</label>
@@ -87,7 +87,6 @@ const Login: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-xs uppercase tracking-widest font-bold text-gray-500 ml-1">Password</label>
-                <a href="#" className="text-[10px] text-[#e63e3e] font-bold hover:underline">FORGOT?</a>
               </div>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[#e63e3e] transition-colors" size={20} />

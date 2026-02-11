@@ -56,7 +56,7 @@ const Register: React.FC = () => {
       </div>
 
       <div className="relative w-full max-w-4xl bg-[#21201d] rounded-3xl shadow-[0_50px_100px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col md:flex-row-reverse overflow-hidden">
-        <div className="md:w-5/12 bg-[#1a1917] p-12 flex flex-col justify-between border-l border-white/5">
+        <div className="hidden md:flex md:w-5/12 bg-[#1a1917] p-12 flex-col justify-between border-l border-white/5">
           <div>
             <Link to="/">
               <img src={logoImg} alt="EOS Logo" className="w-16 h-16 rounded-2xl mb-8" />
@@ -74,7 +74,7 @@ const Register: React.FC = () => {
         </div>
 
         {/* Left Side: Register Form */}
-        <div className="flex-1 p-12 lg:p-16">
+        <div className="flex-1 p-6 md:p-12 lg:p-16">
           <form className="space-y-5" onSubmit={handleRegister}>
             {/* Username Field */}
             <div className="space-y-2">
