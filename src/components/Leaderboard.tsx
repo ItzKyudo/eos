@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Medal, TrendingUp, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trophy, Medal, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useDebounce from '../hooks/useDebounce';
 
