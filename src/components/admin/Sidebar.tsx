@@ -1,10 +1,13 @@
 import { LayoutDashboard, Users, ShoppingBag, Package, LogOut } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import ConfirmationModal from '../ConfirmationModal';
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const menuItems = [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, href: '/admin/dashboard' },
@@ -50,13 +53,24 @@ const Sidebar = () => {
       {/* Footer */}
       <div className="p-4 border-t border-gray-100">
         <button
-          onClick={handleLogout}
+          onClick={() => setIsLogoutModalOpen(true)}
           className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition-colors"
         >
           <LogOut size={20} />
           Sign Out
         </button>
       </div>
+
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

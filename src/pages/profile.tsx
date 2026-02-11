@@ -10,6 +10,7 @@ import GamesTable from '../components/profile/GamesTable';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import FriendsList from '../components/profile/FriendsList';
 import GameAnalytics from '../components/profile/GameAnalytics';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([]);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // Set initial tab based on URL param
   const queryParams = new URLSearchParams(location.search);
@@ -39,6 +41,10 @@ const Profile: React.FC = () => {
     localStorage.removeItem('user');
     navigate('/');
   }, [navigate]);
+
+  const onLogoutClick = () => {
+    setIsLogoutModalOpen(true);
+  };
 
 
   useEffect(() => {
@@ -206,6 +212,17 @@ const Profile: React.FC = () => {
         }}
       />
 
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        type="danger"
+      />
+
       <main className="flex-1 h-screen overflow-y-auto relative z-10 p-4 pb-24 lg:p-10 lg:pb-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
 
         <ProfileHeader
@@ -213,7 +230,7 @@ const Profile: React.FC = () => {
           status={user?.status_message || ''}
           onUpdateStatus={isOwnProfile ? handleUpdateStatus : undefined}
           onEditClick={isOwnProfile ? () => setShowEditModal(true) : undefined}
-          onLogout={isOwnProfile ? handleLogout : undefined}
+          onLogout={isOwnProfile ? onLogoutClick : undefined}
           isOwnProfile={isOwnProfile}
         />
 
