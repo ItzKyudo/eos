@@ -101,6 +101,10 @@ const Multiplayer: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
 
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
+  const playersRef = useRef(players);
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   const [gameState, setGameState] = useState<Partial<Record<PieceKey, string>>>(INITIAL_POSITIONS);
   const [moveHistory, setMoveHistory] = useState<MoveLog[]>([]);
@@ -310,8 +314,8 @@ const Multiplayer: React.FC = () => {
         setGameEndReason('Mutual Agreement');
         setTurnPhase('locked');
         setRatingData({
-          winnerId: players[0]?.userId || '',
-          loserId: players[1]?.userId || '',
+          winnerId: playersRef.current[0]?.userId || '',
+          loserId: playersRef.current[1]?.userId || '',
           change: 0,
           winnerNew: 0,
           loserNew: 0,
@@ -585,7 +589,7 @@ const Multiplayer: React.FC = () => {
     else if (p2Time <= 0 && myRole === 'player2') handleTimeout('player1');
     else if (p2Time <= 0 && myRole === 'player1') handleTimeout('player1');
 
-  }, [p1Time, p2Time, winner, myRole, matchId, socket, players, moveHistory, userId]);
+  }, [p1Time, p2Time, winner, myRole, matchId, socket, players, moveHistory, userId, myDoubleKills, myTripleKills]);
 
   // --- DRAW HANDLERS ---
   const handleRequestDraw = useCallback(() => {
@@ -661,8 +665,8 @@ const Multiplayer: React.FC = () => {
     playRandomMoveSound();
 
     // Update Capture Lists
-    let newCapturedByP1 = [...capturedByP1];
-    let newCapturedByP2 = [...capturedByP2];
+    const newCapturedByP1 = [...capturedByP1];
+    const newCapturedByP2 = [...capturedByP2];
     if (currentTurn === 'player1') newCapturedByP1.push(capturedPieceId);
     else newCapturedByP2.push(capturedPieceId);
 
@@ -736,7 +740,7 @@ const Multiplayer: React.FC = () => {
       p1Time, p2Time
     });
 
-  }, [gameState, capturedByP1, capturedByP2, currentTurn, moveHistory, turnPhase, pieceMoveCount, moveRules, attackRules, broadcastUpdate, p1Time, p2Time, winner]);
+  }, [gameState, capturedByP1, capturedByP2, currentTurn, moveHistory, turnPhase, pieceMoveCount, moveRules, attackRules, broadcastUpdate, p1Time, p2Time, winner, activePiece, isSyncing, hasMoved]);
 
 
   const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
@@ -919,7 +923,16 @@ const Multiplayer: React.FC = () => {
       setActivePiece(pieceId);
       setIsDragging(true);
       // ... drag logic ...
-      setInitialDragPos({ x: (e as any).clientX || (e as any).touches?.[0].clientX, y: (e as any).clientY || (e as any).touches?.[0].clientY });
+      // Use getClientCoordinates or type guard
+      let clientX, clientY;
+      if ('changedTouches' in e) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = (e as React.MouseEvent).clientX;
+        clientY = (e as React.MouseEvent).clientY;
+      }
+      setInitialDragPos({ x: clientX, y: clientY });
 
       // Calculate Valid Moves & Attacks from Start
       const isLifetimeFirstMove = !hasMoved[pieceId];
