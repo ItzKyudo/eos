@@ -765,7 +765,8 @@ const Multiplayer: React.FC = () => {
     const newHistory = [...moveHistory, newMove];
 
     let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
-    let nextTurn = currentTurn; // Default to keeping turn if phases remain
+    let nextTurn = currentTurn;
+
 
     // LOGIC:
     // 1. If we are in 'action' (normal move), we check if attacks are available from new position.
@@ -774,40 +775,19 @@ const Multiplayer: React.FC = () => {
     // 2. If we are in 'mandatory_move' (step after capture), we just moved.
     //    - Turn Ends.
 
-    let attacks: string[] = [];
 
-    if (turnPhase === 'action') {
-      // Normal Move just happened. Check for attacks to enter Post-Move.
-      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
 
-      if (attacks.length > 0) {
-        nextPhase = 'post_move';
-        // Turn stays with current player
-        setActivePiece(pieceId); // Keep piece active
-        setValidMoves([]); // No mores moves allowed
-        setValidAdvanceMoves([]);
-        setValidAttacks(attacks);
-      } else {
-        // No attacks, turn over
-        nextPhase = 'locked';
-        nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
-        setActivePiece(null);
-      }
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
+      // Normal Move or Mandatory Move just happened.
+      // ALWAYS Transition to 'post_move' to allow manual end turn or optional capture.
+      const possibleAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
 
-    } else if (turnPhase === 'mandatory_move') {
-      const postManAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
-
-      if (postManAttacks.length > 0) {
-        nextPhase = 'post_move';
-        setActivePiece(pieceId);
-        setValidMoves([]);
-        setValidAdvanceMoves([]);
-        setValidAttacks(postManAttacks);
-      } else {
-        nextPhase = 'locked';
-        nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
-        setActivePiece(null);
-      }
+      nextPhase = 'post_move';
+      // Turn always stays with current player until they click "End Turn" or Timeout
+      setActivePiece(pieceId);
+      setValidMoves([]);
+      setValidAdvanceMoves([]);
+      setValidAttacks(possibleAttacks);
     }
     // Fallback
     else {
