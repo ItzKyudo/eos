@@ -552,8 +552,10 @@ const Multiplayer: React.FC = () => {
         const opponentId = opponent ? opponent.userId : null;
 
         // Calculate final scores for timeout
-        const p1Points = calculatePlayerScore(moveHistory, 'player1', 'timeout');
-        const p2Points = calculatePlayerScore(moveHistory, 'player2', 'timeout');
+        // Calculate final scores for timeout
+        // Pass empty string for loser's win condition so they don't get the bonus
+        const p1Points = calculatePlayerScore(moveHistory, 'player1', gameWinner === 'player1' ? 'timeout' : '');
+        const p2Points = calculatePlayerScore(moveHistory, 'player2', gameWinner === 'player2' ? 'timeout' : '');
 
         // Apply fallback if scoring undefined? (Unlikely with utility)
 
