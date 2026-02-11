@@ -308,7 +308,7 @@ const MarketPage: React.FC = () => {
                         <span className="text-gray-400 text-xs font-bold uppercase">Total</span>
                         <span className="text-2xl font-black text-white">₱{cartTotal.toLocaleString()}</span>
                     </div>
-                    <button onClick={handleNextStep} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+                    <button onClick={handleNextStep} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 md:py-4 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
                         Checkout <ArrowRight size={18} />
                     </button>
                 </div>
@@ -350,7 +350,7 @@ const MarketPage: React.FC = () => {
             </div>
 
             <div className="mt-6 pt-6 border-t border-white/10">
-                <button onClick={handleNextStep} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+                <button onClick={handleNextStep} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 md:py-4 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
                     Proceed to Confirmation <ArrowRight size={18} />
                 </button>
             </div>
@@ -359,36 +359,36 @@ const MarketPage: React.FC = () => {
 
     const renderPaymentStep = () => (
         <div className="flex flex-col h-full animate-in slide-in-from-right duration-300">
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-4 md:mb-6">
                 <button onClick={() => setCheckoutStep(2)} className="text-gray-400 hover:text-white"><ChevronRight size={20} className="rotate-180" /></button>
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
                     <Wallet className="text-[#e63e3e]" /> Confirmation
                 </h3>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 flex flex-col items-center justify-center text-center space-y-6">
-                <div className="w-20 h-20 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center">
-                    <CheckCircle size={40} />
+            <div className="flex-1 overflow-y-auto pr-2 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center">
+                    <CheckCircle size={32} className="md:w-10 md:h-10" />
                 </div>
 
                 <div>
-                    <h3 className="text-xl font-bold text-white mb-2">Almost There!</h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <h3 className="text-lg md:text-xl font-bold text-white mb-2">Almost There!</h3>
+                    <p className="text-gray-400 text-xs md:text-sm leading-relaxed max-w-[80%] mx-auto">
                         We do not process payments on the website. To complete your order:
                     </p>
                 </div>
 
-                <div className="bg-[#262522] p-4 rounded-xl border border-white/5 w-full text-left space-y-3">
+                <div className="bg-[#262522] p-3 md:p-4 rounded-xl border border-white/5 w-full text-left space-y-2 md:space-y-3">
                     <div className="flex items-start gap-3">
-                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">1</span>
+                        <span className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-[10px] md:text-xs font-bold text-white border border-white/10 flex-shrink-0">1</span>
                         <p className="text-xs text-gray-300">Click <span className="text-white font-bold">"Place Order"</span> below to generate your receipt.</p>
                     </div>
                     <div className="flex items-start gap-3">
-                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">2</span>
+                        <span className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-[10px] md:text-xs font-bold text-white border border-white/10 flex-shrink-0">2</span>
                         <p className="text-xs text-gray-300">Save/Screenshot your receipt.</p>
                     </div>
                     <div className="flex items-start gap-3">
-                        <span className="w-6 h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-xs font-bold text-white border border-white/10 flex-shrink-0">3</span>
+                        <span className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-[#1a1917] flex items-center justify-center text-[10px] md:text-xs font-bold text-white border border-white/10 flex-shrink-0">3</span>
                         <p className="text-xs text-gray-300">Send it to <a
                             href="https://www.facebook.com/rodney.ebrole"
                             target="_blank"
@@ -401,7 +401,7 @@ const MarketPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
+            <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10 space-y-3">
                 <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-400">Total Due</span>
                     <span className="text-xl font-black text-white">₱{cartTotal.toLocaleString()}</span>
@@ -409,7 +409,7 @@ const MarketPage: React.FC = () => {
                 <button
                     onClick={handlePlaceOrder}
                     disabled={isSubmitting}
-                    className="w-full bg-gradient-to-r from-[#2c4dbd] to-[#e63e3e] hover:brightness-110 text-white py-4 rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    className="w-full bg-gradient-to-r from-[#2c4dbd] to-[#e63e3e] hover:brightness-110 text-white py-3 md:py-4 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                     {isSubmitting ? 'Processing...' : `Place Order ₱${cartTotal.toLocaleString()}`}
                 </button>
