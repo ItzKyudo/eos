@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Users, ShoppingBag, Package, LogOut } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 const Sidebar = () => {
