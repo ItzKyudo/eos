@@ -522,26 +522,26 @@ const MarketPage: React.FC = () => {
 
             <Sidebar />
 
-            <main className="flex-1 flex flex-col p-6 md:p-12 relative">
+            <main className="flex-1 flex flex-col p-4 md:p-12 relative pb-24 md:pb-12">
                 <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#2c4dbd]/5 via-transparent to-transparent pointer-events-none" />
 
-                <header className="w-full max-w-8xl mx-auto mb-16 flex items-center justify-between relative z-10">
+                <header className="w-full max-w-8xl mx-auto mb-8 md:mb-16 flex flex-col md:flex-row items-start md:items-center justify-between relative z-10 gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <span className="h-px w-8 bg-[#e63e3e]" />
                             <span className="text-[#e63e3e] text-xs font-bold tracking-[0.2em] uppercase">Official Store</span>
                         </div>
-                        <h1 className="text-5xl md:text-7xl font-black text-white leading-none tracking-tight">
+                        <h1 className="text-4xl md:text-5xl lg:text-7xl font-black text-white leading-none tracking-tight">
                             EOS <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2c4dbd] via-[#8c457d] to-[#e63e3e]">MARKET</span>
                         </h1>
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 w-full md:w-auto">
                         <button
                             onClick={() => { setIsCartOpen(true); setCheckoutStep(1); }}
-                            className="group relative bg-[#262522] h-14 w-14 rounded-2xl border border-white/5 hover:border-[#e63e3e] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#e63e3e]/20"
+                            className="group relative bg-[#262522] h-12 w-12 md:h-14 md:w-14 rounded-2xl border border-white/5 hover:border-[#e63e3e] flex items-center justify-center transition-all duration-300 shadow-xl hover:shadow-[#e63e3e]/20"
                         >
-                            <ShoppingCart className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
+                            <ShoppingCart className="text-white w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
                             {cart.length > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-[#e63e3e] text-white text-[10px] font-bold w-6 h-6 rounded-lg flex items-center justify-center border-2 border-[#1a1917] shadow-lg animate-bounce">
                                     {cart.length}
@@ -551,16 +551,16 @@ const MarketPage: React.FC = () => {
 
                         <button
                             onClick={fetchOrders}
-                            className="group relative bg-[#262522] h-14 px-6 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center gap-3 transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20"
+                            className="group relative bg-[#262522] h-12 md:h-14 px-6 rounded-2xl border border-white/5 hover:border-[#2c4dbd] flex items-center justify-center gap-3 transition-all duration-300 shadow-xl hover:shadow-[#2c4dbd]/20 flex-1 md:flex-none"
                             title="My Orders"
                         >
-                            <History className="text-white w-6 h-6 group-hover:scale-110 transition-transform" />
-                            <span className="font-bold text-gray-300 group-hover:text-white transition-colors">My Orders</span>
+                            <History className="text-white w-5 h-5 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-gray-300 group-hover:text-white transition-colors text-sm md:text-base">My Orders</span>
                         </button>
                     </div>
                 </header>
 
-                <div className="w-full max-w-8xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24 relative z-10">
+                <div className="w-full max-w-8xl mx-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 relative z-10">
                     {loading ? (
                         [...Array(8)].map((_, i) => (
                             <div key={i} className="bg-[#262522] aspect-[3/4] rounded-3xl animate-pulse border border-white/5" />
@@ -588,16 +588,16 @@ const MarketPage: React.FC = () => {
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-[#262522] via-transparent to-transparent opacity-60" />
                                 </div>
-                                <div className="p-6 flex flex-col flex-1 relative bg-[#262522]">
-                                    <div className="flex-1 mb-6">
-                                        <h3 className="text-white font-bold text-lg leading-tight line-clamp-1 h-6 overflow-hidden group-hover:text-[#e63e3e] transition-colors">{item.item_name}</h3>
-                                        <div className="mt-3"><span className="text-[#2c4dbd] font-black text-xl">₱{item.price.toLocaleString()}</span></div>
+                                <div className="p-3 md:p-6 flex flex-col flex-1 relative bg-[#262522]">
+                                    <div className="flex-1 mb-3 md:mb-6">
+                                        <h3 className="text-white font-bold text-sm md:text-lg leading-tight line-clamp-1 h-5 md:h-6 overflow-hidden group-hover:text-[#e63e3e] transition-colors">{item.item_name}</h3>
+                                        <div className="mt-1 md:mt-3"><span className="text-[#2c4dbd] font-black text-base md:text-xl">₱{item.price.toLocaleString()}</span></div>
                                     </div>
                                     <button
                                         onClick={(e) => addToCart(e, item)}
-                                        className="w-full bg-[#312e2b] text-gray-300 py-3.5 rounded-xl font-bold text-xs hover:bg-white hover:text-black transition-all border border-white/5 uppercase tracking-wide flex items-center justify-center gap-2"
+                                        className="w-full bg-[#312e2b] text-gray-300 py-2.5 md:py-3.5 rounded-xl font-bold text-[10px] md:text-xs hover:bg-white hover:text-black transition-all border border-white/5 uppercase tracking-wide flex items-center justify-center gap-2"
                                     >
-                                        <Plus size={14} /> Add to Cart
+                                        <Plus size={14} /> <span className="hidden xs:inline">Add to Cart</span><span className="xs:hidden">Add</span>
                                     </button>
                                 </div>
                             </div>
@@ -609,7 +609,7 @@ const MarketPage: React.FC = () => {
             {/* --- RIGHT DRAWER / MODAL FOR CHECKOUT FLOW --- */}
             {
                 isCartOpen && (
-                    <div className="fixed inset-0 z-50 flex justify-end">
+                    <div className="fixed inset-0 z-[200] flex justify-end">
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
                         <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
                             {/* Header */}
@@ -650,7 +650,7 @@ const MarketPage: React.FC = () => {
             {/* --- ORDERS DRAWER --- */}
             {
                 isOrdersOpen && (
-                    <div className="fixed inset-0 z-50 flex justify-end">
+                    <div className="fixed inset-0 z-[200] flex justify-end">
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsOrdersOpen(false)} />
                         <div className="relative bg-[#1a1917] w-full max-w-md h-full flex flex-col border-l border-white/10 shadow-2xl animate-in slide-in-from-right duration-300">
                             <div className="p-6 border-b border-white/5 bg-[#21201d] flex justify-between items-center z-10">
@@ -765,20 +765,20 @@ const MarketPage: React.FC = () => {
             {/* --- PRODUCT DETAILS MODAL --- */}
             {
                 selectedItem && (
-                    <div className="fixed inset-0 z-[60] flex justify-center items-center p-4">
+                    <div className="fixed inset-0 z-[210] flex justify-center items-center p-4">
                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedItem(null)} />
                         <div className="relative bg-[#21201d] w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
                             <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 z-50 bg-black/50 p-2 rounded-full text-white hover:bg-white hover:text-black transition-colors">
                                 <X size={20} />
                             </button>
-                            <div className="w-full md:w-1/2 bg-[#1a1917] p-8 flex items-center justify-center relative">
-                                <img src={selectedItem.image_url} className="max-w-full max-h-[50vh] object-contain drop-shadow-2xl relative z-10" alt={selectedItem.item_name} />
+                            <div className="w-full md:w-1/2 bg-[#1a1917] p-4 md:p-8 flex items-center justify-center relative">
+                                <img src={selectedItem.image_url} className="max-w-full max-h-[30vh] md:max-h-[50vh] object-contain drop-shadow-2xl relative z-10" alt={selectedItem.item_name} />
                             </div>
-                            <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col overflow-y-auto">
+                            <div className="w-full md:w-1/2 p-6 md:p-12 flex flex-col overflow-y-auto">
                                 <div className="mb-auto">
-                                    <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-4">{selectedItem.item_name}</h2>
-                                    <p className="text-3xl font-black text-[#2c4dbd] mb-6">₱{selectedItem.price.toLocaleString()}</p>
-                                    <p className="text-gray-400 mb-8">{selectedItem.description}</p>
+                                    <h2 className="text-2xl md:text-4xl font-black text-white leading-tight mb-2 md:mb-4">{selectedItem.item_name}</h2>
+                                    <p className="text-2xl md:text-3xl font-black text-[#2c4dbd] mb-4 md:mb-6">₱{selectedItem.price.toLocaleString()}</p>
+                                    <p className="text-gray-400 mb-6 md:mb-8 text-sm md:text-base">{selectedItem.description}</p>
                                 </div>
                                 <button onClick={(e) => { addToCart(e, selectedItem); setSelectedItem(null); }} className="bg-[#312e2b] text-white py-4 rounded-xl font-bold text-sm hover:bg-white hover:text-black transition-all border border-white/10 uppercase tracking-wide">
                                     Add to Cart
