@@ -44,7 +44,7 @@ const Board: React.FC = () => {
   const [gameEndReason, setGameEndReason] = useState<string>('');
 
   // Turn Logic
-  const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
+  const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
   const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
@@ -203,18 +203,25 @@ const Board: React.FC = () => {
     const newHistory = [...moveHistory, newMove];
     let attacks: string[] = [];
 
-    if (!isAdvanceMove) {
-      if (turnPhase === 'action') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
-      } else if (turnPhase === 'mandatory_move') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+    let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
+
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
+      nextPhase = 'post_move';
+
+      setActivePiece(pieceId);
+      setValidMoves([]);
+      setValidAdvanceMoves([]);
+
+      if (isAdvanceMove) {
+        setValidAttacks([]);
+      } else {
+        const possibleAttacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+        setValidAttacks(possibleAttacks);
       }
+    } else {
+      nextPhase = 'locked';
+      setActivePiece(null);
     }
-
-    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-
-    if (attacks.length > 0) nextPhase = 'mandatory_move';
-    else nextPhase = 'locked';
 
     setGameState(newGameState);
     setHasMoved(newHasMoved);
@@ -222,12 +229,11 @@ const Board: React.FC = () => {
     setMoveHistory(newHistory);
     setMandatoryMoveUsed(true);
 
-    setValidMoves([]);
-    setValidAdvanceMoves([]);
-    setValidAttacks(attacks);
+    // setValidMoves/Attacks handled above
+
     setTurnPhase(nextPhase);
 
-    if (nextPhase === 'locked') setActivePiece(null);
+    // if (nextPhase === 'locked') setActivePiece(null); // Handled above
 
     const p1 = calculateCapturePoints(newHistory, 'player1').points;
     const p2 = calculateCapturePoints(newHistory, 'player2').points;
@@ -238,6 +244,17 @@ const Board: React.FC = () => {
   // --- HANDLERS ---
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
     if (winner || turnPhase === 'locked' || loadingRules) return;
+
+    // --- HANDLING POST-MOVE ATTACKS (Capture Phase) ---
+    if (turnPhase === 'post_move') {
+      if (activePiece && validAttacks.includes(coordinate)) {
+        handleAttackClick(coordinate);
+        return;
+      }
+      return;
+    }
+
+
 
     // Allow clicking if it's a valid move target OR the active piece itself
     const allMoves = [...validMoves, ...validAdvanceMoves];
@@ -373,15 +390,65 @@ const Board: React.FC = () => {
       newGameState as Record<string, string>,
       attackRules
     );
-    const attacks: string[] = [];
 
-    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-    if (attacks.length > 0 || moves.length > 0) nextPhase = 'mandatory_move';
-    else nextPhase = 'locked';
+    // NEW: Allow capturing again in this phase if valid targets exist.
+    const attacks = getValidAttacks(activePiece, newGameState[activePiece]!, newGameState as Record<string, string>, 'pre-move', true, attackRules);
+
+    let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
+
+    // Logic: If we attacked, we might have mandatory moves (step) OR chain attacks
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
+      nextPhase = 'mandatory_move';
+    } else if (turnPhase === 'post_move') {
+      nextPhase = 'post_move';
+      // In post-move, we only check attacks, no moves usually? 
+      // Actually in multiplayer: setValidMoves([]); setValidAttacks(followUpAttacks);
+    }
+
+    // Force mandatory move phase if we have options, but respect intent
+    // Actually, simply:
+    if (moves.length > 0 || attacks.length > 0) {
+      // If we have strict mandatory moves, we must handle them
+      // If we have attacks, we can chain
+    }
+
+    // Refined Logic matching Multiplayer:
+    if (turnPhase === 'action' || turnPhase === 'mandatory_move') {
+      nextPhase = 'mandatory_move';
+      // attacks calculated above are valid for 'pre-move' style (chain)
+    } else if (turnPhase === 'post_move') {
+      nextPhase = 'post_move';
+      // recalculate attacks for post-move? 
+      // In multiplayer loop: const followUpAttacks = getValidAttacks(..., 'post-move', ...);
+      // The `attacks` const above used 'pre-move' which is correct for chain.
+      // Wait, for post-move capture, we use 'post-move' logic?
+      // Let's re-verify multiplayer logic.
+      // Multiplayer Case 2: Post-Move Capture -> followUpAttacks = getValidAttacks(..., 'post-move', false, ...)
+    }
+
+    // Let's implement simpler logic that covers both:
+    let finalAttacks = attacks;
+    if (turnPhase === 'post_move') {
+      finalAttacks = getValidAttacks(activePiece, newGameState[activePiece]!, newGameState as Record<string, string>, 'post-move', false, attackRules);
+      nextPhase = 'post_move';
+      // No movement allowed in post-move chain usually, unless it's a specific type?
+      // Multiplayer: setValidMoves([]); setValidAttacks(followUpAttacks);
+    } else {
+      nextPhase = 'mandatory_move';
+      // allows moves AND attacks
+    }
+
+    if (finalAttacks.length === 0 && moves.length === 0 && nextPhase === 'mandatory_move') {
+      nextPhase = 'locked';
+    } else if (finalAttacks.length === 0 && nextPhase === 'post_move') {
+      // If no more attacks in post-move, do we lock?
+      // Multiplayer: setValidAttacks(followUpAttacks). User must End Turn manually.
+      // So we keep it post_move but with empty attacks.
+    }
 
     setMoveHistory(newHistory);
-    setValidAttacks(attacks);
-    setValidMoves(moves);
+    setValidAttacks(finalAttacks);
+    setValidMoves(turnPhase === 'post_move' ? [] : moves);
     setValidAdvanceMoves([]);
     setTurnPhase(nextPhase);
 
@@ -683,7 +750,7 @@ const Board: React.FC = () => {
             }
           });
         }}
-        canSwitchTurn={turnPhase === 'locked' && !winner}
+        canSwitchTurn={(turnPhase === 'post_move') && !winner}
         gameStatus={winner ? 'finished' : 'active'}
       />
 
