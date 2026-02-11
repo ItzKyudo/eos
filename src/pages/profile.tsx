@@ -10,7 +10,7 @@ import GamesTable from '../components/profile/GamesTable';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import FriendsList from '../components/profile/FriendsList';
 import GameAnalytics from '../components/profile/GameAnalytics';
-import ConfirmationModal from '../components/ConfirmationModal';
+import Swal from 'sweetalert2';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +22,6 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([]);
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // Set initial tab based on URL param
   const queryParams = new URLSearchParams(location.search);
@@ -43,7 +42,21 @@ const Profile: React.FC = () => {
   }, [navigate]);
 
   const onLogoutClick = () => {
-    setIsLogoutModalOpen(true);
+    Swal.fire({
+      title: 'Sign Out',
+      text: "Are you sure you want to sign out?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, Sign Out',
+      background: '#1e293b',
+      color: '#fff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleLogout();
+      }
+    });
   };
 
 
@@ -210,17 +223,6 @@ const Profile: React.FC = () => {
           email: user?.email || '',
           avatar_url: user?.avatar_url
         }}
-      />
-
-      <ConfirmationModal
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={handleLogout}
-        title="Sign Out"
-        message="Are you sure you want to sign out?"
-        confirmText="Sign Out"
-        cancelText="Cancel"
-        type="danger"
       />
 
       <main className="flex-1 h-screen overflow-y-auto relative z-10 p-4 pb-24 lg:p-10 lg:pb-10 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
