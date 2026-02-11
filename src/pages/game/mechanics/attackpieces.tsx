@@ -126,12 +126,9 @@ export function getMultiCaptureOptions(
   pieceMoveCount: Record<string, number>,
   moveRules: Record<string, number[]>
 ): { attacks: string[]; moves: string[] } {
-  // FIX: Allow mandatory moves even if one was used previously in the chain.
-  // The fact that we are calling this function implies a successful capture occurred,
-  // which grants a NEW mandatory move.
-  // if (_mandatoryMoveUsed) {
-  //   return { attacks: [], moves: [] };
-  // }
+   if (_mandatoryMoveUsed) {
+    return { attacks: [], moves: [] };
+  }
   const moves = getMandatoryMoves(pieceId, position, gameState, pieceMoveCount, moveRules);
   return { attacks: [], moves };
 }
