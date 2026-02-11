@@ -44,7 +44,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="flex-1 flex flex-col gap-10 text-center lg:text-left">
             <header className="space-y-6">
-              <h1 className="text-4xl md:text-6xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter">
+              <h1 className="text-4xl md:text-6xl lg:text-8xl font-clarendon font-black text-white leading-[0.9] tracking-tighter">
                 EOS <br />
                 <span className="text-transparent bg-clip-text bg-linear-to-r from-[#2c4dbd] via-[#8c457d] to-[#e63e3e]">
                   Juego de Tactica

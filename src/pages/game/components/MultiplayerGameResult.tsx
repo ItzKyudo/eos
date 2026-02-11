@@ -116,7 +116,7 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                     initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                    className={`relative w-full max-w-lg md:max-w-2xl bg-[#0f0f0f] rounded-3xl border ${borderColor} shadow-2xl overflow-hidden`}
+                    className={`relative w-full max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0f0f0f] rounded-3xl border ${borderColor} shadow-2xl`}
                 >
                     {/* Header Background */}
                     <div className={`absolute top-0 w-full h-64 bg-linear-to-b ${headerGradient} to-transparent pointer-events-none`} />
@@ -128,12 +128,12 @@ const MultiplayerGameResult: React.FC<MultiplayerGameResultProps> = ({
                             initial={{ y: -20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ delay: 0.2 }}
-                            className="mb-8 text-center"
+                            className="mb-6 md:mb-8 text-center"
                         >
-                            <h2 className={`text-5xl md:text-7xl font-black tracking-tighter ${titleColor} mb-2 uppercase drop-shadow-2xl`}>
+                            <h2 className={`text-4xl md:text-5xl lg:text-7xl font-black tracking-tighter ${titleColor} mb-2 uppercase drop-shadow-2xl`}>
                                 {titleText}
                             </h2>
-                            <p className="text-white/50 font-mono uppercase tracking-widest text-sm">
+                            <p className="text-white/50 font-mono uppercase tracking-widest text-xs md:text-sm">
                                 {reasonText}
                             </p>
                         </motion.div>

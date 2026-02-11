@@ -93,7 +93,7 @@ const Board: React.FC = () => {
         const { data, error } = await Promise.race([
           supabase.from('pieces').select('name, movement_stats'),
           timeoutPromise
-        ]) as { data: DbPiece[] | null, error: any };
+        ]) as { data: DbPiece[] | null, error: unknown };
 
         if (error) {
           console.error("Supabase error fetching rules:", error);
@@ -182,7 +182,7 @@ const Board: React.FC = () => {
   };
 
   // --- EXECUTE MOVE ---
-  const executeMove = (pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
+  const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
     if (loadingRules) return;
 
     playRandomMoveSound(); // DIRECT TRIGGER
@@ -201,7 +201,7 @@ const Board: React.FC = () => {
     };
 
     const newHistory = [...moveHistory, newMove];
-    let attacks: string[] = [];
+    // let attacks: string[] = []; // Removed unused variable
 
     let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
 
@@ -239,7 +239,7 @@ const Board: React.FC = () => {
     const p2 = calculateCapturePoints(newHistory, 'player2').points;
     setP1Score(p1);
     setP2Score(p2);
-  };
+  }, [loadingRules, gameState, hasMoved, pieceMoveCount, currentTurn, moveHistory, turnPhase, attackRules, capturedByP1, capturedByP2, p1Time, p2Time, validAdvanceMoves]);
 
   // --- HANDLERS ---
   const handleMouseDown = (coordinate: string, e: React.MouseEvent | React.TouchEvent) => {
@@ -481,7 +481,7 @@ const Board: React.FC = () => {
         executeMove(activePiece, targetCoord, isAdvance);
       }
     }
-  }, [isDragging, activePiece, validMoves, validAdvanceMoves]);
+  }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]);
 
   const handleSwitchTurn = () => {
     // Process Turn Stats
