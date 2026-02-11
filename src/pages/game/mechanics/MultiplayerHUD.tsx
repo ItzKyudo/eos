@@ -10,6 +10,7 @@ export interface MoveLog {
   to: string;
   turnNumber: number;
   timestamp?: number;
+  type?: 'move' | 'capture';
 }
 
 interface MultiplayerHUDProps {

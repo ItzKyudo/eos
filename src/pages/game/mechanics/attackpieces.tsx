@@ -1,4 +1,4 @@
-import { PieceKey, PLAYER_1_PIECES, PLAYER_2_PIECES, getValidMoves, getPieceOwner, PIECE_MOVEMENTS, getBaseName } from './piecemovements';
+import { PieceKey, PLAYER_1_PIECES, PLAYER_2_PIECES, getPieceOwner, PIECE_MOVEMENTS, getBaseName } from './piecemovements';
 import { parseCoord, toCoord } from '../utils/gameUtils';
 
 export type Winner = 'player1' | 'player2' | 'draw' | null;
@@ -88,16 +88,60 @@ export function getMandatoryMoves(
   pieceId: PieceKey,
   position: string,
   gameState: Record<string, string>,
-  pieceMoveCount: Record<string, number>,
-  moveRules: Record<string, number[]>
+  attackRules: Record<string, DbAttackRule>
 ): string[] {
+  const dealer = getPieceOwner(pieceId);
+  if (!dealer) return [];
 
-  // Mandatory moves should NEVER use the "development move" logic (4 tiles).
-  // Even if the piece hasn't "moved" in the counter yet (e.g. during a multi-capture chain), 
-  // the mandatory move must follow standard movement rules.
-  const isFirstMove = false;
-  const { moves } = getValidMoves(pieceId, position, isFirstMove, gameState, pieceMoveCount, moveRules);
-  return moves;
+  const fullName = PIECE_MOVEMENTS[pieceId].name;
+  const dbName = getBaseName(fullName);
+
+  // Get mandatory move range from rules, default to [1] if missing
+  const mandatoryRange = attackRules[dbName]?.mandatory_move
+    ? (Array.isArray(attackRules[dbName].mandatory_move) ? attackRules[dbName].mandatory_move as number[] : [attackRules[dbName].mandatory_move as number])
+    : [1];
+
+  const { colIndex: col, rowNum: row } = parseCoord(position);
+  if (col < 0) return [];
+
+  const validMoves: string[] = [];
+
+  // Mandatory moves usually follow same directions as movement/attack
+  for (const [dCol, dRow] of directions) {
+    for (const dist of mandatoryRange) {
+      const targetCol = col + (dist * dCol);
+      const targetRow = row + (dist * dRow);
+
+      const targetCoord = toCoord(targetCol, targetRow);
+      if (!targetCoord) continue;
+
+      // Check for blockage (Mandatory moves are slides/steps, so cannot jump usually unless specified)
+      // Assuming standard slide logic for now:
+      let blocked = false;
+      for (let k = 1; k < dist; k++) {
+        const midCol = col + (k * dCol);
+        const midRow = row + (k * dRow);
+        const midCoord = toCoord(midCol, midRow);
+        if (midCoord && Object.values(gameState).includes(midCoord)) {
+          blocked = true;
+          break;
+        }
+      }
+
+      // Also check if target itself is occupied
+      if (!blocked) {
+        if (Object.values(gameState).includes(targetCoord)) {
+          blocked = true;
+        }
+      }
+
+      if (!blocked) {
+        validMoves.push(targetCoord);
+      }
+    }
+  }
+
+  return validMoves;
 }
 
 export function executeAttack(
@@ -118,20 +162,7 @@ export function executeAttack(
   return { newGameState, capturedPieceId, winner };
 }
 
-export function getMultiCaptureOptions(
-  pieceId: PieceKey,
-  position: string,
-  gameState: Record<string, string>,
-  _mandatoryMoveUsed: boolean,
-  pieceMoveCount: Record<string, number>,
-  moveRules: Record<string, number[]>
-): { attacks: string[]; moves: string[] } {
-   if (_mandatoryMoveUsed) {
-    return { attacks: [], moves: [] };
-  }
-  const moves = getMandatoryMoves(pieceId, position, gameState, pieceMoveCount, moveRules);
-  return { attacks: [], moves };
-}
+
 
 export const checkWinCondition = (gameState: Partial<Record<string, string>>): Winner => {
   const pieces = Object.keys(gameState);

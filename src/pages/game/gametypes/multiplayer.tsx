@@ -7,7 +7,7 @@ import { INITIAL_POSITIONS } from '../mechanics/positions';
 import MultiplayerHUD, { MoveLog } from '../mechanics/MultiplayerHUD';
 import { motion } from 'framer-motion';
 import Swal from 'sweetalert2';
-import { getValidAttacks, getMandatoryMoves, executeAttack, getMultiCaptureOptions, Winner, DbAttackRule } from '../mechanics/attackpieces';
+import { getValidAttacks, getMandatoryMoves, executeAttack, Winner, DbAttackRule } from '../mechanics/attackpieces';
 import supabase from '../../../config/supabase';
 import { playRandomMoveSound } from '../utils/soundUtils';
 
@@ -23,7 +23,7 @@ interface GameSyncData {
   capturedByP1: PieceKey[];
   capturedByP2: PieceKey[];
   winner: Winner;
-  turnPhase: 'select' | 'action' | 'mandatory_move' | 'locked';
+  turnPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked';
   hasMoved: Record<string, boolean>;
   mandatoryMoveUsed: boolean;
   p1Time?: number;
@@ -111,10 +111,10 @@ const Multiplayer: React.FC = () => {
   const [gameEndReason, setGameEndReason] = useState<string | null>(null);
   const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
   const [disconnectTimerStr, setDisconnectTimerStr] = useState<string>('');
-  const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'mandatory_move' | 'locked'>('select');
+  const [turnPhase, setTurnPhase] = useState<'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked'>('select');
   const [hasMoved, setHasMoved] = useState<Record<string, boolean>>({});
   const [pieceMoveCount, setPieceMoveCount] = useState<Record<string, number>>({});
-  const [mandatoryMoveUsed, setMandatoryMoveUsed] = useState(false);
+
   const [activePiece, setActivePiece] = useState<PieceKey | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
   const [validAdvanceMoves, setValidAdvanceMoves] = useState<string[]>([]);
@@ -273,13 +273,14 @@ const Multiplayer: React.FC = () => {
         setCapturedByP2(move.capturedByP2);
         setWinner(move.winner);
         setHasMoved(move.hasMoved || {});
-        setMandatoryMoveUsed(move.mandatoryMoveUsed || false);
+
         if (move.p1Score !== undefined) setP1Score(move.p1Score);
         if (move.p2Score !== undefined) setP2Score(move.p2Score);
 
         if (move.currentTurn === myRole) {
           if (move.turnPhase === 'locked') setTurnPhase('locked');
           else if (move.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+          else if (move.turnPhase === 'post_move') setTurnPhase('post_move');
           else setTurnPhase('select');
         } else {
           setTurnPhase('locked');
@@ -443,7 +444,7 @@ const Multiplayer: React.FC = () => {
         const m = state.lastMove;
         if (m.gameState) setGameState(m.gameState);
         if (m.hasMoved) setHasMoved(m.hasMoved);
-        if (m.mandatoryMoveUsed !== undefined) setMandatoryMoveUsed(m.mandatoryMoveUsed);
+
         if (m.winner) setWinner(m.winner);
       }
 
@@ -454,6 +455,7 @@ const Multiplayer: React.FC = () => {
           // Restore correct phase
           const storedPhase = state.lastMove?.turnPhase;
           if (storedPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+          else if (storedPhase === 'post_move') setTurnPhase('post_move');
           else if (storedPhase === 'locked') setTurnPhase('locked');
           else setTurnPhase('select');
         } else {
@@ -517,6 +519,7 @@ const Multiplayer: React.FC = () => {
       if (data.currentTurn === myRole) {
         if (data.turnPhase === 'locked') setTurnPhase('locked');
         else if (data.turnPhase === 'mandatory_move') setTurnPhase('mandatory_move');
+        else if (data.turnPhase === 'post_move') setTurnPhase('post_move');
         else setTurnPhase('select');
       } else {
         setTurnPhase('locked');
@@ -646,12 +649,101 @@ const Multiplayer: React.FC = () => {
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [opponentDisconnectTime]);
+  // --- PERFORM ATTACK ---
+  const handleAttackClick = useCallback((targetCoord: string) => {
+    const attackerId = activePiece;
+    if (!attackerId || isSyncing) return;
+
+    const result = executeAttack(targetCoord, gameState, attackerId);
+    if (!result) return;
+
+    const { newGameState, capturedPieceId, winner: newWinner } = result;
+    playRandomMoveSound();
+
+    // Update Capture Lists
+    let newCapturedByP1 = [...capturedByP1];
+    let newCapturedByP2 = [...capturedByP2];
+    if (currentTurn === 'player1') newCapturedByP1.push(capturedPieceId);
+    else newCapturedByP2.push(capturedPieceId);
+
+    const newMoveMove: MoveLog = {
+      player: currentTurn,
+      pieceName: PIECE_MOVEMENTS[attackerId].name,
+      pieceId: attackerId,
+      from: gameState[attackerId]!, // Attacker doesn't move usually during attack? 
+      // Wait, in this game, does attack replace the piece? 
+      // Standard chess-like: Yes. 
+      // But the user said "capture first then use mandatory move". This implies the piece stays put OR moves to the captured square?
+      // "capture first then use mandatory move" -> Usually implies a "shoot" or "jump" mechanic where you stay or land, then move again.
+      // Looking at `executeAttack` in attackpieces.tsx: It just removes the piece. It doesn't move the attacker.
+      // So this is a RANGE ATTACK or STATIONARY CUT.
+      // So Attacker coordinates DO NOT CHANGE here.
+      to: targetCoord, // For log purposes, target.
+      type: 'capture',
+      turnNumber: moveHistory.length + 1,
+      timestamp: Date.now()
+    };
+
+    const newHistory = [...moveHistory, newMoveMove];
+
+    // DETERMINE NEXT PHASE
+    let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
+    let nextTurn = currentTurn;
+
+    // Case 1: Capture First (from Select/Action without move)
+    // Logic: If we haven't moved yet (lifetime? No, this turn specific. `hasMoved` tracks lifetime but we rely on Phase)
+    // `select` -> `action` (clicked self) -> `performAttack` (clicked enemy)
+    // If we are in `action` phase (freshly selected), this is "Capture First".
+    // Rule: "capture first then use the mandatory move"
+
+    if (turnPhase === 'action') {
+      nextPhase = 'mandatory_move';
+      // Calculate Mandatory Moves using the NEW rule
+      const manMoves = getMandatoryMoves(attackerId, gameState[attackerId]!, newGameState as Record<string, string>, attackRules);
+      setValidMoves(manMoves);
+      setValidAdvanceMoves([]);
+      setValidAttacks([]); // No chain attacks for now unless requested
+      // Turn stays same
+    }
+    // Case 2: Post-Move Capture (Normal Move -> Capture)
+    else if (turnPhase === 'post_move') {
+      // Rule: "normal move then capture" -> Turn Ends.
+      nextPhase = 'locked';
+      nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+      setActivePiece(null);
+      setValidMoves([]);
+      setValidAttacks([]);
+    }
+
+    setGameState(newGameState as Record<PieceKey, string>);
+    setCapturedByP1(newCapturedByP1);
+    setCapturedByP2(newCapturedByP2);
+    setMoveHistory(newHistory);
+    setTurnPhase(nextPhase);
+    setCurrentTurn(nextTurn);
+    if (newWinner) setWinner(newWinner);
+
+    broadcastUpdate({
+      gameState: newGameState,
+      currentTurn: nextTurn,
+      moveHistory: newHistory,
+      capturedByP1: newCapturedByP1,
+      capturedByP2: newCapturedByP2,
+      winner: newWinner || winner,
+      turnPhase: nextPhase,
+      hasMoved: hasMoved, // Unchanged
+      mandatoryMoveUsed: turnPhase === 'mandatory_move',
+      p1Time, p2Time
+    });
+
+  }, [gameState, capturedByP1, capturedByP2, currentTurn, moveHistory, turnPhase, pieceMoveCount, moveRules, attackRules, broadcastUpdate, p1Time, p2Time, winner]);
+
 
   const getPieceAtTile = (coordinate: string): PieceKey | undefined => {
     return (Object.keys(gameState) as PieceKey[]).find(key => gameState[key] === coordinate);
   };
 
-  const executeMove = useCallback((pieceId: PieceKey, targetCoord: string, isAdvanceMove: boolean) => {
+  const executeMove = useCallback((pieceId: PieceKey, targetCoord: string) => {
     playRandomMoveSound(); // Play locally
     const newGameState = { ...gameState, [pieceId]: targetCoord };
     const newHasMoved = { ...hasMoved, [pieceId]: true };
@@ -667,33 +759,66 @@ const Multiplayer: React.FC = () => {
       timestamp: Date.now()
     };
     const newHistory = [...moveHistory, newMove];
+
+    let nextPhase: 'select' | 'action' | 'post_move' | 'mandatory_move' | 'locked' = 'locked';
+    let nextTurn = currentTurn; // Default to keeping turn if phases remain
+
+    // LOGIC:
+    // 1. If we are in 'action' (normal move), we check if attacks are available from new position.
+    //    - If YES -> Phase = 'post_move'. User must Capture or End Turn.
+    //    - If NO -> Phase = 'locked'. Turn Ends.
+    // 2. If we are in 'mandatory_move' (step after capture), we just moved.
+    //    - Turn Ends.
+
     let attacks: string[] = [];
 
-    if (!isAdvanceMove) {
-      if (turnPhase === 'action') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
-      } else if (turnPhase === 'mandatory_move') {
-        attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+    if (turnPhase === 'action') {
+      // Normal Move just happened. Check for attacks to enter Post-Move.
+      attacks = getValidAttacks(pieceId, targetCoord, newGameState as Record<string, string>, 'post-move', false, attackRules);
+
+      if (attacks.length > 0) {
+        nextPhase = 'post_move';
+        // Turn stays with current player
+        setActivePiece(pieceId); // Keep piece active
+        setValidMoves([]); // No mores moves allowed
+        setValidAdvanceMoves([]);
+        setValidAttacks(attacks);
+      } else {
+        // No attacks, turn over
+        nextPhase = 'locked';
+        nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+        setActivePiece(null);
       }
+
+    } else if (turnPhase === 'mandatory_move') {
+      // We just performed the mandatory move after a capture.
+      // Rule: "capture first then use the mandatory move" -> End turn after mandatory move.
+      nextPhase = 'locked';
+      nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+      setActivePiece(null);
     }
-
-    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-    const nextTurn = currentTurn;
-
-    if (attacks.length > 0) nextPhase = 'mandatory_move';
-    else nextPhase = 'locked';
+    // Fallback
+    else {
+      nextPhase = 'locked';
+      nextTurn = currentTurn === 'player1' ? 'player2' : 'player1';
+      setActivePiece(null);
+    }
 
     setGameState(newGameState);
     setHasMoved(newHasMoved);
     setPieceMoveCount(newMoveCount);
-    setMandatoryMoveUsed(true);
+
     setMoveHistory(newHistory);
-    setValidMoves([]);
-    setValidAdvanceMoves([]);
-    setValidAttacks(attacks);
+
+    // Setters based on nextPhase logic above
+    if (nextPhase === 'locked') {
+      setValidMoves([]);
+      setValidAdvanceMoves([]);
+      setValidAttacks([]);
+    }
+
     setTurnPhase(nextPhase);
     setCurrentTurn(nextTurn);
-    if (nextPhase === 'locked') setActivePiece(null);
 
     lastMoveLengthRef.current = newHistory.length;
 
@@ -712,13 +837,13 @@ const Multiplayer: React.FC = () => {
       winner: winner,
       turnPhase: nextPhase,
       hasMoved: newHasMoved,
-      mandatoryMoveUsed: true,
+      mandatoryMoveUsed: turnPhase === 'mandatory_move',
       p1Time: p1Time,
       p2Time: p2Time,
       p1Score,
       p2Score
     });
-  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate]);
+  }, [gameState, hasMoved, pieceMoveCount, moveHistory, currentTurn, turnPhase, attackRules, capturedByP1, capturedByP2, winner, broadcastUpdate, p1Time, p2Time]);
 
   const handleMouseUp = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !activePiece) return;
@@ -738,8 +863,7 @@ const Multiplayer: React.FC = () => {
       const targetCoord = tile.getAttribute('data-tile');
       const allMoves = [...validMoves, ...validAdvanceMoves];
       if (targetCoord && allMoves.includes(targetCoord)) {
-        const isAdvance = validAdvanceMoves.includes(targetCoord);
-        executeMove(activePiece, targetCoord, isAdvance);
+        executeMove(activePiece, targetCoord);
       }
     }
   }, [isDragging, activePiece, validMoves, validAdvanceMoves, executeMove]);
@@ -752,34 +876,52 @@ const Multiplayer: React.FC = () => {
     const allMoves = [...validMoves, ...validAdvanceMoves];
     if (activePiece && allMoves.includes(coordinate)) {
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-      const isAdvance = validAdvanceMoves.includes(coordinate);
-      executeMove(activePiece, coordinate, isAdvance);
+      executeMove(activePiece, coordinate);
       return;
     }
 
-    if (turnPhase === 'mandatory_move' && gameState[activePiece!] !== coordinate) return;
+    if (turnPhase === 'mandatory_move') {
+      if (activePiece && gameState[activePiece] === coordinate) return; // Clicked self
+    }
 
     const pieceId = getPieceAtTile(coordinate);
-    if (!pieceId) return;
 
-    const owner = getPieceOwner(pieceId);
-    if (owner !== myRole) return;
+    // --- HANDLING POST-MOVE ATTACKS (Capture Phase) ---
+    if (turnPhase === 'post_move') {
+      // In post-move, we can ONLY attack valid targets.
+      // We cannot select a new piece.
+      // We cannot move to empty space (unless it's an attack, but attack implies enemy).
 
-    if (e.cancelable && e.type !== 'touchstart') e.preventDefault();
-
-    setActivePiece(pieceId);
-    setIsDragging(true);
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = (e as React.MouseEvent).clientX;
-      clientY = (e as React.MouseEvent).clientY;
+      if (activePiece && validAttacks.includes(coordinate)) {
+        // EXECUTE ATTACK
+        handleAttackClick(coordinate); // Using existing handleAttackClick
+        return;
+      }
+      return; // Ignore other clicks
     }
-    setInitialDragPos({ x: clientX, y: clientY });
 
-    if (turnPhase === 'select' || turnPhase === 'action') {
+    // --- HANDLING MANDATORY MOVES (Step Phase) ---
+    if (turnPhase === 'mandatory_move') {
+      // In mandatory move, we can ONLY move to valid mandatory tiles.
+      if (activePiece && validMoves.includes(coordinate)) {
+        executeMove(activePiece, coordinate);
+        return;
+      }
+      return;
+    }
+
+    // --- HANDLING SELECT / ACTION ---
+
+    // If clicking own piece -> Select it
+    if (pieceId && getPieceOwner(pieceId) === myRole) {
+      // if (turnPhase === 'locked') return; // Handled at start
+
+      setActivePiece(pieceId);
+      setIsDragging(true);
+      // ... drag logic ...
+      setInitialDragPos({ x: (e as any).clientX || (e as any).touches?.[0].clientX, y: (e as any).clientY || (e as any).touches?.[0].clientY });
+
+      // Calculate Valid Moves & Attacks from Start
       const isLifetimeFirstMove = !hasMoved[pieceId];
       const { moves, advanceMoves } = getValidMoves(pieceId, coordinate, isLifetimeFirstMove, gameState as Record<string, string>, pieceMoveCount, moveRules);
       const attacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'pre-move', true, attackRules);
@@ -788,190 +930,30 @@ const Multiplayer: React.FC = () => {
       setValidAdvanceMoves(advanceMoves);
       setValidAttacks(attacks);
       setTurnPhase('action');
-    }
-    else if (turnPhase === 'mandatory_move') {
-      const allowedMoves = getMandatoryMoves(pieceId, coordinate, gameState as Record<string, string>, pieceMoveCount, moveRules);
-      let allowedAttacks: string[] = [];
-
-      if (mandatoryMoveUsed) {
-        allowedAttacks = getValidAttacks(pieceId, coordinate, gameState as Record<string, string>, 'post-move', false, attackRules);
-      } else {
-        const { attacks } = getMultiCaptureOptions(pieceId, coordinate, gameState as Record<string, string>, false, pieceMoveCount, moveRules);
-        allowedAttacks = attacks;
-      }
-
-      setValidMoves(allowedMoves);
-      setValidAdvanceMoves([]);
-      setValidAttacks(allowedAttacks);
-    }
-  };
-
-  const handleAttackClick = (targetCoord: string) => {
-    // FIX: Block interaction if syncing
-    if (!activePiece || turnPhase === 'locked' || currentTurn !== myRole || isSyncing) return;
-
-    const result = executeAttack(targetCoord, gameState, activePiece);
-    if (!result) return;
-
-    playRandomMoveSound(); // Play locally on capture
-    const newGameState = result.newGameState;
-    const newCapturedP1 = [...capturedByP1];
-    const newCapturedP2 = [...capturedByP2];
-
-    if (currentTurn === 'player1') newCapturedP1.push(result.capturedPieceId);
-    else newCapturedP2.push(result.capturedPieceId);
-
-    setGameState(newGameState);
-    setCapturedByP1(newCapturedP1);
-    setCapturedByP2(newCapturedP2);
-
-    // Increment capture count for this turn
-    const currentCaptureCount = turnCaptureCount + 1;
-    setTurnCaptureCount(currentCaptureCount);
-
-    if (result.winner) {
-      setWinner(result.winner);
-      setTurnPhase('locked');
-
-      if (socket && matchId) {
-        const capturedName = PIECE_MOVEMENTS[result.capturedPieceId].name;
-        const winCondition = capturedName.includes('Supremo') ? 'supremo_capture' : 'solitude';
-        const opponent = players.find(p => p.userId !== userId);
-        const opponentId = opponent ? opponent.userId : null;
-
-        let winnerId, loserId;
-        if (result.winner === myRole) {
-          winnerId = userId;
-          loserId = opponentId;
-        } else {
-          winnerId = opponentId;
-          loserId = userId;
-        }
-
-        const finalMove: MoveLog = {
-          player: currentTurn,
-          pieceName: `${PIECE_MOVEMENTS[activePiece].name} captures ${capturedName}`,
-          pieceId: activePiece,
-          from: gameState[activePiece]!,
-          to: targetCoord,
-          turnNumber: moveHistory.length + 1,
-          timestamp: Date.now()
-        };
-        const finalHistory = [...moveHistory, finalMove];
-
-        // Finalize stats for this turn 
-        let finalDoubleKills = myDoubleKills;
-        let finalTripleKills = myTripleKills;
-
-        if (currentCaptureCount === 2) finalDoubleKills++;
-        if (currentCaptureCount >= 3) finalTripleKills++;
-
-        // Calculate final scores for checkmate/win
-        // The winner gets the win bonus. The loser just gets capture points? 
-        // calculatePlayerScore adds win bonus based on 'winCondition' passed.
-        // For the winner, we pass 'winCondition'. For the loser, we pass 'loss'? or just empty?
-        // If we pass 'winCondition' to loser's calculation, they might get bonus if not careful.
-        // calculatePlayerScore checks: if (winCondition === 'solitude')...
-        // So for loser, we should probably pass 'loss' or null to ensure no win bonus.
-
-        const p1IsWinner = result.winner === 'player1';
-        const p1Condition = p1IsWinner ? winCondition : 'loss';
-        const p2Condition = p1IsWinner ? 'loss' : winCondition;
-
-        const p1FinalScore = calculatePlayerScore(finalHistory, 'player1', p1Condition);
-        const p2FinalScore = calculatePlayerScore(finalHistory, 'player2', p2Condition);
-
-        socket.emit('gameEnd', {
-          matchId,
-          winner: result.winner,
-          reason: 'checkmate',
-          winnerId,
-          loserId,
-          player1Id: myRole === 'player1' ? userId : opponentId,
-          winCondition,
-          gameHistory: finalHistory,
-          p1Score: p1FinalScore,
-          p2Score: p2FinalScore,
-          stats: {
-            doubleKills: finalDoubleKills,
-            tripleKills: finalTripleKills
-          }
-        });
-      }
-
-      broadcastUpdate({
-        gameState: newGameState,
-        currentTurn: currentTurn,
-        moveHistory: moveHistory,
-        capturedByP1: newCapturedP1,
-        capturedByP2: newCapturedP2,
-        winner: result.winner,
-        turnPhase: 'locked',
-        hasMoved: hasMoved,
-        mandatoryMoveUsed: mandatoryMoveUsed,
-        p1Time: p1Time,
-        p2Time: p2Time
-      });
       return;
     }
 
-    const targetName = PIECE_MOVEMENTS[result.capturedPieceId].name;
-    const pieceName = PIECE_MOVEMENTS[activePiece].name;
-    const newMove: MoveLog = {
-      player: currentTurn,
-      pieceName: `${pieceName} captures ${targetName}`,
-      pieceId: activePiece,
-      from: gameState[activePiece]!,
-      to: targetCoord,
-      turnNumber: moveHistory.length + 1,
-      timestamp: Date.now()
-    };
-    const newHistory = [...moveHistory, newMove];
+    // If clicking target with active piece
+    if (activePiece && (turnPhase === 'action' || turnPhase === 'select')) {
 
-    const { attacks, moves } = getMultiCaptureOptions(
-      activePiece,
-      newGameState[activePiece]!,
-      newGameState as Record<string, string>,
-      mandatoryMoveUsed,
-      pieceMoveCount,
-      moveRules
-    );
 
-    let nextPhase: 'select' | 'action' | 'mandatory_move' | 'locked' = 'locked';
-    if (attacks.length > 0 || moves.length > 0) nextPhase = 'mandatory_move';
-    else nextPhase = 'locked';
+      // ATTACK?
+      if (validAttacks.includes(coordinate)) {
+        handleAttackClick(coordinate); // Using existing handleAttackClick
+        return;
+      }
 
-    setMoveHistory(newHistory);
-    setValidAttacks(attacks);
-    setValidMoves(moves);
+      // MOVE? (This case is already handled at the very top of the function for direct clicks)
+      // if (allMoves.includes(coordinate)) {
+      //     if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+      //     const isAdvance = validAdvanceMoves.includes(coordinate);
+      //     executeMove(activePiece, coordinate, isAdvance);
+      //     return;
+      // }
+    } setValidMoves([]);
     setValidAdvanceMoves([]);
-    setTurnPhase(nextPhase);
-
-    lastMoveLengthRef.current = newHistory.length;
-
-    const p1Score = calculateCapturePoints(newHistory, 'player1').points;
-    const p2Score = calculateCapturePoints(newHistory, 'player2').points;
-
-    setP1Score(p1Score);
-    setP2Score(p2Score);
-
-    broadcastUpdate({
-      gameState: newGameState,
-      currentTurn: currentTurn,
-      moveHistory: newHistory,
-      capturedByP1: newCapturedP1,
-      capturedByP2: newCapturedP2,
-      winner: winner,
-      turnPhase: nextPhase,
-      hasMoved: hasMoved,
-      mandatoryMoveUsed: mandatoryMoveUsed,
-      p1Time: p1Time,
-      p2Time: p2Time,
-      p1Score,
-      p2Score
-    });
-  };
-
+    setValidAttacks([]);
+  }
   const handleSwitchTurn = () => {
     if (currentTurn !== myRole) return;
 
@@ -987,7 +969,7 @@ const Multiplayer: React.FC = () => {
     setValidMoves([]);
     setValidAdvanceMoves([]);
     setValidAttacks([]);
-    setMandatoryMoveUsed(false);
+
 
     // Update ref even on turn switch to stay in sync
     lastMoveLengthRef.current = moveHistory.length;
@@ -1209,7 +1191,7 @@ const Multiplayer: React.FC = () => {
         myRole={myRole}
         onRequestDraw={handleRequestDraw}
         onSwitchTurn={handleSwitchTurn}
-        canSwitchTurn={turnPhase === 'locked' && currentTurn === myRole}
+        canSwitchTurn={(turnPhase === 'post_move') && currentTurn === myRole}
         gameStatus={winner ? 'finished' : 'active'}
         onResign={() => winner ? navigate('/') : setShowResignModal(true)}
         gameState={{
