@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../images/logo.png';
-import { Play, ShoppingCart, Users, BookOpen, Search, User2 } from 'lucide-react';
+import { Play, ShoppingCart, Users, BookOpen, Search, User2, Home } from 'lucide-react';
 
 
 const Sidebar: React.FC = () => {
@@ -27,6 +27,15 @@ const Sidebar: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 w-full bg-[#262421]/95 backdrop-blur-md border-t border-white/5 flex justify-around items-center py-3 md:hidden z-[100] px-2 pb-safe shadow-2xl">
+        {!isLoggedIn && (
+          <SidebarItem
+            to="/"
+            icon={<Home size={24} />}
+            label="Home"
+            active={location.pathname === '/'}
+            mobile
+          />
+        )}
         {isLoggedIn && (
           <SidebarItem
             to="/game"
@@ -90,6 +99,14 @@ const Sidebar: React.FC = () => {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-4 w-full px-2">
+          {!isLoggedIn && (
+            <SidebarItem
+              to="/"
+              icon={<Home size={24} />}
+              label="Home"
+              active={location.pathname === '/'}
+            />
+          )}
           {isLoggedIn && (
             <SidebarItem
               to="/game"
