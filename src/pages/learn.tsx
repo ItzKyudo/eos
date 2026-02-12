@@ -4,6 +4,7 @@ import { PIECES, PieceKey, getValidMoves } from './game/mechanics/piecemovements
 import { BOARD_COLUMNS, parseCoord, toCoord } from './game/utils/gameUtils';
 import { getValidAttacks, getMandatoryMoves, DbAttackRule } from './game/mechanics/attackpieces';
 import supabase from '../config/supabase';
+import { Menu, X } from 'lucide-react';
 
 // --- TYPES ---
 type Tab = 'movement' | 'attack';
@@ -346,6 +347,8 @@ const LearnPage: React.FC = () => {
     const [attackRules, setAttackRules] = useState<Record<string, DbAttackRule>>({});
     const [loadingRules, setLoadingRules] = useState(true);
 
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     // Fetch rules from database (like multiplayer.tsx)
     useEffect(() => {
         const fetchGameRules = async () => {
@@ -430,19 +433,45 @@ const LearnPage: React.FC = () => {
     return (
         <div className="flex h-screen bg-[#0f172a] text-[#bababa] font-sans overflow-hidden relative">
             <Sidebar />
-            <main className="flex-1 flex flex-col items-center p-4 w-full max-w-7xl mx-auto overflow-hidden relative">
+            <main className="flex-1 flex flex-col items-center w-full max-w-7xl mx-auto overflow-hidden relative">
 
-                {/* Background Pattern like GameSetup */}
+                {/* Background Pattern */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 pointer-events-none" />
 
-                <div className="flex flex-col xl:flex-row gap-4 w-full h-full items-stretch z-10">
-                    {/* CONTROLS (Left side) */}
-                    <div className="w-full xl:w-1/4 flex flex-col gap-4 bg-[#1e293b]/80 backdrop-blur-md p-4 rounded-xl border border-blue-500/20 shrink-0 shadow-xl">
+                {/* MOBILE HEADER (Hamburger) */}
+                <div className="xl:hidden w-full flex justify-between items-center p-4 z-20">
+                    <button
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="p-2 bg-[#1e293b] border border-gray-700 rounded-lg text-blue-400 shadow-lg hover:bg-[#2d3b4e] transition-colors"
+                    >
+                        <Menu size={24} />
+                    </button>
+                    <div className="text-xs font-bold uppercase tracking-widest text-blue-400 bg-[#1e293b] px-3 py-1 rounded-full border border-blue-500/30">
+                        {activeScenarioType.replace('_', ' ')}
+                    </div>
+                </div>
+
+                <div className="flex flex-col xl:flex-row gap-4 w-full h-full items-stretch z-10 p-4 pt-0 xl:p-4">
+
+                    {/* CONTROLS (Left side) - Desktop: Visible / Mobile: Overlay */}
+                    <div className={`
+                        fixed inset-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl p-6 flex flex-col gap-6 overflow-y-auto transition-transform duration-300 ease-in-out
+                        xl:relative xl:inset-auto xl:bg-[#1e293b]/80 xl:backdrop-blur-md xl:p-4 xl:w-1/4 xl:translate-x-0 xl:overflow-visible xl:rounded-xl xl:border xl:border-blue-500/20 xl:shadow-xl
+                        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+                    `}>
+                        {/* Mobile Close Button */}
+                        <div className="flex justify-between items-center xl:hidden mb-4">
+                            <h2 className="text-xl font-bold text-white">Game Setup</h2>
+                            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-white">
+                                <X size={24} />
+                            </button>
+                        </div>
+
                         <div>
                             <h3 className="text-blue-400 font-bold mb-2 uppercase tracking-widest text-[10px]">Select Unit</h3>
                             <div className="flex flex-wrap gap-1">
                                 {Object.keys(DEMO_PIECES).map(name => (
-                                    <button key={name} onClick={() => setSelectedPieceName(name)}
+                                    <button key={name} onClick={() => { setSelectedPieceName(name); setIsMobileMenuOpen(false); }}
                                         className={`px-3 py-1 rounded text-[10px] font-bold transition-all border ${selectedPieceName === name ? 'bg-blue-600 border-blue-400 text-white' : 'bg-[#0f172a] border-gray-700 hover:border-blue-500/50'}`}>
                                         {name}
                                     </button>
@@ -450,7 +479,7 @@ const LearnPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex bg-[#0f172a] p-1 rounded-lg border border-gray-700">
+                        <div className="flex bg-[#0f172a] p-1 rounded-lg border border-gray-700 shrink-0">
                             <button onClick={() => { setActiveTab('movement'); setActiveScenarioType('normal'); }}
                                 className={`flex-1 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${activeTab === 'movement' ? 'bg-blue-600 text-white' : 'text-gray-500'}`}>
                                 Movement
@@ -462,32 +491,33 @@ const LearnPage: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col gap-2">
+                            {/* Scenario Buttons - Close menu on click for mobile */}
                             {activeTab === 'movement' ? (
                                 <>
-                                    <button onClick={() => setActiveScenarioType('normal')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'normal' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('normal'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'normal' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Normal Move</div>
                                         <div className="text-[10px] opacity-60">Standard 1-tile diagonal</div>
                                     </button>
-                                    <button onClick={() => setActiveScenarioType('advance')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'advance' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('advance'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'advance' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Advance Move</div>
                                         <div className="text-[10px] opacity-60">Long-range jump ability</div>
                                     </button>
-                                    <button onClick={() => setActiveScenarioType('development')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'development' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('development'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'development' ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Development</div>
                                         <div className="text-[10px] opacity-60">First turn initiative boost</div>
                                     </button>
                                 </>
                             ) : (
                                 <>
-                                    <button onClick={() => setActiveScenarioType('capture_mandatory')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'capture_mandatory' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('capture_mandatory'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'capture_mandatory' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Capture & Move</div>
                                         <div className="text-[10px] opacity-60">Attack first, then move</div>
                                     </button>
-                                    <button onClick={() => setActiveScenarioType('move_capture')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'move_capture' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('move_capture'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'move_capture' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Move & Capture</div>
                                         <div className="text-[10px] opacity-60">Position then strike</div>
                                     </button>
-                                    <button onClick={() => setActiveScenarioType('multi_capture')} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'multi_capture' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
+                                    <button onClick={() => { setActiveScenarioType('multi_capture'); setIsMobileMenuOpen(false); }} className={`p-3 rounded text-xs text-left border ${activeScenarioType === 'multi_capture' ? 'border-red-500 bg-red-500/10 text-white' : 'border-gray-800 bg-[#0f172a]'}`}>
                                         <div className="font-bold">Multi-Capture</div>
                                         <div className="text-[10px] opacity-60">Chain multiple targets</div>
                                     </button>
@@ -496,20 +526,21 @@ const LearnPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* BOARD PREVIEW (Copying exact structure from GameSetup.tsx) */}
-                    <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden h-full">
+                    {/* BOARD PREVIEW - Always Centered, Fixed */}
+                    <div className="flex-1 flex items-center justify-center p-0 relative overflow-hidden h-full w-full">
 
-                        {/* Simulation Text */}
-                        <div className="absolute top-0 w-full text-center z-20">
-                            <div className="inline-block bg-[#1e293b] px-6 py-2 rounded-full border border-blue-500 shadow-lg shadow-blue-500/20">
-                                <span className={`font-bold uppercase tracking-widest text-xs ${activeTab === 'attack' ? 'text-red-400' : 'text-blue-400'}`}>
-                                    {scenarioSteps[currentStepIndex]?.description || "Initializing Simulation..."}
+                        {/* Simulation Text - Adjusted for mobile */}
+                        <div className="absolute top-4 xl:top-0 w-full text-center z-20 pointer-events-none">
+                            <div className="inline-block bg-[#1e293b]/90 px-4 py-2 rounded-full border border-blue-500 shadow-lg shadow-blue-500/20 backdrop-blur-sm">
+                                <span className={`font-bold uppercase tracking-widest text-[10px] sm:text-xs ${activeTab === 'attack' ? 'text-red-400' : 'text-blue-400'}`}>
+                                    {scenarioSteps[currentStepIndex]?.description || "Initializing Request..."}
                                 </span>
                             </div>
                         </div>
 
-                        {/* THE BOARD (Exactly like your GameSetup.tsx) */}
-                        <div className="transform scale-[0.40] md:scale-[0.50] lg:scale-[0.60] xl:scale-[0.70] origin-center shadow-2xl transition-transform duration-500">
+                        {/* THE BOARD */}
+                        {/* Zoom out more: scale-[0.25] for mobile. Centering handled by parent flex container. */}
+                        <div className="transform scale-[0.25] sm:scale-[0.35] md:scale-[0.50] lg:scale-[0.60] xl:scale-[0.70] origin-center shadow-2xl transition-transform duration-500">
                             <div className="relative bg-[#1e293b] p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-16 border-[#09357A] flex flex-col items-center select-none pointer-events-none">
 
                                 {/* Top Labels */}
@@ -539,22 +570,22 @@ const LearnPage: React.FC = () => {
                                                             <div
                                                                 key={`${row}-${i}`}
                                                                 className={`
-                                                                        relative ${circleSize} 
-                                                                        bg-linear-to-br from-gray-100 to-gray-300
-                                                                        rounded-full 
-                                                                        shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
-                                                                        border border-gray-400 
-                                                                        shrink-0 flex items-center justify-center
-                                                                        `}
+                                                                relative ${circleSize} 
+                                                                bg-linear-to-br from-gray-100 to-gray-300
+                                                                rounded-full 
+                                                                shadow-[inset_0_-4px_4px_rgba(0,0,0,0.1),0_4px_6px_rgba(0,0,0,0.3)]
+                                                                border border-gray-400 
+                                                                shrink-0 flex items-center justify-center
+                                                                `}
                                                             >
                                                                 {/* Highlights Overlay */}
                                                                 {highlight && (
                                                                     <div className={`absolute inset-0 rounded-full opacity-60 animate-pulse border-4 
-                                                                        ${highlight.color === 'green' ? 'bg-green-400 border-green-600' : ''}
-                                                                        ${highlight.color === 'yellow' ? 'bg-yellow-400 border-yellow-600' : ''}
-                                                                        ${highlight.color === 'blue' ? 'bg-blue-400 border-blue-600' : ''}
-                                                                        ${highlight.color === 'red' ? 'bg-red-500 border-red-700 shadow-[0_0_20px_red]' : ''}
-                                                                        ${highlight.color === 'orange' ? 'bg-orange-400 border-orange-600' : ''}`}
+                                                                    ${highlight.color === 'green' ? 'bg-green-400 border-green-600' : ''}
+                                                                    ${highlight.color === 'yellow' ? 'bg-yellow-400 border-yellow-600' : ''}
+                                                                    ${highlight.color === 'blue' ? 'bg-blue-400 border-blue-600' : ''}
+                                                                    ${highlight.color === 'red' ? 'bg-red-500 border-red-700 shadow-[0_0_20px_red]' : ''}
+                                                                    ${highlight.color === 'orange' ? 'bg-orange-400 border-orange-600' : ''}`}
                                                                     />
                                                                 )}
 
