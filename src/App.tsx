@@ -25,19 +25,19 @@ import ItemManagement from './pages/admin/manage-market';
 import OrderManagement from './pages/admin/manage-orders';
 import ProtectedRoute from './components/ProtectedRoute';
 
-{/* Under Testing */ }
-import UnderTesting from './UnderTesting';
+// {/* Under Testing */ }
+// import UnderTesting from './UnderTesting';
 
 import GlobalInviteHandler from './components/GlobalInviteHandler';
 import SessionTimeout from './components/SessionTimeout';
 
-const IS_MAINTENANCE_MODE = true;
+// const IS_MAINTENANCE_MODE = true;
 
 function App() {
-  const isAdmin = localStorage.getItem('site_bypass') === 'true';
-  if (IS_MAINTENANCE_MODE && !isAdmin) {
-    return <UnderTesting />;
-  }
+  // const isAdmin = localStorage.getItem('site_bypass') === 'true';
+  // if (IS_MAINTENANCE_MODE && !isAdmin) {
+  //   return <UnderTesting />;
+  // }
   return (
     <>
       <GlobalInviteHandler />
