@@ -1,22 +1,7 @@
 import axios from 'axios';
 
-export const PRIMARY_SERVER = 'https://eos-server.aquanex.online';
-export const SECONDARY_SERVER = 'https://eos-server-jxy0.onrender.com';
-
-let activeServer = PRIMARY_SERVER;
-
-export const getActiveServer = () => activeServer;
-
-export const switchToSecondary = () => {
-    if (activeServer === PRIMARY_SERVER) {
-        console.warn('Switching to secondary server (forced).');
-        activeServer = SECONDARY_SERVER;
-        api.defaults.baseURL = `${activeServer}/api`;
-    }
-};
-
 const api = axios.create({
-    baseURL: `${activeServer}/api`,
+    baseURL: 'https://eos-server-jxy0.onrender.com/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -36,26 +21,12 @@ api.interceptors.request.use(
     }
 );
 
-// Response interceptor to handle 401 Unauthorized responses and server failover
+// Response interceptor to handle 401 Unauthorized responses
 api.interceptors.response.use(
     (response) => {
         return response;
     },
-    async (error) => {
-        const originalRequest = error.config;
-
-        // Check for network error (primary server down)
-        if (!error.response && !originalRequest._retry) {
-            if (activeServer === PRIMARY_SERVER) {
-                console.warn('Primary server unreachable. Switching to secondary server.');
-                activeServer = SECONDARY_SERVER;
-                api.defaults.baseURL = `${activeServer}/api`;
-                originalRequest.baseURL = `${activeServer}/api`;
-                originalRequest._retry = true;
-                return api(originalRequest);
-            }
-        }
-
+    (error) => {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             // Clear local storage and redirect to home page
             localStorage.removeItem('token');

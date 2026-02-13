@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../../components/sidebar';
-import api from '../../api/axios';
 import { ShoppingCart, X, Minus, Plus, ShoppingBag, CheckCircle, ArrowRight, Package, Wallet, Truck, ChevronRight, History, ScrollText, Download } from "lucide-react";
 import html2canvas from 'html2canvas';
 
@@ -77,13 +76,15 @@ const MarketPage: React.FC = () => {
     const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
     // Orders History State
-    // Orders History State
     const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
     const [isOrdersOpen, setIsOrdersOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null);
 
     // Temp state for Receipt display after checkout (since cart is cleared)
     const [lastOrderedItems, setLastOrderedItems] = useState<CartItem[]>([]);
+
+    const API_BASE = "https://eos-server-jxy0.onrender.com/api/market";
+    const USER_TOKEN = localStorage.getItem('token');
 
     useEffect(() => {
         localStorage.setItem('eos_cart', JSON.stringify(cart));
@@ -92,8 +93,8 @@ const MarketPage: React.FC = () => {
     useEffect(() => {
         const fetchItems = async () => {
             try {
-                const res = await api.get('/market/items');
-                const data = res.data;
+                const res = await fetch(`${API_BASE}/items`);
+                const data = await res.json();
                 if (Array.isArray(data)) setItems(data);
                 setLoading(false);
             } catch (e) { console.error(e); setLoading(false); }
@@ -133,8 +134,7 @@ const MarketPage: React.FC = () => {
     const handleNextStep = () => {
         if (checkoutStep === 1) {
             if (cart.length === 0) return;
-            const token = localStorage.getItem('token');
-            if (!token) { alert("Please Login to checkout."); return; }
+            if (!USER_TOKEN) { alert("Please Login to checkout."); return; }
             setCheckoutStep(2);
         } else if (checkoutStep === 2) {
             if (!recipientName || !contactNumber) {
@@ -157,8 +157,17 @@ const MarketPage: React.FC = () => {
                 payment_method: 'Manual / Facebook' // Default method
             };
 
-            const res = await api.post('/market/place-order', payload);
-            const data = res.data;
+            const res = await fetch(`${API_BASE}/place-order`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${USER_TOKEN}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
 
             setReceipt(data.receipt);
             setLastOrderedItems(cart); // Save items for receipt display
@@ -167,8 +176,7 @@ const MarketPage: React.FC = () => {
             setCheckoutStep(4); // Success Step
 
         } catch (err: unknown) {
-            // Safe error extracting
-            const msg = (err as any).response?.data?.message || (err instanceof Error ? err.message : String(err));
+            const msg = err instanceof Error ? err.message : String(err);
             alert(`Error: ${msg}`);
         } finally {
             setIsSubmitting(false);
@@ -176,11 +184,12 @@ const MarketPage: React.FC = () => {
     };
 
     const fetchOrders = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) { alert("Please login to view orders."); return; }
+        if (!USER_TOKEN) { alert("Please login to view orders."); return; }
         try {
-            const res = await api.get('/market/my-orders');
-            const data = res.data;
+            const res = await fetch(`${API_BASE}/my-orders`, {
+                headers: { 'Authorization': `Bearer ${USER_TOKEN}` }
+            });
+            const data = await res.json();
             if (Array.isArray(data)) {
                 setOrders(data);
                 setIsOrdersOpen(true);

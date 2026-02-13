@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/sidebar';
 import { UserProfile, GameHistoryEntry } from '../components/profile/types';
 import { useLocation } from 'react-router-dom';
-import api from '../api/axios';
 
 import ProfileHeader from '../components/profile/ProfileHeader';
 import StatsGrid from '../components/profile/StatsGrid';
@@ -64,16 +63,26 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        if (!localStorage.getItem('token')) { navigate('/login'); return; }
+        const token = localStorage.getItem('token');
+        if (!token) { navigate('/login'); return; }
 
-        const endpoint = userId ? `/profile/${userId}` : `/profile`;
-        const response = await api.get(endpoint);
+        const serverUrl = 'https://eos-server-jxy0.onrender.com';
+        const endpoint = userId ? `${serverUrl}/api/profile/${userId}` : `${serverUrl}/api/profile`;
 
-        const data = response.data;
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) handleLogout();
+          throw new Error('Failed to fetch profile');
+        }
+
+        const data = await response.json();
 
         setUser(data);
         if (data.show_ads !== undefined) setShowAds(data.show_ads);
-
 
       } catch (err: any) {
         console.error(err);
@@ -88,10 +97,13 @@ const Profile: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
+        const serverUrl = 'https://eos-server-jxy0.onrender.com';
         const targetId = userId || currentUser.id;
-        try {
-          const res = await api.get(`/profile/history?userId=${targetId}&limit=20`);
-          const data = res.data;
+        const res = await fetch(`${serverUrl}/api/profile/history?userId=${targetId}&limit=20`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
           const processed = data.map((g: any) => ({
             ...g,
             date: g.date ? new Date(g.date).toLocaleString(undefined, {
@@ -113,11 +125,9 @@ const Profile: React.FC = () => {
             rating_swift_change: changes.Swift,
             rating_turbo_change: changes.Turbo,
           } : null);
-        } catch (e) {
-          console.error("History fetch error", e);
         }
       } catch (e) {
-        console.error("History fetch setup error", e);
+        console.error("History fetch error", e);
       }
     };
 
@@ -148,7 +158,15 @@ const Profile: React.FC = () => {
     setUser(prev => prev ? { ...prev, status_message: newStatus } : null);
 
     try {
-      await api.put('/profile', { status_message: newStatus });
+      const token = localStorage.getItem('token');
+      await fetch('https://eos-server-jxy0.onrender.com/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status_message: newStatus })
+      });
     } catch (err) {
       console.error("Status update failed");
     }
@@ -156,11 +174,21 @@ const Profile: React.FC = () => {
 
   const handleSaveProfile = async (username: string, email: string, avatar_url?: string) => {
     try {
+      const token = localStorage.getItem('token');
       const body: { username: string; email: string; avatar_url?: string } = { username, email };
       if (avatar_url) body.avatar_url = avatar_url;
 
-      const response = await api.put('/profile', body);
-      const data = response.data;
+      const response = await fetch('https://eos-server-jxy0.onrender.com/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
 
       // Update local state
       setUser(prev => prev ? {

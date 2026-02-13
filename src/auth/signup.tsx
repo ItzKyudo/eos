@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import api from '../api/axios';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImg from '../images/logo.png';
 import { Mail, Lock, User, ArrowRight, Check } from 'lucide-react';
@@ -19,20 +18,31 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await api.post('/create-account', {
-        username,
-        email,
-        password,
+      const response = await fetch('https://eos-server-jxy0.onrender.com/api/create-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
       });
 
-      const data = response.data;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Account creation failed');
+      }
+
+      const data = await response.json();
+      console.log('Account created:', data);
+
       console.log('Account created:', data);
 
       setShowModal(true);
     } catch (err: any) {
-      console.error(err);
-      const message = err.response?.data?.message || err.message || 'Account creation failed';
-      setError(message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
