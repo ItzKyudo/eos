@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import api, { getActiveServer, switchToSecondary, PRIMARY_SERVER, SECONDARY_SERVER } from '../../api/axios';
 import Sidebar from '../../components/sidebar';
 
 
@@ -22,20 +23,19 @@ const Matchmaking: React.FC = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [timeInQueue, setTimeInQueue] = useState<number>(0);
     const [gameModes, setGameModes] = useState<any[]>([]);
+    const [socketUrl, setSocketUrl] = useState(getActiveServer());
 
     const socketInstanceRef = useRef<Socket | null>(null);
     const joinQueueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
+        if (getActiveServer() !== socketUrl) setSocketUrl(getActiveServer());
+
         // Fetch game modes
         const fetchGameModes = async () => {
             try {
-                const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-                const response = await fetch(`${serverUrl}/api/gamemodes`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setGameModes(data);
-                }
+                const response = await api.get('/gamemodes');
+                setGameModes(response.data);
             } catch (err) {
                 console.error("Error fetching game modes:", err);
             }
@@ -53,13 +53,12 @@ const Matchmaking: React.FC = () => {
 
 
         // Connect to socket server
-        const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-        const newSocket = io(serverUrl, {
+        const newSocket = io(socketUrl, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
             reconnection: true,
             auth: {
-                token: token // Start standardizing on auth handshake too, though matchmakingHandler uses payload
+                token: token
             }
         });
 
@@ -105,14 +104,29 @@ const Matchmaking: React.FC = () => {
 
         const handleError = (data: any) => {
             console.error('❌ Socket error:', data);
-            setStatus(`Error: ${data.message || 'Unknown error'}`);
-            if (data.message === 'Invalid authentication token') {
+
+            // Check for connection error object structure if it differs
+            const msg = data.message || (typeof data === 'string' ? data : 'Unknown error');
+            setStatus(`Error: ${msg}`);
+
+            if (msg === 'Invalid authentication token') {
                 // Token expired or invalid
                 localStorage.removeItem('token');
                 localStorage.removeItem('user'); // Ensure user is also cleared
                 navigate('/');
             }
         };
+
+        const handleConnectError = (err: any) => {
+            console.error("Socket connect_error:", err.message);
+            if (socketUrl === PRIMARY_SERVER) {
+                console.warn("Primary socket unreachable, switching to secondary...");
+                switchToSecondary();
+                setSocketUrl(SECONDARY_SERVER);
+            }
+        };
+
+        newSocket.on('connect_error', handleConnectError);
 
         const handleDisconnect = (reason: string) => {
             console.log('❌ Disconnected:', reason);
@@ -147,7 +161,7 @@ const Matchmaking: React.FC = () => {
             socketInstanceRef.current = null;
         };
 
-    }, [navigate]);
+    }, [navigate, socketUrl]);
 
     const handleCancel = () => {
         if (joinQueueTimeoutRef.current) clearTimeout(joinQueueTimeoutRef.current);

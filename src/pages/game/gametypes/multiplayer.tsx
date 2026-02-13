@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import { getActiveServer, switchToSecondary, PRIMARY_SERVER, SECONDARY_SERVER } from '../../../api/axios';
 import { PIECES, PieceKey, getValidMoves, getPieceOwner, PIECE_MOVEMENTS } from '../mechanics/piecemovements';
 import { BOARD_COLUMNS } from '../utils/gameUtils';
 import { INITIAL_POSITIONS } from '../mechanics/positions';
@@ -99,6 +100,7 @@ const Multiplayer: React.FC = () => {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const [socketUrl, setSocketUrl] = useState(getActiveServer());
 
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
   const playersRef = useRef(players);
@@ -225,8 +227,10 @@ const Multiplayer: React.FC = () => {
   useEffect(() => {
     if (!matchId) return;
 
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-    const newSocket = io(serverUrl, {
+    if (!matchId) return;
+    if (getActiveServer() !== socketUrl) setSocketUrl(getActiveServer());
+
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       forceNew: true,
@@ -240,6 +244,15 @@ const Multiplayer: React.FC = () => {
     newSocket.on('connect', () => {
       newSocket.emit('joinGame', { matchId, userId });
       setOpponentConnected(false);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error("Socket connect_error:", err.message);
+      if (socketUrl === PRIMARY_SERVER) {
+        console.warn("Primary socket unreachable, switching to secondary...");
+        switchToSecondary();
+        setSocketUrl(SECONDARY_SERVER);
+      }
     });
 
     newSocket.on('ratingUpdate', (data: {
@@ -482,7 +495,7 @@ const Multiplayer: React.FC = () => {
       newSocket.off('ratingUpdate');
       newSocket.disconnect();
     };
-  }, [isGuest, matchId, myRole, userId]);
+  }, [isGuest, matchId, myRole, userId, socketUrl]);
 
   const broadcastUpdate = useCallback((data: GameSyncData) => {
     const s = socketRef.current;

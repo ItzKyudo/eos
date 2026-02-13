@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import api from '../api/axios';
+import api, { getActiveServer, switchToSecondary, PRIMARY_SERVER, SECONDARY_SERVER } from '../api/axios';
 
 interface Friend {
     friendship_id: number;
@@ -19,6 +19,7 @@ export const useFriendsStatus = (options: {
     const [friends, setFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
     const [onlineCount, setOnlineCount] = useState(0);
+    const [socketUrl, setSocketUrl] = useState(getActiveServer());
     const socketRef = useRef<Socket | null>(null);
 
     const [incomingChallenge, setIncomingChallenge] = useState<{ challengerId: number, challengerName: string, timeControl: number } | null>(null);
@@ -51,15 +52,18 @@ export const useFriendsStatus = (options: {
     };
 
     useEffect(() => {
+        // Sync with global active server if it changed elsewhere
+        if (getActiveServer() !== socketUrl) {
+            setSocketUrl(getActiveServer());
+        }
+
         fetchFriends();
 
         // Setup Socket for status updates
         const token = localStorage.getItem('token');
         if (token) {
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-
             // Avoid creating multiple sockets if possible, but for now ensure clean disconnect
-            const newSocket = io(serverUrl, {
+            const newSocket = io(socketUrl, {
                 auth: { token },
                 transports: ['websocket']
             });
@@ -84,6 +88,13 @@ export const useFriendsStatus = (options: {
 
             newSocket.on('connect_error', (err) => {
                 console.error("Socket connection error:", err.message);
+
+                if (socketUrl === PRIMARY_SERVER) {
+                    console.warn('Socket unreachable on Primary. Switching to Secondary.');
+                    switchToSecondary();
+                    setSocketUrl(SECONDARY_SERVER);
+                }
+
                 if (err.message === "Invalid authentication token" || err.message === "Authentication error") {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
@@ -126,7 +137,7 @@ export const useFriendsStatus = (options: {
                 newSocket.disconnect();
             };
         }
-    }, [options.enableInvites]); // Re-run if option changes
+    }, [options.enableInvites, socketUrl]); // Re-run if option changes or server switches
 
     const sendChallenge = (targetUserId: string | number, timeControl: number, challengerName: string) => {
         socketRef.current?.emit('sendChallenge', { targetUserId, timeControl, challengerName });

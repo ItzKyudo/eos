@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Medal, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useDebounce from '../hooks/useDebounce';
+import api from '../api/axios';
 
 interface LeaderboardEntry {
     rank: number;
@@ -50,20 +51,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ mode = 'classic' }) => {
         setLoading(true);
         setError(null);
         try {
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const params = new URLSearchParams({
-                mode: selectedMode,
-                limit: itemsPerPage.toString(),
-                page: currentPage.toString(),
-                search: debouncedSearch
+            const response = await api.get('/leaderboard', {
+                params: {
+                    mode: selectedMode,
+                    limit: itemsPerPage,
+                    page: currentPage,
+                    search: debouncedSearch
+                }
             });
-            const response = await fetch(`${serverUrl}/api/leaderboard?${params.toString()}`);
-            if (!response.ok) throw new Error('Failed to fetch leaderboard');
-            const result = await response.json();
+            const result = response.data;
             setLeaderboard(result.data);
             setTotalItems(result.total);
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || 'Failed to fetch leaderboard');
         } finally {
             setLoading(false);
         }
@@ -114,11 +114,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ mode = 'classic' }) => {
                             <button
                                 key={m}
                                 onClick={() => setSelectedMode(m as any)}
-                                className={`px-6 py-2 rounded-lg font-semibold transition-all flex-shrink-0 ${
-                                    selectedMode === m
-                                        ? 'bg-blue-600 text-white shadow-lg'
-                                        : 'bg-[#1e293b] text-slate-400 border border-slate-700'
-                                }`}
+                                className={`px-6 py-2 rounded-lg font-semibold transition-all flex-shrink-0 ${selectedMode === m
+                                    ? 'bg-blue-600 text-white shadow-lg'
+                                    : 'bg-[#1e293b] text-slate-400 border border-slate-700'
+                                    }`}
                             >
                                 {m.charAt(0).toUpperCase() + m.slice(1)}
                             </button>

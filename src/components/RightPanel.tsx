@@ -8,6 +8,7 @@ import {
 import LoginModal from './loginmodal';
 import FriendsList from './profile/FriendsList';
 import { GameMode } from '../pages/game/gameSetup';
+import api from '../api/axios';
 
 // --- TYPES ---
 type TimeControl = number;
@@ -34,24 +35,19 @@ const RightPanel: React.FC<RightPanelProps> = ({ gameModes = [], isLoading = fal
   useEffect(() => {
     if (activeTab === 'history') {
       const fetchHistory = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!localStorage.getItem('token')) return;
         try {
-          const res = await fetch('https://eos-server-jxy0.onrender.com/api/profile/history?limit=5', {
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await api.get('/profile/history?limit=5');
+          const data = res.data;
+          // Simple efficient formatter
+          const now = new Date();
+          const processed = data.map((g: any) => {
+            const d = new Date(g.date);
+            const diffHrs = Math.floor((now.getTime() - d.getTime()) / 3600000);
+            const dateStr = diffHrs < 24 ? `${diffHrs}h ago` : diffHrs < 48 ? '1d ago' : d.toLocaleDateString();
+            return { ...g, date: dateStr, type: g.gameType };
           });
-          if (res.ok) {
-            const data = await res.json();
-            // Simple efficient formatter
-            const now = new Date();
-            const processed = data.map((g: any) => {
-              const d = new Date(g.date);
-              const diffHrs = Math.floor((now.getTime() - d.getTime()) / 3600000);
-              const dateStr = diffHrs < 24 ? `${diffHrs}h ago` : diffHrs < 48 ? '1d ago' : d.toLocaleDateString();
-              return { ...g, date: dateStr, type: g.gameType };
-            });
-            setHistory(processed);
-          }
+          setHistory(processed);
         } catch (e) {
           console.error(e);
         }

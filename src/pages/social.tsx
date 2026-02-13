@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import api from '../api/axios';
 import Sidebar from '../components/sidebar';
 import { Users, Check, X, UserX, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -49,18 +50,16 @@ const SocialPage: React.FC = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const response = await fetch(`${serverUrl}/api/friends`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/friends');
 
-            if (!response.ok) throw new Error("Failed to fetch friends");
-            const data = await response.json();
-
-            setRequests(data.incomingRequests || []);
+            // Axios throws on non-2xx, so no need for !response.ok check usually, 
+            // but let's stick to standard axios patterns.
+            setRequests(response.data.incomingRequests || []);
         } catch (err: any) {
             console.error(err);
-            setError(err.message);
+            // Axios errors have err.response.data.message usually
+            const message = err.response?.data?.message || err.message;
+            setError(message);
         } finally {
             setLoadingRequests(false);
         }
@@ -82,23 +81,13 @@ const SocialPage: React.FC = () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const response = await fetch(`${serverUrl}/api/friends/request`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ targetUserId: targetId })
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to send request');
+            await api.post('/friends/request', { targetUserId: targetId });
 
             setActionStatus({ type: 'success', message: 'Friend request sent successfully!' });
             fetchRequests();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: err.message });
+            const message = err.response?.data?.message || err.message;
+            setActionStatus({ type: 'error', message });
         }
         setTimeout(() => setActionStatus(null), 3000);
     };
@@ -106,17 +95,9 @@ const SocialPage: React.FC = () => {
     const acceptRequest = async (friendshipId: number) => {
         try {
             const token = localStorage.getItem('token');
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const response = await fetch(`${serverUrl}/api/friends/accept`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ friendshipId })
-            });
+            if (!token) return; // Although axios interceptor adds it, safe guard.
 
-            if (!response.ok) throw new Error('Failed to accept');
+            await api.put('/friends/accept', { friendshipId });
 
             fetchRequests();
             if (refreshFriends) refreshFriends();
@@ -138,14 +119,7 @@ const SocialPage: React.FC = () => {
 
     const handleRemoveFriend = async (friendshipId: number) => {
         try {
-            const token = localStorage.getItem('token');
-            const serverUrl = import.meta.env.VITE_SERVER_URL || 'https://eos-server-jxy0.onrender.com';
-            const response = await fetch(`${serverUrl}/api/friends/${friendshipId}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (!response.ok) throw new Error('Failed to remove');
+            await api.delete(`/friends/${friendshipId}`);
 
             if (refreshFriends) refreshFriends();
 
